@@ -1,5 +1,4 @@
 # Bachelor Thesis
----
 
 [[_TOC_]]
 # Task of this project
@@ -17,7 +16,8 @@ Processed data from many MODE-S receivers are available. These data comprise a l
 - Lack of observation to understand the process
 
 - The resolution of the turbulence model is larger than the range that applies to the effect of an aircraft
-## Relevant work aspects of this project
+
+# Relevant work aspects of this project
 
 - [ ] Automated procedure for data transfer and calculation of approach ``1``. Increasing the temporal and spatial scale of the example data set.
 
