@@ -26,7 +26,7 @@ try:
                 shutil.copyfile(os.path.join(current_path, "lib", "qsqlmysqld.dll"), qtsqldrivers_path)
         except:
             print("Error while preparing sqldrivers")
-            
+
 except:
     print('Error : pyside6 must be installed!')
     not_installed = 'PySide6 '
@@ -65,7 +65,7 @@ setup (
     maintainer='Joseph Loic Bisso-Bi-Ela',
     maintainer_email='j.bisso-bi-ela@tu-braunschweig.de',
     packages=[
-        'mode_s', 'mode_s.gui',
+        'qml', 'mode_s', 'mode_s.gui',
         'mode_s.analysis'
     ]
 )
