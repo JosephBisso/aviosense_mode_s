@@ -3,7 +3,7 @@ import os
 import sys
 from setuptools import setup
 
-current_path = "D:\\BA\\ba_mode-s_analysis"
+current_path = os.getcwd()
 not_installed = ''
 
 # PySide6 [6.3.0]

@@ -1,6 +1,5 @@
 # This Python file uses the following encoding: utf-8
 import os
-from pathlib import Path
 import sys
 import argparse
 
@@ -8,8 +7,10 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 import PySide6.QtCore as qtcore
 
-sys.path.append("D:\\BA\\ba_mode-s_analysis")
+sys.path.append(os.getcwd())
 import qml.qrc_qml
+
+from logger import Logger
 
 # Initialize argparse
 def init_argparse():
@@ -17,6 +18,8 @@ def init_argparse():
         description="Framework for automatic Mode-S data tranfer and turbulence prediction."
     )    
     parser.add_argument("-t", "--terminal",
+                        action="store_true", help="Whether the app should run only on the terminal", default=True)
+    parser.add_argument("-v", "--verbose",
                         action="store_true", help="Whether the app should run only on the terminal", default=False)
     parser.add_argument("-la", "--latitude",
                         help="The desired latitude. If not set, all available latitudes are evaluated")
@@ -30,7 +33,8 @@ def init_argparse():
 
 if __name__ == "__main__":
     args = init_argparse().parse_args()
-    qtcore.qDebug(str(args))
+    logger = Logger(args.terminal, args.verbose)
+    logger.debug(args)
     
     app = QGuiApplication(sys.argv)
     engine = QQmlApplicationEngine()
