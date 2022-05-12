@@ -29,20 +29,20 @@ class Logger:
             output.write(str(datetime.now()) + ":: DEBUG\t::\t" + str(msg) + "\n")
             
         if self.verbose:
-            print("DEBUG ::\t" + colors.ENDC + str(msg))
+            print("DEBUG ::\t" + str(msg) + colors.ENDC)
             
     def info(self, msg):
         with open(self.outputFile, "a") as output:
             output.write(str(datetime.now()) + ":: INFO::\t" + str(msg) + "\n")
 
         if self.verbose or self.terminal:
-            print(colors.CYAN + "INFO\t::\t" + colors.ENDC + str(msg))
+            print(colors.CYAN + "INFO\t::\t" + str(msg) + colors.ENDC)
             
     def warning(self, msg):
         with open(self.outputFile, "a") as output:
             output.write(str(datetime.now()) + ":: WARNING ::\t" + str(msg) + "\n")
 
         if self.verbose or self.terminal:
-            print(colors.YELLOW + "WARNING\t::\t" + colors.ENDC + str(msg))
+            print(colors.YELLOW + "WARNING\t::\t" + str(msg) + colors.ENDC)
                 
         
