@@ -1,6 +1,7 @@
 import shutil
 import os
-from distutils.core import setup
+import sys
+from setuptools import setup
 
 current_path = "D:\\BA\\ba_mode-s_analysis"
 not_installed = ''
@@ -46,7 +47,7 @@ if not_installed != '':
     print('Some dependencies are not installed .It causes some problems for persepolis! : \n')
     print(not_installed + '\n\n')
     print('Read this link for more information: \n')
-    print('https://github.com/persepolisdm/persepolis/wiki/git-installation-instruction\n\n')
+    print('https://git.rz.tu-bs.de/j.bisso-bi-ela/ba_mode-s_analysis/-/blob/main/README.md\n\n')
     sys.exit(1)
 
 
