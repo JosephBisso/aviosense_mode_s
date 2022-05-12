@@ -44,7 +44,7 @@ if not_installed != '':
     print('########################')
     print('####### WARNING ########')
     print('########################')
-    print('Some dependencies are not installed .It causes some problems for persepolis! : \n')
+    print('Some dependencies are not installed .It causes some problems for mode-s analysis! : \n')
     print(not_installed + '\n\n')
     print('Read this link for more information: \n')
     print('https://git.rz.tu-bs.de/j.bisso-bi-ela/ba_mode-s_analysis/-/blob/main/README.md\n\n')
