@@ -20,3 +20,11 @@ while q2.next():
     list.append({"id": id, "time": time, "address": address})
 
 list[2934]
+
+q = db.query("SELECT id, address, bds, altitude, latitude, longitude FROM tbl_mode_s WHERE latitude IS NOT NULL AND latitude IS NOT NULL LIMIT 10")
+if not q:
+    logger.warning("Could not run query")
+else:
+    result = db.getAll(
+        ["id", "address", "bds", "altitude", "latitude", "longitude"])
+    logger.debug(result)

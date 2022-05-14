@@ -35,14 +35,23 @@ class Logger:
         with open(self.outputFile, "a") as output:
             output.write(str(datetime.now()) + ":: INFO::\t" + str(msg) + "\n")
 
-        if self.verbose or self.terminal:
+        if self.terminal:
             print(colors.CYAN + "INFO\t::\t" + str(msg) + colors.ENDC)
             
     def warning(self, msg):
         with open(self.outputFile, "a") as output:
             output.write(str(datetime.now()) + ":: WARNING ::\t" + str(msg) + "\n")
 
-        if self.verbose or self.terminal:
+        if self.terminal:
             print(colors.YELLOW + "WARNING\t::\t" + str(msg) + colors.ENDC)
+            
+    def critical(self, msg, exception = Exception):
+        with open(self.outputFile, "a") as output:
+            output.write(str(datetime.now()) + ":: CRITICAL ::\t" + str(msg) + "\n")
+
+        if self.terminal:
+            print(colors.RED + "CRITICAL\t::\t" + str(msg) + colors.ENDC)
+            
+        raise exception(msg)
                 
         
