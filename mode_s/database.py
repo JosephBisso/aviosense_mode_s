@@ -18,6 +18,7 @@ class DB_CONSTANTS:
     PASSWORD = "ue73f5dn"
     
     CONNECTIONS_TOTAL = 0
+    
 class Database:
     def __init__(self, logger):        
         db = QtSql.QSqlDatabase.addDatabase("QMYSQL")
@@ -162,7 +163,7 @@ class Database:
         try:
             results = self.__query(query)
         except ConnectionError:
-            self.logger.warning("Could not run query " + query)
+            self.logger.critical("Could not run query " + query)
             
         self.logger.info("Query successfully excecuted")
         return self.__getAll(results, attributes)
@@ -177,10 +178,10 @@ class Database:
                                                      "select_distinct": True, "not_null_values": ["identification", "address"]})
 
                 lat_lon__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "latitude", "longitude"], options={
-                                                  "not_null_values": ["bds", "altitude"]})
+                                                  "not_null_values": ["bds", "altitude"], "limit": int(int(self.limit) / 2)})
 
                 bar_ivv__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "bar", "ivv"], options={
-                                                  "not_null_values": ["bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"]})
+                                                  "not_null_values": ["bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"], "limit": int(int(self.limit) / 2)})
 
                 id_address = id_address__future.result()
                 actualizing__thread = executor.submit(self.__actualizeKnownAddresses, id_address)
