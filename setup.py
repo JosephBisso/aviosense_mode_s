@@ -40,6 +40,14 @@ except:
     print('Error : numpy must be installed!')
     not_installed = not_installed + 'numpy '
 
+# matplotlib [3.5.2]
+try:
+    import matplotlib
+    print('matplotlib is found')
+except:
+    print('Error : matplotlib must be installed!')
+    not_installed = not_installed + 'matplotlib '
+
 if not_installed != '':
     print('########################')
     print('####### WARNING ########')
