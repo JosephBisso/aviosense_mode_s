@@ -1,13 +1,9 @@
+from asyncio.log import logger
 from PySide6 import QtSql
 from PySide6.QtCore import QDateTime
 
-import json
-import os
 import concurrent.futures
 from typing import List, Dict, Union
-
-from pyparsing import Any
-
 
 from logger import Logger
 
@@ -24,7 +20,9 @@ class DB_CONSTANTS:
     PASSWORD = "ue73f5dn"
 
     CONNECTIONS_TOTAL = 0
-
+    
+    MAX_ROW_BEFORE_LONG_DURATION = 100000
+    MIN_NUMBER_THREADS = 20
 
 class Database:
     def __init__(self, logger: Logger):        
@@ -66,34 +64,30 @@ class Database:
                 "Could not execute query: " + q.lastQuery() + " on " + name + "ERROR:: " + q.lastError().text(), ConnectionError)
 
         self.logger.debug("Executed following query: " + q.lastQuery() + " :: on :: " + name)
-        self.logger.info("Query successfully excecuted")
         db.close()
         return q
 
-    def __getAll(self, query: QtSql.QSqlQuery = QtSql.QSqlQuery(), elements: List[str] = []) -> List[Dict[str, Union[int, str]]]:
+    def __getAll(self, query: QtSql.QSqlQuery, elements: List[str] = []) -> List[Dict[str, Union[int, str]]]:
         allResults = []
-        executor = concurrent.futures.ThreadPoolExecutor()
+        absentColumns = set(DB_CONSTANTS.USED_COLUMNS) - set(elements)
         while query.next():
-            executor.submit(self.__appendEntryToAllResults, allValues={el: query.value(el) for el in elements}, elements=elements, allResults=allResults)
-        
-        executor.shutdown(wait=True)
-        self.logger.debug("Finish getting all data from query: " + query.lastQuery())
+            entry = {}
+            for el in elements:
+                value = query.value(el)
+                if isinstance(value, str):
+                    entry[el] = value.strip()
+                elif isinstance(value, QDateTime):
+                    entry[el] = value.toMSecsSinceEpoch() * 10**6
+                else:
+                    entry[el] = value
+            for abs in absentColumns:
+                entry[abs] = None
+
+            allResults.append(entry)
+
         return allResults
     
-    def __appendEntryToAllResults(self,  allValues: List[Dict[str, Any]], elements: List[str], allResults : List[Dict[str, Union[int, str]]]):
-        entry = {}
-        for el in elements:
-            if isinstance(allValues[el], str):
-                entry[el] = allValues[el].strip()
-            elif isinstance(allValues[el], QDateTime):
-                entry[el] = allValues[el].toMSecsSinceEpoch() * 10**6
-            else:
-                entry[el] = allValues[el]
-                
-        entry.update({abs: None for abs in (set(DB_CONSTANTS.USED_COLUMNS) - set(elements))})
-        allResults.append(entry)
-
-    def __generateQuery(self, attributes: List[str], options: Dict[str, str]) -> str:
+    def __generateQueries(self, attributes: List[str], options: Dict[str, str]) -> List[str]:
         selectStr = "SELECT "
         try:
             if options["select_distinct"]:
@@ -141,10 +135,22 @@ class Database:
             limit = options["limit"]
         except KeyError:
             limit = self.limit
-        limitStr = "LIMIT " + str(limit) if not ident_run else ""
+        
+        dividing = int(limit) > DB_CONSTANTS.MIN_NUMBER_THREADS
+        num_thread = max(int(int(limit) / DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION), DB_CONSTANTS.MIN_NUMBER_THREADS) if dividing else int(limit)
 
-        query = selectStr + " FROM tbl_mode_s " + whereStr + (" ORDER BY timestamp DESC " if not ident_run else "") + limitStr
-        return query
+        limit_per_thread = int(int(limit)/num_thread)
+        rest = int(limit) % num_thread
+
+        if not ident_run:
+            offsetStr = [(" LIMIT " + str(limit_per_thread) + " OFFSET " + str(i * limit_per_thread)) for i in range(num_thread) ]
+            if rest : offsetStr.append(" LIMIT " + str(rest) + " OFFSET " + str(num_thread * limit_per_thread))
+        else:
+            offsetStr = [""] 
+
+        self.logger.log(str(len(offsetStr))  + " threads for attributes " + str(attributes))
+        queries = [(selectStr + " FROM tbl_mode_s " + whereStr + (" ORDER BY timestamp DESC " if not ident_run else "") + offset) for offset in offsetStr]
+        return queries
 
     def __actualizeKnownAddresses(self, id_address: List[Dict[str, Union[int, str]]] = []):
         self.addresses = []
@@ -158,8 +164,9 @@ class Database:
             self.addresses.append(address)
             self.known_idents[address] = el["identification"]
 
-        self.logger.warning("Skipping following addresses: " + str(skipped_addresses) + " :: Already added or invalid identification")
-        self.logger.debug("Known Addresses: " + str(len(self.addresses)))
+        if len(skipped_addresses) > 0:
+            self.logger.warning("Skipping following addresses: " + str(skipped_addresses) + " :: Already added or invalid identification")
+        self.logger.info("Known Addresses: " + str(len(self.addresses)))
         
     def __getLattestDBTimeStamp(self):
         time = self.getFromDB( ["timestamp"], options = {"not_null_values": ["timestamp"], "limit": 1})
@@ -176,7 +183,7 @@ class Database:
         for index, el in enumerate(params.keys()):
             if el == "limit":
                 self.limit = params["limit"]
-                self.logger.debug(
+                self.logger.log(
                     "Setting global query row limit to: " + self.limit)
                 continue
             elif "minimal" in el:
@@ -192,7 +199,7 @@ class Database:
             strFilter += " AND " if index < len(params.keys()) - 1 else " "
 
         self.filterOn = len(params.keys()) > 1
-        self.logger.debug("Setting engine filter to: " + strFilter)
+        self.logger.log("Setting engine filter to: " + strFilter)
         self.strFilter = strFilter
 
     def resetFilter(self):
@@ -200,10 +207,23 @@ class Database:
         
     def getFromDB(self, attributes: List[str] = [], options: Dict[str, str] = {"default_filter_on": False, "select_distinct": False, "not_null_values": []}) -> List[Dict[str, Union[int, str]]]:
         # option={..., "limit":50000}
-        query = self.__generateQuery(attributes, options) 
-               
-        return self.__getAll(self.__query(query), attributes)
+        queries = self.__generateQueries(attributes, options) 
+            
+        queryExecutor = concurrent.futures.ThreadPoolExecutor()
+        threadedQueries = [queryExecutor.submit(self.__query, query) for query in queries]
 
+        allResults = []
+        for completedQuery in concurrent.futures.as_completed(threadedQueries):
+            try:
+                query = completedQuery.result()
+            except Exception as esc:
+                self.logger.warning("Error occurred while getting attributes " + str(attributes) + "\nERROR: " + str(esc))
+            else:
+                allResults.extend(self.__getAll(query, attributes))
+        
+        self.logger.info("Query successfully excecuted. Attributes were: " + str(attributes))
+        return allResults
+    
     def actualizeData(self) -> bool:
         try:
             with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -218,8 +238,14 @@ class Database:
 
                 executor.submit(self.__actualizeKnownAddresses, id_address__future.result())
                 
-                self.data = bar_ivv__future.result()
-                self.data.extend(lat_lon__future.result())
+                for completed_task in concurrent.futures.as_completed([lat_lon__future, bar_ivv__future]):
+                    try:
+                        halfResult = completed_task.result()
+                    except Exception as esc:
+                        self.logger.warning(
+                            "Error occurred while getting results \nERROR: " + str(esc))
+                    else:
+                        self.data.extend(halfResult)
 
             self.logger.info("Data actualized. Size: " + str(len(self.data)))
 

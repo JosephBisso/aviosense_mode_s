@@ -9,13 +9,15 @@ class colors:  # for colored print output
     RED_BACK = '\033[41m'
     GREEN = '\033[32m'
     YELLOW = '\033[33m'
-    BLUE = '\033[34m'
+    BLUE = '\033[94m'
+    VIOLET = '\033[95m'
     CYAN = '\033[96m'
 
 class Logger:
-    def __init__(self, terminal = True, verbose = False):
+    def __init__(self, terminal = True, verbose = False, debug = False):
         self.terminal = terminal
         self.verbose = verbose
+        self.debugging = debug
         self.outputFile = os.path.join(os.getcwd(), "mode_s.log")
         
         if os.path.exists(self.outputFile):
@@ -28,8 +30,15 @@ class Logger:
         with open(self.outputFile, "a") as output:
             output.write(str(datetime.now()) + ":: DEBUG\t::\t" + str(msg) + "\n")
             
-        if self.verbose:
-            print("DEBUG ::\t" + str(msg) + colors.ENDC)
+        if self.debugging:
+            print(colors.VIOLET + "DEBUG\t::\t" + colors.ENDC + str(msg))
+    
+    def log(self, msg):
+        with open(self.outputFile, "a") as output:
+            output.write(str(datetime.now()) + ":: LOG\t::\t" + str(msg) + "\n")
+            
+        if self.terminal:
+            print(colors.BLUE + "LOG\t::\t" + colors.ENDC + str(msg))
             
     def info(self, msg):
         with open(self.outputFile, "a") as output:

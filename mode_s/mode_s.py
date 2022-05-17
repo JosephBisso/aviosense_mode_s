@@ -28,6 +28,8 @@ def init_argparse():
                         action="store_true", help="Whether the app should run interactively on the terminal", default=False)
     parser.add_argument("-v", "--verbose",
                         action="store_true", help="Whether the app should run only on the terminal", default=False)
+    parser.add_argument("-d", "--debug",
+                        action="store_true", help="Whether the app should run only on debug mode", default=False)
     parser.add_argument("-la", "--latitude-minimal", metavar="latitude_minimal",
                         help="The desired minimal latitude. If not set, all available latitudes are evaluated")
     parser.add_argument("-LA", "--latitude-maximal",
@@ -70,7 +72,7 @@ if __name__ == "__main__":
     # app = QGuiApplication(sys.argv) if not args.terminal else QCoreApplication(sys.argv)
     app = QApplication(sys.argv)
     
-    logger = Logger(args.terminal, args.verbose)
+    logger = Logger(args.terminal, args.verbose, args.debug)
     logger.debug(args)
     
     db = Database(logger)
@@ -86,6 +88,6 @@ if __name__ == "__main__":
     else:
         db.setDefaultFilter(get_allArgs(args))
         db.actualizeData()
-        modes_engine.setDataSet(db.getData())
-        modes_engine.updateOccurrencesForAddresses(plot=True)
+        # modes_engine.setDataSet(db.getData())
+        # modes_engine.updateOccurrencesForAddresses(plot=True)
         sys.exit(0)
