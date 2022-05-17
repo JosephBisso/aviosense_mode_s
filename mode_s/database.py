@@ -6,6 +6,8 @@ import os
 import concurrent.futures
 from typing import List, Dict, Union
 
+from pyparsing import Any
+
 
 from logger import Logger
 
@@ -37,10 +39,8 @@ class Database:
         else:
             self.logger.critical("Database not accessible")
                
-        database_loader = concurrent.futures.ThreadPoolExecutor()
-        self.databaseLoadingTask = database_loader.submit(self.__loadDumpedDatabase)
 
-        self.data: List[Dict[str, Union[str, int]]] = self.databaseLoadingTask.result() if self.databaseLoadingTask.done() else []  
+        self.data: List[Dict[str, Union[str, int]]] = []  
         
     def __setUp(self, db: QtSql.QSqlDatabase):
         db.setHostName(DB_CONSTANTS.HOSTNAME)
@@ -60,36 +60,38 @@ class Database:
         self.logger.debug("New database connection: " + name)
 
         q = QtSql.QSqlQuery(db)
+        q.setForwardOnly(True)
         if not q.exec(query):
             self.logger.critical(
-                "Could not execute query from database " + name, ConnectionError)
+                "Could not execute query: " + q.lastQuery() + " on " + name + "ERROR:: " + q.lastError().text(), ConnectionError)
 
+        self.logger.debug("Executed following query: " + q.lastQuery() + " :: on :: " + name)
+        self.logger.info("Query successfully excecuted")
         db.close()
         return q
 
     def __getAll(self, query: QtSql.QSqlQuery = QtSql.QSqlQuery(), elements: List[str] = []) -> List[Dict[str, Union[int, str]]]:
         allResults = []
+        executor = concurrent.futures.ThreadPoolExecutor()
         while query.next():
-            entry = {}
-            for el in elements:
-                value = query.value(el)
-                if isinstance(value, str):
-                    entry[el] = value.strip()
-                elif isinstance(value, QDateTime):
-                    entry[el] = value.toMSecsSinceEpoch() * 10**6
-                else:
-                    entry[el] = value
-            for abs in DB_CONSTANTS.USED_COLUMNS:
-                if not abs in elements:
-                    entry[abs] = None
-            allResults.append(entry)
+            executor.submit(self.__appendEntryToAllResults, allValues={el: query.value(el) for el in elements}, elements=elements, allResults=allResults)
+        
+        executor.shutdown(wait=True)
+        self.logger.debug("Finish getting all data from query: " + query.lastQuery())
         return allResults
-
-    def __isEmpty(self, entry: Dict[str, Union[int, str]] = {}) -> bool:
-        for el in entry.keys():
-            if not str(entry[el]).isalnum():
-                return False
-        return True
+    
+    def __appendEntryToAllResults(self,  allValues: List[Dict[str, Any]], elements: List[str], allResults : List[Dict[str, Union[int, str]]]):
+        entry = {}
+        for el in elements:
+            if isinstance(allValues[el], str):
+                entry[el] = allValues[el].strip()
+            elif isinstance(allValues[el], QDateTime):
+                entry[el] = allValues[el].toMSecsSinceEpoch() * 10**6
+            else:
+                entry[el] = allValues[el]
+                
+        entry.update({abs: None for abs in (set(DB_CONSTANTS.USED_COLUMNS) - set(elements))})
+        allResults.append(entry)
 
     def __generateQuery(self, attributes: List[str], options: Dict[str, str]) -> str:
         selectStr = "SELECT "
@@ -158,48 +160,6 @@ class Database:
 
         self.logger.warning("Skipping following addresses: " + str(skipped_addresses) + " :: Already added or invalid identification")
         self.logger.debug("Known Addresses: " + str(len(self.addresses)))
-
-    def __loadDumpedDatabase(self) -> List[Dict[str, Union[str, int]]]:
-        if not os.path.exists("database"): return []
-        
-        database_path = "database\\database_dump.json"
-
-        if not os.path.exists(database_path): return []
-        
-        with open(database_path, 'r') as database:
-            data = json.load(database)
-            
-        lastUpdate = QDateTime.fromMSecsSinceEpoch(int(data[0]["timestamp"]) / 10**6).toString()
-        self.lastDumpUpdate = lastUpdate
-        
-        self.logger.info("Loaded dumped database. Size: " + str(len(data)) + ". Lasttest entry: " + lastUpdate)
-
-        return data
-
-    def __dumpDatabase(self):
-        if not os.path.exists("database"):
-            os.mkdir("database")
-
-        database_path = "database\\database_dump.json"
-
-        if not os.path.exists(database_path):
-            with open(database_path, 'w') as database:
-                json.dump(self.data, database, indent="\t")
-
-            self.logger.info("Successfully dumped data base")
-            return
-
-        with open(database_path, 'r') as database:
-            data: List[Dict[int, Union[str, int]]] = json.load(database)
-
-        for el in self.data: data.append(el)
-        data.sort(key=lambda item: item.get("timestamp"), reverse=True)
-        os.remove(database_path)
-
-        with open(database_path, 'w') as database:
-            json.dump(data, database, indent="\t")
-
-        self.logger.info("Successfully dumped data base")
         
     def __getLattestDBTimeStamp(self):
         time = self.getFromDB( ["timestamp"], options = {"not_null_values": ["timestamp"], "limit": 1})
@@ -207,10 +167,6 @@ class Database:
         self.lattestDBUpdate = lastDBUpdate
         
         self.logger.info("Lattest database db_airdata update: " + lastDBUpdate)
-
-
-    def isOpen(self) -> bool:
-        return self.open
 
     def getData(self) -> List[Dict[str, Union[str, int]]]:
         return self.data
@@ -244,22 +200,12 @@ class Database:
         
     def getFromDB(self, attributes: List[str] = [], options: Dict[str, str] = {"default_filter_on": False, "select_distinct": False, "not_null_values": []}) -> List[Dict[str, Union[int, str]]]:
         # option={..., "limit":50000}
-        query = self.__generateQuery(attributes, options)
-
-        self.logger.debug("Executing following query: " + query)
-
-        try:
-            results = self.__query(query)
-        except ConnectionError:
-            self.logger.critical("Could not run query " + query)
-
-        self.logger.info("Query successfully excecuted")
-        return self.__getAll(results, attributes)
+        query = self.__generateQuery(attributes, options) 
+               
+        return self.__getAll(self.__query(query), attributes)
 
     def actualizeData(self) -> bool:
         try:
-            lat_lon = bar_ivv = []
-
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 id_address__future = executor.submit(self.getFromDB, ["identification", "address"], options={
                                                      "select_distinct": True, "not_null_values": ["identification", "address"]})
@@ -270,35 +216,13 @@ class Database:
                 bar_ivv__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "bar", "ivv"], options={
                                                   "not_null_values": ["bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"], "limit": int(int(self.limit) / 2)})
 
-                id_address = id_address__future.result()
-                executor.submit(self.__actualizeKnownAddresses, id_address)
-
-                lat_lon = lat_lon__future.result()
-                bar_ivv = bar_ivv__future.result()
-                all_data_raw = lat_lon + bar_ivv
-
-            skipped = 0
-
-            self.data = self.databaseLoadingTask.result()
-            for i in range(len(all_data_raw)):
-                address = all_data_raw[i]["address"]
-                if address in self.addresses:
-                    all_data_raw[i]["identification"] = self.known_idents[address]
-                else:
-                    skipped += 1
-                    continue
+                executor.submit(self.__actualizeKnownAddresses, id_address__future.result())
                 
-                self.data.append(all_data_raw[i])
-
-            if skipped > 0:
-                self.logger.warning(
-                    "Skipped " + str(skipped) + " entries. Identification(s) unknown")
+                self.data = bar_ivv__future.result()
+                self.data.extend(lat_lon__future.result())
 
             self.logger.info("Data actualized. Size: " + str(len(self.data)))
 
-            databaseDump_executor = concurrent.futures.ThreadPoolExecutor()
-            databaseDump_executor.submit(self.__dumpDatabase)
-            
             return True
 
         except ConnectionError:
