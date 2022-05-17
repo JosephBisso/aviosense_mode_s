@@ -2,7 +2,7 @@
 import os
 import sys
 import argparse
-from typing import Dict
+from typing import List, Dict, NamedTuple
 
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
@@ -16,6 +16,7 @@ import qml.qrc_qml
 from logger import Logger
 from database import Database
 import engine as ModeSEngine
+
 
 # Initialize argparse
 def init_argparse():
@@ -47,11 +48,11 @@ def init_argparse():
     parser.add_argument("-l", "--limit",
                         help="The desired limit for the sql commmands. (default = 50000)", default=50000)
     parser.add_argument("-p", "--plots", nargs='*',
-                        help="The desired plots. POSSIBLE VALUES: data_occurrences, bar_ivv, median_filtered, data_interval")
+                        help="The desired plots. POSSIBLE VALUES: occurrence, bar_ivv, filtered, interval", default=[])
 
     return parser
 
-def get_allArgs(args : Dict[str, str]) -> Dict[str, str]:
+def get_allArgs(args : NamedTuple) -> Dict[str, str]:
     params = {}
     
     for key in ["limit", "id_minimal", "id_maximal", "latitude_minimal", "latitude_maximal", "longitude_maximal", "longitude_minimal", "bds"]:
@@ -65,6 +66,7 @@ def get_allArgs(args : Dict[str, str]) -> Dict[str, str]:
             
     return params
 
+
 if __name__ == "__main__":
     args = init_argparse().parse_args()
     if args.interactive: args.terminal = True
@@ -74,10 +76,9 @@ if __name__ == "__main__":
     
     logger = Logger(args.terminal, args.verbose, args.debug)
     logger.debug(args)
-    
     db = Database(logger)
     
-    modes_engine = ModeSEngine.Engine(logger=logger)
+    modes_engine = ModeSEngine.Engine(logger=logger, plots=args.plots)
         
     if not args.terminal:
         engine = QQmlApplicationEngine()
@@ -88,6 +89,6 @@ if __name__ == "__main__":
     else:
         db.setDefaultFilter(get_allArgs(args))
         db.actualizeData()
-        # modes_engine.setDataSet(db.getData())
+        modes_engine.setDataSet(db.getData())
         # modes_engine.updateOccurrencesForAddresses(plot=True)
         sys.exit(0)

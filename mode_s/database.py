@@ -1,4 +1,3 @@
-from asyncio.log import logger
 from PySide6 import QtSql
 from PySide6.QtCore import QDateTime
 
@@ -18,11 +17,13 @@ class DB_CONSTANTS:
     DATABASE_NAME = "db_airdata"
     USER_NAME = "tubs"
     PASSWORD = "ue73f5dn"
+    ROW_COUNT = 0
 
     CONNECTIONS_TOTAL = 0
     
-    MAX_ROW_BEFORE_LONG_DURATION = 100000
+    MAX_ROW_BEFORE_LONG_DURATION = 50000
     MIN_NUMBER_THREADS = 20
+    
 
 class Database:
     def __init__(self, logger: Logger):        
@@ -30,21 +31,34 @@ class Database:
         self.__setUp(db)
         self.filterOn: bool = False 
         self.logger: Logger = logger
+        self.data: List[Dict[str, Union[str, int]]] = []  
+
+        executor = concurrent.futures.ThreadPoolExecutor()
         if db.open():
             self.logger.info("Database accessible")
             db.close()
-            self.__getLattestDBTimeStamp()
+            rowCount_future = executor.submit(self.__getDBRowCount)
         else:
             self.logger.critical("Database not accessible")
+
+        rowCount_future.result()
+        f = executor.submit(self.__getLattestDBTimeStamp)
+        f.result()
                
 
-        self.data: List[Dict[str, Union[str, int]]] = []  
         
     def __setUp(self, db: QtSql.QSqlDatabase):
         db.setHostName(DB_CONSTANTS.HOSTNAME)
         db.setDatabaseName(DB_CONSTANTS.DATABASE_NAME)
         db.setUserName(DB_CONSTANTS.USER_NAME)
         db.setPassword(DB_CONSTANTS.PASSWORD)
+
+    def __getDBRowCount(self):
+        q = self.__query("SELECT COUNT(*) FROM tbl_mode_s")
+        while q.next():
+            DB_CONSTANTS.ROW_COUNT = q.value(0)   
+        q.finish()
+        self.logger.info("Row Count for table tbl_mode_s: " + str(DB_CONSTANTS.ROW_COUNT))
 
     def __query(self, query: str) -> QtSql.QSqlQuery:
         DB_CONSTANTS.CONNECTIONS_TOTAL += 1
@@ -61,7 +75,7 @@ class Database:
         q.setForwardOnly(True)
         if not q.exec(query):
             self.logger.critical(
-                "Could not execute query: " + q.lastQuery() + " on " + name + "ERROR:: " + q.lastError().text(), ConnectionError)
+                "Could not execute query: " + q.lastQuery() + " on " + name + " ERROR:: " + q.lastError().text(), ConnectionError)
 
         self.logger.debug("Executed following query: " + q.lastQuery() + " :: on :: " + name)
         db.close()
@@ -85,6 +99,7 @@ class Database:
 
             allResults.append(entry)
 
+        query.finish()
         return allResults
     
     def __generateQueries(self, attributes: List[str], options: Dict[str, str]) -> List[str]:
@@ -126,13 +141,12 @@ class Database:
 
                 for index, attrib in enumerate(options["not_null_values"]):
                     whereStr += attrib + " IS NOT NULL"
-                    whereStr += " AND " if index < (
-                        len(options["not_null_values"]) - 1) else " "
+                    whereStr += " AND " if index < (len(options["not_null_values"]) - 1) else " "
         except KeyError:
             pass
 
         try:
-            limit = options["limit"]
+            limit = options["limit"] if int(options["limit"]) <= DB_CONSTANTS.ROW_COUNT else DB_CONSTANTS.ROW_COUNT
         except KeyError:
             limit = self.limit
         
@@ -171,8 +185,6 @@ class Database:
     def __getLattestDBTimeStamp(self):
         time = self.getFromDB( ["timestamp"], options = {"not_null_values": ["timestamp"], "limit": 1})
         lastDBUpdate = QDateTime.fromMSecsSinceEpoch(int(time[0]["timestamp"]) / 10**6).toString()
-        self.lattestDBUpdate = lastDBUpdate
-        
         self.logger.info("Lattest database db_airdata update: " + lastDBUpdate)
 
     def getData(self) -> List[Dict[str, Union[str, int]]]:
@@ -182,9 +194,12 @@ class Database:
         strFilter = " "
         for index, el in enumerate(params.keys()):
             if el == "limit":
-                self.limit = params["limit"]
-                self.logger.log(
-                    "Setting global query row limit to: " + self.limit)
+                if int(params["limit"]) <= DB_CONSTANTS.ROW_COUNT:
+                    self.limit = params["limit"]
+                    self.logger.log("Setting global query row limit to: " + self.limit)
+                else:
+                    self.limit = DB_CONSTANTS.ROW_COUNT
+                    self.logger.warning("Setting global query row limit to: " + str(DB_CONSTANTS.ROW_COUNT) + ". (Total row count of table)")
                 continue
             elif "minimal" in el:
                 if "latitude" in el: strFilter += "latitude > " + params[el]
