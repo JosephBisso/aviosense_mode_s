@@ -1,3 +1,4 @@
+from gc import DEBUG_SAVEALL
 from PySide6 import QtSql
 from PySide6.QtCore import QDateTime
 
@@ -21,8 +22,8 @@ class DB_CONSTANTS:
 
     CONNECTIONS_TOTAL = 0
     
-    MAX_ROW_BEFORE_LONG_DURATION = 50000
-    MIN_NUMBER_THREADS = 20
+    MAX_ROW_BEFORE_LONG_DURATION = 100000
+    MIN_NUMBER_THREADS = 25
     
 
 class Database:
@@ -44,8 +45,6 @@ class Database:
         rowCount_future.result()
         f = executor.submit(self.__getLattestDBTimeStamp)
         f.result()
-               
-
         
     def __setUp(self, db: QtSql.QSqlDatabase):
         db.setHostName(DB_CONSTANTS.HOSTNAME)
@@ -83,9 +82,13 @@ class Database:
 
     def __getAll(self, query: QtSql.QSqlQuery, elements: List[str] = []) -> List[Dict[str, Union[int, str]]]:
         allResults = []
-        absentColumns = set(DB_CONSTANTS.USED_COLUMNS) - set(elements)
+        
+        absentColumns =  []
+        for el in DB_CONSTANTS.USED_COLUMNS:
+            if not el in elements: absentColumns.append(el)
+            
         while query.next():
-            entry = {}
+            entry = {abs: None for abs in absentColumns}
             for el in elements:
                 value = query.value(el)
                 if isinstance(value, str):
@@ -94,8 +97,6 @@ class Database:
                     entry[el] = value.toMSecsSinceEpoch() * 10**6
                 else:
                     entry[el] = value
-            for abs in absentColumns:
-                entry[abs] = None
 
             allResults.append(entry)
 
@@ -150,7 +151,7 @@ class Database:
         except KeyError:
             limit = self.limit
         
-        dividing = int(limit) > DB_CONSTANTS.MIN_NUMBER_THREADS
+        dividing = int(limit) > DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION
         num_thread = max(int(int(limit) / DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION), DB_CONSTANTS.MIN_NUMBER_THREADS) if dividing else int(limit)
 
         limit_per_thread = int(int(limit)/num_thread)
@@ -196,7 +197,7 @@ class Database:
             if el == "limit":
                 if int(params["limit"]) <= DB_CONSTANTS.ROW_COUNT:
                     self.limit = params["limit"]
-                    self.logger.log("Setting global query row limit to: " + self.limit)
+                    self.logger.log("Setting global query row limit to: " + str(self.limit))
                 else:
                     self.limit = DB_CONSTANTS.ROW_COUNT
                     self.logger.warning("Setting global query row limit to: " + str(DB_CONSTANTS.ROW_COUNT) + ". (Total row count of table)")
@@ -214,7 +215,7 @@ class Database:
             strFilter += " AND " if index < len(params.keys()) - 1 else " "
 
         self.filterOn = len(params.keys()) > 1
-        self.logger.log("Setting engine filter to: " + strFilter)
+        self.logger.log("Setting query filter to: " + strFilter)
         self.strFilter = strFilter
 
     def resetFilter(self):

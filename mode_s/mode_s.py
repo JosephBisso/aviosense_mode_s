@@ -49,6 +49,8 @@ def init_argparse():
                         help="The desired limit for the sql commmands. (default = 50000)", default=50000)
     parser.add_argument("-p", "--plots", nargs='*',
                         help="The desired plots. POSSIBLE VALUES: occurrence, bar_ivv, filtered, interval", default=[])
+    parser.add_argument("-pa", "--plot-addresses", nargs='*',
+                        help="The addresses of the desired plots.", default=[])
 
     return parser
 
@@ -75,10 +77,11 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     
     logger = Logger(args.terminal, args.verbose, args.debug)
+    logger.info("Framework for automatic Mode-S data tranfer and turbulence prediction.")
     logger.debug(args)
     db = Database(logger)
     
-    modes_engine = ModeSEngine.Engine(logger=logger, plots=args.plots)
+    modes_engine = ModeSEngine.Engine(logger=logger, plots=args.plots, plot_addresses=args.plot_addresses)
         
     if not args.terminal:
         engine = QQmlApplicationEngine()
@@ -90,5 +93,4 @@ if __name__ == "__main__":
         db.setDefaultFilter(get_allArgs(args))
         db.actualizeData()
         modes_engine.setDataSet(db.getData())
-        # modes_engine.updateOccurrencesForAddresses(plot=True)
         sys.exit(0)

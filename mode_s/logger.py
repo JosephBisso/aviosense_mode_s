@@ -27,39 +27,44 @@ class Logger:
             
     
     def debug(self, msg):
+        time = datetime.now()
         with open(self.outputFile, "a") as output:
             output.write(str(datetime.now()) + ":: DEBUG\t::\t" + str(msg) + "\n")
             
         if self.debugging:
-            print(colors.VIOLET + "DEBUG\t::\t" + colors.ENDC + str(msg))
+            print(colors.VIOLET + "DEBUG\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + colors.ENDC + str(msg))
     
     def log(self, msg):
+        time = datetime.now()
         with open(self.outputFile, "a") as output:
             output.write(str(datetime.now()) + ":: LOG\t::\t" + str(msg) + "\n")
             
         if self.terminal:
-            print(colors.BLUE + "LOG\t::\t" + colors.ENDC + str(msg))
+            print(colors.BLUE + "LOG\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + colors.ENDC + str(msg))
             
     def info(self, msg):
+        time = datetime.now()
         with open(self.outputFile, "a") as output:
             output.write(str(datetime.now()) + ":: INFO::\t" + str(msg) + "\n")
 
         if self.terminal:
-            print(colors.CYAN + "INFO\t::\t" + str(msg) + colors.ENDC)
+            print(colors.CYAN + "INFO\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + str(msg) + colors.ENDC)
             
     def warning(self, msg):
+        time = datetime.now()
         with open(self.outputFile, "a") as output:
             output.write(str(datetime.now()) + ":: WARNING ::\t" + str(msg) + "\n")
 
         if self.terminal:
-            print(colors.YELLOW + "WARNING\t::\t" + str(msg) + colors.ENDC)
+            print(colors.YELLOW + "WARNING\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + str(msg) + colors.ENDC)
             
     def critical(self, msg, exception = Exception):
+        time = datetime.now()
         with open(self.outputFile, "a") as output:
             output.write(str(datetime.now()) + ":: CRITICAL ::\t" + str(msg) + "\n")
 
         if self.terminal:
-            print(colors.RED + "CRITICAL\t::\t" + str(msg) + colors.ENDC)
+            print(colors.RED + "CRITICAL\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + str(msg) + colors.ENDC)
             
         raise exception(msg)
                 
