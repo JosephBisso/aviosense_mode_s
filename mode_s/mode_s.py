@@ -47,6 +47,8 @@ def init_argparse():
                         help="The desired maximal id. If not set, all available ids are evaluated")
     parser.add_argument("-l", "--limit",
                         help="The desired limit for the sql commmands. (default = 50000)", default=50000)
+    parser.add_argument("-n", "--median-n",
+                        help="The desired n for the median filtering. (default: n=3)", default=3)
     parser.add_argument("-p", "--plots", nargs='*',
                         help="The desired plots. POSSIBLE VALUES: occurrence, bar_ivv, filtered, interval", default=[])
     parser.add_argument("-pa", "--plot-addresses", nargs='*',
@@ -81,7 +83,7 @@ if __name__ == "__main__":
     logger.debug(args)
     db = Database(logger)
     
-    modeSEngine = ModeSEngine.Engine(logger=logger, plots=args.plots, plotAddresses=args.plot_addresses)
+    modeSEngine = ModeSEngine.Engine(logger=logger, plots=args.plots, plotAddresses=args.plot_addresses, medianN=args.median_n)
         
     if not args.terminal:
         engine = QQmlApplicationEngine()

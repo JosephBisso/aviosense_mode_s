@@ -1,11 +1,14 @@
 
+from cProfile import label
 import concurrent.futures
 import sys
 from typing import List, Dict, NamedTuple, Union
 from collections import Counter, namedtuple
 
 import math
+import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 
 from logger import Logger
 
@@ -17,75 +20,25 @@ class POINT(NamedTuple):
 class ENGINE_CONSTANTS:
     PLOTS = ["occurrence", "bar_ivv", "filtered", "interval"]
     
-    # START_TIME_NANO = 1625559990537752100 #nanoseconds
-    
 class Engine:
-    def __init__(self, logger: Logger, plots: List[str] = [], plotAddresses: List[str] = []):
+    def __init__(self, logger: Logger, plots: List[str] = [], plotAddresses: List[str] = [], medianN: int = 3):
         self.logger = logger
         self.plots: Dict[str, bool] = self.__activatePlot(plots)
         self.plotAddresses = [int(address) for address in plotAddresses]
+        self.medianN = medianN
         
     def __activatePlot(self, plots:List[str]):
         plotsInsensitive = [plot.lower() for plot in plots]
         plots = {plot: plot in plotsInsensitive for plot in ENGINE_CONSTANTS.PLOTS}
-        self.logger.log("Engine will compute and plot for : " + str(plots))
+
+        abs = []
+        for plot in plotsInsensitive:
+            if not plot in ENGINE_CONSTANTS.PLOTS: abs.append(plot)
+        if len(abs) > 0 : self.logger.warning("Following Plots are unknown. May be a Typo? : " + str(abs))
+        
+        self.logger.log("Engine plot status : " + str(plots))
         return plots
-        
-    def setDataSet(self, dataset: List[Dict[str, Union[str, int]]]):
-        self.data = sorted(dataset, key=lambda el: el["address"])
-        
-        if len(self.plots) < 1 : return
-        
-        executor = concurrent.futures.ThreadPoolExecutor()
-        plotted = False
-        if self.plots["occurrence"]:
-            dataPoint__future = executor.submit(self.prepareOccurrencesForAddresses)
-            plotted = self.plotDataPointOccurrences(occurrences=dataPoint__future.result())
-
-        elif self.plots["bar_ivv"]:
-            if len(self.plotAddresses) == 0: 
-                addresses__future = executor.submit(self.prepareOccurrencesForAddresses, "addresses")
-                addressesToPlot = addresses__future.result()[:9]
-            else:
-                addressesToPlot = self.plotAddresses
-                
-            self.logger.log("Plotting for following addresses: " + str(addressesToPlot))
-            barAndIvvAndTime__future = executor.submit(self.prepareBarAndIvv, addressesToPlot)
-            plotted = self.plotBar_ivv(barAndIvvAndTime__future.result())
-            
-        elif self.plots["filtered"]:
-            plotted = "filtered"
-        elif self.plots["interval"]:
-            plotted = "interval"
-        
-        if plotted: self.logger.info("Successfully plotted")
-        else: self.logger.warning("Nothing to plot")
-        
-    def prepareOccurrencesForAddresses(self, returnValue="datapoint") -> Union[List[Union[int, str]], List[int]]:
-        dataPointsCounter = Counter([entry["address"] for entry in self.data])
-        if returnValue != "datapoint": return [mostCommonAddress[0] for mostCommonAddress in (dataPointsCounter.most_common())]
-
-        dataPoint = list(dataPointsCounter.values())
-        dataPoint.sort(reverse=True)
-        return dataPoint
-
-    def prepareBarAndIvv(self, addresses:List[int] = []) -> List[Dict[str, Union[str, List[POINT]]]]:
-        plotData = []
-        executor = concurrent.futures.ThreadPoolExecutor()
-        addressData__futures = [executor.submit(self.__getDataForAddress, address) for address in addresses]
-
-        for completedThread in concurrent.futures.as_completed(addressData__futures):
-            try:
-                addressData = completedThread.result()
-            except Exception as esc:
-                type, value, traceback = sys.exc_info()
-                self.logger.warning(
-                    "Error occurred while computing data for addresses\n" + str(type) + "::" + str(value))
-            else:
-                plotData.append(addressData)
-                
-        return plotData
-        
+         
     def __getDataForAddress(self, address: int) -> Dict[str, Union[str, List[POINT]]]:
         addressData: Dict[str, Union[str, List[int]]] = {
             "address": address,
@@ -116,10 +69,69 @@ class Engine:
         if not alreadyFoundAddress : self.logger.warning("Could not find address " + str(address) + ". May be a Typo?")
         else: self.logger.debug("Address " + str(address) + ":: Plotting " + str(len(addressData["points"])) + " points.")
         return addressData
-    
+        
+    def setDataSet(self, dataset: List[Dict[str, Union[str, int]]]):
+        self.data = sorted(dataset, key=lambda el: el["address"])
+        
+        if len(self.plots) < 1 : return
+        
+        executor = concurrent.futures.ThreadPoolExecutor()
+        plotted = False
+        if self.plots["occurrence"]:
+            dataPoint__future = executor.submit(self.prepareOccurrencesForAddresses)
+            plotted = self.plotDataPointOccurrences(occurrences=dataPoint__future.result())
+
+        
+        addresses__future = executor.submit(self.prepareOccurrencesForAddresses, "addresses")
+        addressesToPlot = addresses__future.result()[:9] if len(self.plotAddresses) == 0 else self.plotAddresses
+        self.logger.log("Plotting for following addresses: " + str(addressesToPlot))
+            
+        barAndIvvAndTime__future = executor.submit(self.prepareBarAndIvvAndTime, addressesToPlot)
+        
+        if self.plots["bar_ivv"]:
+            plotted = self.plotBar_ivv(barAndIvvAndTime__future.result())
+            
+        if self.plots["filtered"]:
+            plotted = self.plotBar_ivv(barAndIvvAndTime__future.result())
+
+        if self.plots["interval"]:
+            plotted = "interval"
+        
+        if plotted: self.logger.info("Successfully plotted")
+        else: self.logger.warning("Nothing to plot")
+        
+    def prepareOccurrencesForAddresses(self, returnValue="datapoint") -> Union[List[Union[int, str]], List[int]]:
+        dataPointsCounter = Counter([entry["address"] for entry in self.data])
+        if returnValue != "datapoint": return [mostCommonAddress[0] for mostCommonAddress in (dataPointsCounter.most_common())]
+
+        dataPoint = list(dataPointsCounter.values())
+        dataPoint.sort(reverse=True)
+        return dataPoint
+
+    def prepareBarAndIvvAndTime(self, addresses:List[int] = []) -> List[Dict[str, Union[str, List[POINT]]]]:
+        plotData = []
+        executor = concurrent.futures.ThreadPoolExecutor()
+        addressData__futures = [executor.submit(self.__getDataForAddress, address) for address in addresses]
+
+        for completedThread in concurrent.futures.as_completed(addressData__futures):
+            try:
+                addressData = completedThread.result()
+            except Exception as esc:
+                type, value, traceback = sys.exc_info()
+                self.logger.warning(
+                    "Error occurred while computing data for addresses\n" + str(type) + "::" + str(value))
+            else:
+                plotData.append(addressData)
+                
+        return plotData
+
+    def applyMedianFilter(self, data: List[Dict[str, Union[str, List[POINT]]]]) -> List[Dict[str, Union[str, np.ndarray]]]:
+        pass
+
     def plotDataPointOccurrences(self, occurrences: List[Union[str, int]]) -> bool:
         self.logger.info("Plotting occurrence on addresses")
         
+        plt.subplots(num="MODE-S @ Data Points Occurrence")
         plt.plot(range(1, len(occurrences) + 1), occurrences, marker='o', color='b', linestyle='None', ms=1.75)
         plt.xlabel("Number of addresses")
         plt.ylabel("Number of datapoints")
@@ -137,37 +149,44 @@ class Engine:
             bar = [point.bar for point in plotData[0]["points"]]
             ivv = [point.ivv for point in plotData[0]["points"]]
 
-            plt.plot(time, bar, marker='.', color='b', linestyle='-', ms=1)
-            plt.plot(time, ivv, marker='.', color='r', linestyle='-', ms=1)
+            plt.subplots(num="MODE-S @ BAR & IVV")
+            plt.plot(time, bar, marker='.', color='b', linestyle='-', ms=1, label="BAR")
+            plt.plot(time, ivv, marker='.', color='r', linestyle='-', ms=1, label="IVV")
             plt.grid()
             
             plt.xlabel("min")
             plt.ylabel("v ft/min")
-            plt.title("ivv & bar(blue) for address " + str(address) + " (" + str(len(plotData[0]["points"]))+ " points)")
+            plt.title("ivv & bar for address " + str(address) + " (" + str(len(plotData[0]["points"]))+ " points)")
+            plt.legend(loc="upper right")
             
             plt.show()
             return True
         
+        height = int(math.sqrt(len(plotData))) % 5
+        if height == 0: height = 1
+        width = int(len(plotData) / height) % 5
+        if width == 0: width = 1
+        
+        plt.subplots(num="MODE-S @ BAR & IVV")
         for index in range(len(plotData)):
             address = plotData[index]["address"]
             time = list(map(lambda el: el/60, [point.time for point in plotData[index]["points"]]))
             bar = [point.bar for point in plotData[index]["points"]]
             ivv = [point.ivv for point in plotData[index]["points"]]
             
-            height = int(math.sqrt(len(plotData))) % 5
-            if height == 0: height = 1
-            width = int(len(plotData) / height) % 5
-            if width == 0: width = 1
             plt.subplot(width, height, index + 1)
             plt.subplots_adjust(wspace=0.5, hspace=0.5)
-            plt.plot(time, bar, marker=',', color='b', linestyle='-', ms=0.25)
-            plt.plot(time, ivv, marker=',', color='r', linestyle='-', ms=0.25)
+            plt.plot(time, bar, marker=',', color='b', linestyle='-', ms=0.25, label="BAR")
+            plt.plot(time, ivv, marker=',', color='r', linestyle='-', ms=0.25, label="IVV")
             plt.grid()
 
             plt.xlabel("min")
             plt.ylabel("v ft/min")
-            plt.title("ivv & bar(blue) for address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
-        
+            plt.legend()
+            plt.title("Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
+                        
+
+        plt.suptitle("IVV & BAR for addresses", fontsize=20)
         plt.show()
         
         return True
