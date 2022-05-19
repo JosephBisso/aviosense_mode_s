@@ -20,14 +20,14 @@ class ENGINE_CONSTANTS:
     # START_TIME_NANO = 1625559990537752100 #nanoseconds
     
 class Engine:
-    def __init__(self, logger: Logger, plots: List[str] = [], plot_addresses: List[str] = []):
+    def __init__(self, logger: Logger, plots: List[str] = [], plotAddresses: List[str] = []):
         self.logger = logger
         self.plots: Dict[str, bool] = self.__activatePlot(plots)
-        self.plot_addresses = [int(address) for address in plot_addresses]
+        self.plotAddresses = [int(address) for address in plotAddresses]
         
     def __activatePlot(self, plots:List[str]):
-        plots_insensitive = [plot.lower() for plot in plots]
-        plots = {plot: plot in plots_insensitive for plot in ENGINE_CONSTANTS.PLOTS}
+        plotsInsensitive = [plot.lower() for plot in plots]
+        plots = {plot: plot in plotsInsensitive for plot in ENGINE_CONSTANTS.PLOTS}
         self.logger.log("Engine will compute and plot for : " + str(plots))
         return plots
         
@@ -43,15 +43,15 @@ class Engine:
             plotted = self.plotDataPointOccurrences(occurrences=dataPoint__future.result())
 
         elif self.plots["bar_ivv"]:
-            if len(self.plot_addresses) == 0: 
+            if len(self.plotAddresses) == 0: 
                 addresses__future = executor.submit(self.prepareOccurrencesForAddresses, "addresses")
-                addresses_to_plot = addresses__future.result()[:9]
+                addressesToPlot = addresses__future.result()[:9]
             else:
-                addresses_to_plot = self.plot_addresses
+                addressesToPlot = self.plotAddresses
                 
-            self.logger.log("Plotting for following addresses: " + str(addresses_to_plot))
-            data_bar_ivv_time__future = executor.submit(self.prepareBar_ivv, addresses_to_plot)
-            plotted = self.plotBar_ivv(data_bar_ivv_time__future.result())
+            self.logger.log("Plotting for following addresses: " + str(addressesToPlot))
+            barAndIvvAndTime__future = executor.submit(self.prepareBarAndIvv, addressesToPlot)
+            plotted = self.plotBar_ivv(barAndIvvAndTime__future.result())
             
         elif self.plots["filtered"]:
             plotted = "filtered"
@@ -62,14 +62,14 @@ class Engine:
         else: self.logger.warning("Nothing to plot")
         
     def prepareOccurrencesForAddresses(self, returnValue="datapoint") -> Union[List[Union[int, str]], List[int]]:
-        dataPoints_counter = Counter([entry["address"] for entry in self.data])
-        if returnValue != "datapoint": return [most_common_address[0] for most_common_address in (dataPoints_counter.most_common())]
+        dataPointsCounter = Counter([entry["address"] for entry in self.data])
+        if returnValue != "datapoint": return [mostCommonAddress[0] for mostCommonAddress in (dataPointsCounter.most_common())]
 
-        dataPoint = list(dataPoints_counter.values())
+        dataPoint = list(dataPointsCounter.values())
         dataPoint.sort(reverse=True)
         return dataPoint
 
-    def prepareBar_ivv(self, addresses:List[int] = []) -> List[Dict[str, Union[str, List[POINT]]]]:
+    def prepareBarAndIvv(self, addresses:List[int] = []) -> List[Dict[str, Union[str, List[POINT]]]]:
         plotData = []
         executor = concurrent.futures.ThreadPoolExecutor()
         addressData__futures = [executor.submit(self.__getDataForAddress, address) for address in addresses]

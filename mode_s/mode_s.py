@@ -54,7 +54,7 @@ def init_argparse():
 
     return parser
 
-def get_allArgs(args : NamedTuple) -> Dict[str, str]:
+def getAllArgs(args : NamedTuple) -> Dict[str, str]:
     params = {}
     
     for key in ["limit", "id_minimal", "id_maximal", "latitude_minimal", "latitude_maximal", "longitude_maximal", "longitude_minimal", "bds"]:
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     logger.debug(args)
     db = Database(logger)
     
-    modes_engine = ModeSEngine.Engine(logger=logger, plots=args.plots, plot_addresses=args.plot_addresses)
+    modeSEngine = ModeSEngine.Engine(logger=logger, plots=args.plots, plotAddresses=args.plot_addresses)
         
     if not args.terminal:
         engine = QQmlApplicationEngine()
@@ -90,7 +90,7 @@ if __name__ == "__main__":
             sys.exit(-1)
         sys.exit(app.exec())
     else:
-        db.setDefaultFilter(get_allArgs(args))
+        db.setDefaultFilter(getAllArgs(args))
         db.actualizeData()
-        modes_engine.setDataSet(db.getData())
+        modeSEngine.setDataSet(db.getData())
         sys.exit(0)

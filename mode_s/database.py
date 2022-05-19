@@ -38,11 +38,11 @@ class Database:
         if db.open():
             self.logger.info("Database accessible")
             db.close()
-            rowCount_future = executor.submit(self.__getDBRowCount)
+            rowCount__future = executor.submit(self.__getDBRowCount)
         else:
             self.logger.critical("Database not accessible")
 
-        rowCount_future.result()
+        rowCount__future.result()
         f = executor.submit(self.__getLattestDBTimeStamp)
         f.result()
         
@@ -152,18 +152,18 @@ class Database:
             limit = self.limit
         
         dividing = int(limit) > DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION
-        num_thread = max(int(int(limit) / DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION), DB_CONSTANTS.MIN_NUMBER_THREADS) if dividing else DB_CONSTANTS.MIN_NUMBER_THREADS
+        numThread = max(int(int(limit) / DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION), DB_CONSTANTS.MIN_NUMBER_THREADS) if dividing else DB_CONSTANTS.MIN_NUMBER_THREADS
 
-        limit_per_thread = int(int(limit)/num_thread)
-        if limit_per_thread == 0: 
-            limit_per_thread = int(limit)
-            num_thread = 1
+        limitPerThread = int(int(limit)/numThread)
+        if limitPerThread == 0: 
+            limitPerThread = int(limit)
+            numThread = 1
         
-        rest = int(limit) % num_thread
+        rest = int(limit) % numThread
 
         if not ident_run:
-            offsetStr = [(" LIMIT " + str(limit_per_thread) + " OFFSET " + str(i * limit_per_thread)) for i in range(num_thread) ]
-            if rest : offsetStr.append(" LIMIT " + str(rest) + " OFFSET " + str(num_thread * limit_per_thread))
+            offsetStr = [(" LIMIT " + str(limitPerThread) + " OFFSET " + str(i * limitPerThread)) for i in range(numThread) ]
+            if rest : offsetStr.append(" LIMIT " + str(rest) + " OFFSET " + str(numThread * limitPerThread))
         else:
             offsetStr = [""] 
 
@@ -173,18 +173,18 @@ class Database:
 
     def __actualizeKnownAddresses(self, id_address: List[Dict[str, Union[int, str]]] = []):
         self.addresses = []
-        self.known_idents = {}
-        skipped_addresses = []
+        self.knownIdents = {}
+        skippedAddresses = []
         for el in id_address:
             address = el["address"]
             if address in self.addresses and not el["identification"].isalnum():
-                skipped_addresses.append(address)
+                skippedAddresses.append(address)
                 continue
             self.addresses.append(address)
-            self.known_idents[address] = el["identification"]
+            self.knownIdents[address] = el["identification"]
 
-        if len(skipped_addresses) > 0:
-            self.logger.warning("Skipping following addresses: " + str(skipped_addresses) + " :: Already added or invalid identification")
+        if len(skippedAddresses) > 0:
+            self.logger.warning("Skipping following addresses: " + str(skippedAddresses) + " :: Already added or invalid identification")
         self.logger.info("Known Addresses: " + str(len(self.addresses)))
         
     def __getLattestDBTimeStamp(self):
@@ -247,20 +247,20 @@ class Database:
     def actualizeData(self) -> bool:
         try:
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                id_address__future = executor.submit(self.getFromDB, ["identification", "address"], options={
+                idAndAddress__future = executor.submit(self.getFromDB, ["identification", "address"], options={
                                                      "select_distinct": True, "not_null_values": ["identification", "address"]})
 
-                lat_lon__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "latitude", "longitude"], options={
+                latAndlon__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "latitude", "longitude"], options={
                                                   "not_null_values": ["bds", "altitude"], "limit": int(int(self.limit) / 2)})
 
-                bar_ivv__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "bar", "ivv"], options={
+                barAndivv__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "bar", "ivv"], options={
                                                   "not_null_values": ["bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"], "limit": int(int(self.limit) / 2)})
 
-                executor.submit(self.__actualizeKnownAddresses, id_address__future.result())
+                executor.submit(self.__actualizeKnownAddresses, idAndAddress__future.result())
                 
-                for completed_task in concurrent.futures.as_completed([lat_lon__future, bar_ivv__future]):
+                for completedTask in concurrent.futures.as_completed([latAndlon__future, barAndivv__future]):
                     try:
-                        halfResult = completed_task.result()
+                        halfResult = completedTask.result()
                     except Exception as esc:
                         self.logger.warning(
                             "Error occurred while getting results \nERROR: " + str(esc))
