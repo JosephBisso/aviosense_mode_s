@@ -17,7 +17,7 @@ class POINT(NamedTuple):
 class ENGINE_CONSTANTS:
     PLOTS = ["occurrence", "bar_ivv", "filtered", "interval"]
     
-    START_TIME_NANO = 1625559990537752100 #nanoseconds
+    # START_TIME_NANO = 1625559990537752100 #nanoseconds
     
 class Engine:
     def __init__(self, logger: Logger, plots: List[str] = [], plot_addresses: List[str] = []):
@@ -92,6 +92,10 @@ class Engine:
             "points": []
         }
 
+        bars = []
+        ivvs = []
+        times = []
+        
         alreadyFoundAddress = False
         for entry in self.data:
             if not entry["address"] == address: 
@@ -101,13 +105,14 @@ class Engine:
             alreadyFoundAddress = True
             if not entry["bar"] or not entry["ivv"]: continue
             
-            bar = entry["bar"]
-            ivv = entry["ivv"]
-            time = (entry["timestamp"] - ENGINE_CONSTANTS.START_TIME_NANO) * 10**-9
+            bars.append(entry["bar"])
+            ivvs.append(entry["ivv"])
+            times.append(entry["timestamp"])
 
-            addressData["points"].append(POINT(time, bar, ivv))
-            addressData["points"].sort(key=lambda el: el.time)
-            
+        startTime = min(times)
+        addressData["points"] = [POINT((times[i] - startTime)*10**-9, bars[i], ivvs[i]) for i in range(len(times))]
+        addressData["points"].sort(key=lambda el: el.time)
+
         if not alreadyFoundAddress : self.logger.warning("Could not find address " + str(address) + ". May be a Typo?")
         else: self.logger.debug("Address " + str(address) + ":: Plotting " + str(len(addressData["points"])) + " points.")
         return addressData
@@ -138,7 +143,7 @@ class Engine:
             
             plt.xlabel("min")
             plt.ylabel("v ft/min")
-            plt.title("ivv & bar(blue) for address " + str(address))
+            plt.title("ivv & bar(blue) for address " + str(address) + " (" + str(len(plotData[0]["points"]))+ " points)")
             
             plt.show()
             return True
@@ -161,7 +166,7 @@ class Engine:
 
             plt.xlabel("min")
             plt.ylabel("v ft/min")
-            plt.title("ivv & bar(blue) for address " + str(address))
+            plt.title("ivv & bar(blue) for address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
         
         plt.show()
         
