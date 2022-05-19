@@ -112,7 +112,7 @@ class Engine:
         else: self.logger.debug("Address " + str(address) + ":: Plotting " + str(len(addressData["points"])) + " points.")
         return addressData
     
-    def plotDataPointOccurrences(self, occurrences: List[Union[str, int]]) -> True:
+    def plotDataPointOccurrences(self, occurrences: List[Union[str, int]]) -> bool:
         self.logger.info("Plotting occurrence on addresses")
         
         plt.plot(range(1, len(occurrences) + 1), occurrences, marker='o', color='b', linestyle='None', ms=1.75)
@@ -123,7 +123,7 @@ class Engine:
         
         return True
     
-    def plotBar_ivv(self, plotData: List[Dict[str, Union[str, List[POINT]]]]) -> True:
+    def plotBar_ivv(self, plotData: List[Dict[str, Union[str, List[POINT]]]]) -> bool:
         self.logger.info("Plotting bar and ivv on time")
         
         if len(plotData) == 1:
@@ -132,13 +132,15 @@ class Engine:
             bar = [point.bar for point in plotData[0]["points"]]
             ivv = [point.ivv for point in plotData[0]["points"]]
 
-            plt.plot(time, bar, marker=',', color='b', linestyle='-', ms=0.25)
-            plt.plot(time, ivv, marker=',', color='r', linestyle='-', ms=0.25)
+            plt.plot(time, bar, marker='.', color='b', linestyle='-', ms=1)
+            plt.plot(time, ivv, marker='.', color='r', linestyle='-', ms=1)
             plt.grid()
             
             plt.xlabel("min")
             plt.ylabel("v ft/min")
             plt.title("ivv & bar(blue) for address " + str(address))
+            
+            plt.show()
             return True
         
         for index in range(len(plotData)):

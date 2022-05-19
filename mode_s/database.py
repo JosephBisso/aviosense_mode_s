@@ -1,4 +1,4 @@
-from gc import DEBUG_SAVEALL
+from re import L
 from PySide6 import QtSql
 from PySide6.QtCore import QDateTime
 
@@ -22,8 +22,8 @@ class DB_CONSTANTS:
 
     CONNECTIONS_TOTAL = 0
     
-    MAX_ROW_BEFORE_LONG_DURATION = 100000
-    MIN_NUMBER_THREADS = 25
+    MAX_ROW_BEFORE_LONG_DURATION = 50000
+    MIN_NUMBER_THREADS = 20
     
 
 class Database:
@@ -152,9 +152,13 @@ class Database:
             limit = self.limit
         
         dividing = int(limit) > DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION
-        num_thread = max(int(int(limit) / DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION), DB_CONSTANTS.MIN_NUMBER_THREADS) if dividing else int(limit)
+        num_thread = max(int(int(limit) / DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION), DB_CONSTANTS.MIN_NUMBER_THREADS) if dividing else DB_CONSTANTS.MIN_NUMBER_THREADS
 
         limit_per_thread = int(int(limit)/num_thread)
+        if limit_per_thread == 0: 
+            limit_per_thread = int(limit)
+            num_thread = 1
+        
         rest = int(limit) % num_thread
 
         if not ident_run:
