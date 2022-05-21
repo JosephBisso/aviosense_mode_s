@@ -64,7 +64,7 @@ class Logger:
             output.write(str(datetime.now()) + ":: CRITICAL ::\t" + str(msg) + "\n")
 
         if self.terminal:
-            print(colors.RED + "CRITICAL\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + str(msg) + colors.ENDC)
+            print(colors.RED + "CRITICAL:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + str(msg) + colors.ENDC)
             
         raise exception(msg)
                 

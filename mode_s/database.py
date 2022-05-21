@@ -65,7 +65,7 @@ class Database:
         self.__setUp(db)
         if not db.open():
             self.logger.critical("Database " + name +
-                                 "not accessible", ConnectionError)
+                                 " not accessible. ERROR:: " + db.lastError().text() , ConnectionError)
 
         self.logger.debug("New database connection: " + name)
 
