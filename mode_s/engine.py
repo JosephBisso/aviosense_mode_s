@@ -6,6 +6,7 @@ from collections import Counter, namedtuple
 
 import math
 import numpy as np
+from scipy.signal import medfilt
 import matplotlib.pyplot as plt
 
 from logger import Logger
@@ -19,11 +20,11 @@ class ENGINE_CONSTANTS:
     PLOTS = ["occurrence", "bar_ivv", "filtered", "interval"]
     
 class Engine:
-    def __init__(self, logger: Logger, plots: List[str] = [], plotAddresses: List[str] = [], medianN: int = 3, durationLimit:int = None):
+    def __init__(self, logger: Logger, plots: List[str] = [], plotAddresses: List[str] = [], medianN: int = 1, durationLimit:int = None):
         self.logger = logger
         self.plots: Dict[str, bool] = self.__activatePlot(plots)
         self.plotAddresses = [int(address) for address in plotAddresses]
-        self.medianN = medianN
+        self.medianN = int(medianN)
         self.durationLimit = float(durationLimit) if durationLimit else None
         
     def __activatePlot(self, plots:List[str]):
@@ -80,7 +81,17 @@ class Engine:
         
         self.logger.debug("Address " + str(address) + ":: Plotting " + str(len(addressData["points"])) + " points.")
         return addressData
-        
+
+    def __applyMedianFilter(self, addressData: Dict[str, Union[str, List[POINT]]]) -> None:
+        bars = [point.bar for point in addressData["points"]]
+        ivvs = [point.ivv for point in addressData["points"]]
+
+        filteredBars: np.ndarray = medfilt(bars, self.medianN)
+        filteredIvvs: np.ndarray = medfilt(ivvs, self.medianN)
+
+        addressData["filteredPoints"] = [
+            POINT(0, filteredBars[i], filteredIvvs[i]) for i in range(len(filteredBars))]
+
     def setDataSet(self, dataset: List[Dict[str, Union[str, int]]]):
         self.data = sorted(dataset, key=lambda el: el["address"])
         
@@ -88,22 +99,25 @@ class Engine:
         
         executor = concurrent.futures.ThreadPoolExecutor()
         plotted = False
+        
         if self.plots["occurrence"]:
             dataPoint__future = executor.submit(self.prepareOccurrencesForAddresses)
             plotted = self.plotDataPointOccurrences(occurrences=dataPoint__future.result())
 
         
         addresses__future = executor.submit(self.prepareOccurrencesForAddresses, "addresses")
-        addressesToPlot = addresses__future.result()[:9] if len(self.plotAddresses) == 0 else self.plotAddresses
+        addressesToPlot = addresses__future.result()[:4] if len(self.plotAddresses) == 0 else self.plotAddresses
         self.logger.log("Plotting for following addresses: " + str(addressesToPlot))
             
         barAndIvvAndTime__future = executor.submit(self.prepareBarAndIvvAndTime, addressesToPlot)
         
         if self.plots["bar_ivv"]:
-            plotted = self.plotBar_ivv(barAndIvvAndTime__future.result())
+            plotted = self.plotBarAndIvv(barAndIvvAndTime__future.result())
             
         if self.plots["filtered"]:
-            plotted = self.plotBar_ivv(barAndIvvAndTime__future.result())
+            data = barAndIvvAndTime__future.result()
+            self.prepareMedianFilter(data)
+            plotted = self.plotFilteredBarAndIvv(data)
 
         if self.plots["interval"]:
             plotted = "interval"
@@ -136,8 +150,20 @@ class Engine:
                 
         return plotData
 
-    def applyMedianFilter(self, data: List[Dict[str, Union[str, List[POINT]]]]) -> List[Dict[str, Union[str, np.ndarray]]]:
-        pass
+    def prepareMedianFilter(self, data: List[Dict[str, Union[str, List[POINT]]]]) -> None:
+        self.logger.log("Filtering data with n set to: " + str(self.medianN))
+        executor = concurrent.futures.ThreadPoolExecutor()
+        filteredAddressData__futures = [executor.submit(
+            self.__applyMedianFilter, addressData) for addressData in data]
+
+        for completedThread in concurrent.futures.as_completed(filteredAddressData__futures):
+            try:
+                completedThread.result()
+            except Exception as esc:
+                type, value, traceback = sys.exc_info()
+                self.logger.warning(
+                    "Error occurred while filtering data for addresses\n" + str(type) + "::" + str(value))
+                
 
     def plotDataPointOccurrences(self, occurrences: List[Union[str, int]]) -> bool:
         self.logger.info("Plotting occurrence on addresses")
@@ -151,32 +177,11 @@ class Engine:
         
         return True
     
-    def plotBar_ivv(self, plotData: List[Dict[str, Union[str, List[POINT]]]]) -> bool:
+    def plotBarAndIvv(self, plotData: List[Dict[str, Union[str, List[POINT]]]]) -> bool:
         self.logger.info("Plotting bar and ivv on time")
         
-        if len(plotData) == 1:
-            address = plotData[0]["address"]
-            time = list(map(lambda el: el/60, [point.time for point in plotData[0]["points"]]))
-            bar = [point.bar for point in plotData[0]["points"]]
-            ivv = [point.ivv for point in plotData[0]["points"]]
-
-            plt.subplots(num="MODE-S @ BAR & IVV")
-            plt.plot(time, bar, marker='.', color='b', linestyle='-', ms=1, label="BAR")
-            plt.plot(time, ivv, marker='.', color='r', linestyle='-', ms=1, label="IVV")
-            plt.grid()
-            
-            plt.xlabel("min")
-            plt.ylabel("v ft/min")
-            plt.title("ivv & bar for address " + str(address) + " (" + str(len(plotData[0]["points"]))+ " points)")
-            plt.legend(loc="upper right")
-            
-            plt.show()
-            return True
-        
-        height = int(math.sqrt(len(plotData))) % 5
-        if height == 0: height = 1
-        width = int(len(plotData) / height) % 5
-        if width == 0: width = 1
+        nCol = int(round((len(plotData)/4) * 16/9))
+        nRow = int(round(len(plotData) / nCol))
         
         plt.subplots(num="MODE-S @ BAR & IVV")
         for index in range(len(plotData)):
@@ -185,7 +190,7 @@ class Engine:
             bar = [point.bar for point in plotData[index]["points"]]
             ivv = [point.ivv for point in plotData[index]["points"]]
             
-            plt.subplot(width, height, index + 1)
+            plt.subplot(nRow, nCol, index + 1)
             plt.subplots_adjust(wspace=0.5, hspace=0.5)
             plt.plot(time, bar, marker=',', color='b', linestyle='-', ms=0.25, label="BAR")
             plt.plot(time, ivv, marker=',', color='r', linestyle='-', ms=0.25, label="IVV")
@@ -201,3 +206,48 @@ class Engine:
         plt.show()
         
         return True
+        
+
+    def plotFilteredBarAndIvv(self, plotData: List[Dict[str, Union[str, List[POINT]]]]) -> bool:
+        self.logger.info("Plotting filtered bar and ivv on time")
+        
+        nCol = len(plotData)
+        nRow = 2
+        if nRow == 0: nRow = 1
+        
+        plt.subplots(num="MODE-S @ Filtered BAR & IVV")
+
+        for index in range(len(plotData)):
+            address = plotData[index]["address"]
+            time = list(map(lambda el: el/60, [point.time for point in plotData[index]["points"]]))
+            bar = [point.bar for point in plotData[index]["points"]]
+            ivv = [point.ivv for point in plotData[index]["points"]]
+            
+            filteredBar = [point.bar for point in plotData[index]["filteredPoints"]]
+            filteredIvv = [point.ivv for point in plotData[index]["filteredPoints"]]
+            
+            plt.subplot(nRow, nCol, index + 1)
+            plt.subplots_adjust(wspace=0.5, hspace=0.5)
+            plt.plot(time, bar, marker=',', color='r', linestyle='-', ms=0.25, label="Raw BAR")
+            plt.plot(time, filteredBar, marker=',', color='#4287f5', linestyle='-', ms=0.25, label="Filtered BAR")
+            plt.grid()
+            plt.title("BAR :: Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
+            plt.xlabel("min")
+            plt.ylabel("v ft/min")
+            plt.legend(loc="upper right")
+
+            plt.subplot(nRow, nCol, index + 1 + nCol)
+            plt.subplots_adjust(wspace=0.5, hspace=0.5)
+            plt.plot(time, ivv, marker=',', color='r', linestyle='-', ms=0.25, label="Raw IVV")
+            plt.plot(time, filteredIvv, marker=',', color='#3ccf9b', linestyle='-', ms=0.25, label="Filtered IVV")
+            plt.grid()
+            plt.title("IVV :: Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
+            plt.xlabel("min")
+            plt.ylabel("v ft/min")
+            plt.legend(loc="upper right")
+            
+        plt.suptitle("IVV & BAR, Raw and Filtered with n = " + str(self.medianN) + " for addresses", fontsize=20)
+        plt.show()
+        
+        return True
+        

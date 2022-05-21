@@ -48,6 +48,14 @@ except:
     print('Error : matplotlib must be installed!')
     not_installed = not_installed + 'matplotlib '
 
+# matplotlib [3.5.2]
+try:
+    import scipy
+    print('scipy is found')
+except:
+    print('Error : scipy must be installed!')
+    not_installed = not_installed + 'scipy '
+
 if not_installed != '':
     print('########################')
     print('####### WARNING ########')

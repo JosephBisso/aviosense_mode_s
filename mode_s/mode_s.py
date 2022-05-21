@@ -50,7 +50,7 @@ def init_argparse():
     parser.add_argument("-dl", "--duration-limit",
                         help="The desired flight duration limit in seconds for the analysis. (default = None)", default=None)
     parser.add_argument("-n", "--median-n",
-                        help="The desired n for the median filtering. (default: n=3)", default=3)
+                        help="The desired n for the median filtering. MUST BE ODD. (default: n=3)", default=1)
     parser.add_argument("-p", "--plots", nargs='*',
                         help="The desired plots. POSSIBLE VALUES: occurrence, bar_ivv, filtered, interval", default=[])
     parser.add_argument("-pa", "--plot-addresses", nargs='*',
