@@ -1,5 +1,4 @@
 
-from cProfile import label
 import concurrent.futures
 import sys
 from typing import List, Dict, NamedTuple, Union
@@ -8,12 +7,11 @@ from collections import Counter, namedtuple
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 
 from logger import Logger
 
 class POINT(NamedTuple):
-    time: float
+    time: float # in Seconds
     bar: float
     ivv: float
     
@@ -21,11 +19,12 @@ class ENGINE_CONSTANTS:
     PLOTS = ["occurrence", "bar_ivv", "filtered", "interval"]
     
 class Engine:
-    def __init__(self, logger: Logger, plots: List[str] = [], plotAddresses: List[str] = [], medianN: int = 3):
+    def __init__(self, logger: Logger, plots: List[str] = [], plotAddresses: List[str] = [], medianN: int = 3, durationLimit:int = None):
         self.logger = logger
         self.plots: Dict[str, bool] = self.__activatePlot(plots)
         self.plotAddresses = [int(address) for address in plotAddresses]
         self.medianN = medianN
+        self.durationLimit = float(durationLimit) if durationLimit else None
         
     def __activatePlot(self, plots:List[str]):
         plotsInsensitive = [plot.lower() for plot in plots]
@@ -62,18 +61,30 @@ class Engine:
             ivvs.append(entry["ivv"])
             times.append(entry["timestamp"])
 
+        if not alreadyFoundAddress : self.logger.critical("Could not find address " + str(address) + ". May be a Typo?", NameError)
+
         startTime = min(times)
         addressData["points"] = [POINT((times[i] - startTime)*10**-9, bars[i], ivvs[i]) for i in range(len(times))]
         addressData["points"].sort(key=lambda el: el.time)
+        
+        if self.durationLimit:  
+            startIndexForOverDuration = None
+            for index, point in enumerate(addressData["points"]):
+                if point.time < self.durationLimit: continue
+                startIndexForOverDuration = index
+                break 
+            if startIndexForOverDuration:
+                self.logger.log("Filtering data for address " + str(address)+ " with max flight duration time = " + str(self.durationLimit))
+                del(addressData["points"][startIndexForOverDuration: len(addressData["points"])])
 
-        if not alreadyFoundAddress : self.logger.warning("Could not find address " + str(address) + ". May be a Typo?")
-        else: self.logger.debug("Address " + str(address) + ":: Plotting " + str(len(addressData["points"])) + " points.")
+        
+        self.logger.debug("Address " + str(address) + ":: Plotting " + str(len(addressData["points"])) + " points.")
         return addressData
         
     def setDataSet(self, dataset: List[Dict[str, Union[str, int]]]):
         self.data = sorted(dataset, key=lambda el: el["address"])
         
-        if len(self.plots) < 1 : return
+        if not any(self.plots.values()) : return
         
         executor = concurrent.futures.ThreadPoolExecutor()
         plotted = False
@@ -182,7 +193,7 @@ class Engine:
 
             plt.xlabel("min")
             plt.ylabel("v ft/min")
-            plt.legend()
+            plt.legend(loc="upper right")
             plt.title("Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
                         
 

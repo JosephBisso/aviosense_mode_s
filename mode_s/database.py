@@ -1,4 +1,3 @@
-from re import L
 from PySide6 import QtSql
 from PySide6.QtCore import QDateTime
 
@@ -100,6 +99,8 @@ class Database:
 
             allResults.append(entry)
 
+        self.logger.debug(str(len(allResults)) + " entries for query " + str(query.lastQuery()))
+        
         query.finish()
         return allResults
     
@@ -240,8 +241,14 @@ class Database:
                 self.logger.warning("Error occurred while getting attributes " + str(attributes) + "\nERROR: " + str(esc))
             else:
                 allResults.extend(self.__getAll(query, attributes))
-        
+                
+        try:
+            limit = options["limit"]
+        except KeyError:
+            limit = self.limit
+                
         self.logger.info("Query successfully excecuted. Attributes were: " + str(attributes))
+        if len(allResults) < int(limit): self.logger.warning("Query results lower than expected (" + str(len(allResults)) + " < " + str(limit) + "). Query looked for: " + str(attributes))
         return allResults
     
     def actualizeData(self) -> bool:
@@ -261,6 +268,7 @@ class Database:
                 for completedTask in concurrent.futures.as_completed([latAndlon__future, barAndivv__future]):
                     try:
                         halfResult = completedTask.result()
+                        self.logger.debug("actualizeData :: half result length: " + str(len(halfResult)))
                     except Exception as esc:
                         self.logger.warning(
                             "Error occurred while getting results \nERROR: " + str(esc))

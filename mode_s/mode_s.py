@@ -46,7 +46,9 @@ def init_argparse():
     parser.add_argument("-ID", "--id-maximal",
                         help="The desired maximal id. If not set, all available ids are evaluated")
     parser.add_argument("-l", "--limit",
-                        help="The desired limit for the sql commmands. (default = 50000)", default=50000)
+                        help="The desired limit for the mysql commmands. (default = 50000)", default=50000)
+    parser.add_argument("-dl", "--duration-limit",
+                        help="The desired flight duration limit in seconds for the analysis. (default = None)", default=None)
     parser.add_argument("-n", "--median-n",
                         help="The desired n for the median filtering. (default: n=3)", default=3)
     parser.add_argument("-p", "--plots", nargs='*',
@@ -83,8 +85,9 @@ if __name__ == "__main__":
     logger.debug(args)
     db = Database(logger)
     
-    modeSEngine = ModeSEngine.Engine(logger=logger, plots=args.plots, plotAddresses=args.plot_addresses, medianN=args.median_n)
-        
+    modeSEngine = ModeSEngine.Engine(
+        logger=logger, plots=args.plots, plotAddresses=args.plot_addresses, medianN=args.median_n, durationLimit=args.duration_limit)
+
     if not args.terminal:
         engine = QQmlApplicationEngine()
         engine.load(QUrl("qrc://qml/main.qml"))
