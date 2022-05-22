@@ -15,7 +15,9 @@ import qml.qrc_qml
 
 from logger import Logger
 from database import Database
+from constants import ENGINE_CONSTANTS
 import engine as ModeSEngine
+
 
 
 # Initialize argparse
@@ -52,7 +54,7 @@ def init_argparse():
     parser.add_argument("-n", "--median-n",
                         help="The desired n for the median filtering. MUST BE ODD. (default: n=3)", default=1)
     parser.add_argument("-p", "--plots", nargs='*',
-                        help="The desired plots. POSSIBLE VALUES: occurrence, bar_ivv, filtered, interval", default=[])
+                        help="The desired plots. POSSIBLE VALUES: " + str(ENGINE_CONSTANTS.PLOTS), default=[])
     parser.add_argument("-pa", "--plot-addresses", nargs='*',
                         help="The addresses of the desired plots.", default=[])
 

@@ -5,25 +5,7 @@ import concurrent.futures
 from typing import List, Dict, Union
 
 from logger import Logger
-
-class DB_CONSTANTS:
-    VALID_DB_COLUMNS = ["id", "timestamp", "frame_hex_chars", "address", "downlink_format", "bds", "on_ground", "adsb_version", "altitude", "altitude_is_barometric", "nuc_p", "latitude", "longitude", "nuc_r", "true_track", "groundspeed", "vertical_rate", "gnss_height_diff_from_baro_alt", "identification",
-                        "category", "bds17_common_usage_gicb_capability_report", "bds50_roll_angle", "bds50_true_track_angle", "bds50_ground_speed", "bds50_track_angle_rate", "bds50_true_airspeed", "bds60_magnetic_heading", "bds60_indicated_airspeed", "bds60_mach", "bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"]
-
-    USED_COLUMNS = ["id", "identification", "address", "timestamp",
-                    "bds", "altitude", "latitude", "longitude",  "bar", "ivv"]
-
-    HOSTNAME = "airdata.skysquitter.com"
-    DATABASE_NAME = "db_airdata"
-    USER_NAME = "tubs"
-    PASSWORD = "ue73f5dn"
-    ROW_COUNT = 0
-
-    CONNECTIONS_TOTAL = 0
-    
-    MAX_ROW_BEFORE_LONG_DURATION = 100000
-    MIN_NUMBER_THREADS = 20
-    
+from constants import DB_CONSTANTS
 
 class Database:
     def __init__(self, logger: Logger):        
@@ -56,6 +38,8 @@ class Database:
         while q.next():
             DB_CONSTANTS.ROW_COUNT = q.value(0)   
         q.finish()
+        if DB_CONSTANTS.ROW_COUNT == 0:
+            self.logger.critical("Row count of Table tbl_mode_s should not be 0 !", AssertionError)
         self.logger.info("Row Count for table tbl_mode_s: " + str(DB_CONSTANTS.ROW_COUNT))
 
     def __query(self, query: str) -> QtSql.QSqlQuery:

@@ -4,24 +4,27 @@ import sys
 from typing import List, Dict, NamedTuple, Union
 from collections import Counter, namedtuple
 
-import math
+import statistics
 import numpy as np
 from scipy.signal import medfilt
 import matplotlib.pyplot as plt
 
 from logger import Logger
+from constants import ENGINE_CONSTANTS
 
-class POINT(NamedTuple):
+class DATA(NamedTuple):
     time: float # in Seconds
     bar: float
     ivv: float
     
 class WINDOW_POINT(NamedTuple):
     window: float 
-    points: int
-    
-class ENGINE_CONSTANTS:
-    PLOTS = ["occurrence", "bar_ivv", "filtered", "interval"]
+    point: float
+
+class WINDOW_DATA(NamedTuple):
+    window: float 
+    bar: float
+    ivv: float
     
 class Engine:
     def __init__(self, logger: Logger, plots: List[str] = [], plotAddresses: List[str] = [], medianN: int = 1, durationLimit:int = None):
@@ -43,7 +46,7 @@ class Engine:
         self.logger.log("Engine plot status : " + str(plots))
         return plots
          
-    def __getDataForAddress(self, address: int) -> Dict[str, Union[str, List[POINT]]]:
+    def __getDataForAddress(self, address: int) -> Dict[str, Union[str, List[DATA]]]:
         addressData: Dict[str, Union[str, List[int]]] = {
             "address": address,
             "points": []
@@ -69,7 +72,7 @@ class Engine:
         if not alreadyFoundAddress : self.logger.critical("Could not find address " + str(address) + ". May be a Typo?", NameError)
 
         startTime = min(times)
-        addressData["points"] = [POINT((times[i] - startTime)*10**-9, bars[i], ivvs[i]) for i in range(len(times))]
+        addressData["points"] = [DATA((times[i] - startTime)*10**-9, bars[i], ivvs[i]) for i in range(len(times))]
         addressData["points"].sort(key=lambda el: el.time)
         
         if self.durationLimit:  
@@ -86,7 +89,7 @@ class Engine:
         self.logger.debug("Address " + str(address) + ":: Plotting " + str(len(addressData["points"])) + " points.")
         return addressData
 
-    def __applyMedianFilter(self, addressData: Dict[str, Union[str, List[POINT]]]) -> None:
+    def __applyMedianFilter(self, addressData: Dict[str, Union[str, List[DATA]]]) -> None:
         bars = [point.bar for point in addressData["points"]]
         ivvs = [point.ivv for point in addressData["points"]]
         times = [point.time for point in addressData["points"]]
@@ -95,13 +98,13 @@ class Engine:
         filteredIvvs: np.ndarray = medfilt(ivvs, self.medianN)
 
         addressData["filteredPoints"] = [
-            POINT(times[i], filteredBars[i], filteredIvvs[i]) for i in range(len(filteredBars))]
+            DATA(times[i], filteredBars[i], filteredIvvs[i]) for i in range(len(filteredBars))]
 
-    def __getSlidingIntervalForAddress(self, addressData: Dict[str, Union[str, List[POINT]]]) -> Dict[str, Union[str, List[WINDOW_POINT]]]:
+    def __getSlidingIntervalForAddress(self, addressData: Dict[str, Union[str, List[DATA]]]) -> Dict[str, Union[str, List[WINDOW_POINT]]]:
         times = [point.time for point in addressData["points"]]
         slidingWindows = [duration * 60 for duration in range(int(max(times) / 60))]
         
-        allData:Dict[str, Union[str, List[WINDOW_POINT]]]  = {"address": addressData["address"], "points":[]}
+        slidingIntervals:Dict[str, Union[str, List[WINDOW_POINT]]]  = {"address": addressData["address"], "points":[]}
         actualIndex = 0
         for windowIndex in range(len(slidingWindows)):
             dataPoints = 0
@@ -111,9 +114,9 @@ class Engine:
                     break
                 dataPoints += 1
             
-            allData["points"].append(WINDOW_POINT(slidingWindows[windowIndex]/60, dataPoints))
+            slidingIntervals["points"].append(WINDOW_POINT(slidingWindows[windowIndex]/60, dataPoints))
         
-        return allData
+        return slidingIntervals
 
     def setDataSet(self, dataset: List[Dict[str, Union[str, int]]]):
         self.data = sorted(dataset, key=lambda el: el["address"])
@@ -134,19 +137,26 @@ class Engine:
             
         barAndIvvAndTime__future = executor.submit(self.prepareBarAndIvvAndTime, addressesToPlot)
         data = barAndIvvAndTime__future.result()
+        plotted = []
         if self.plots["bar_ivv"]:
-            plotted = self.plotBarAndIvv(data)
+            plotted.append(self.plotBarAndIvv(data))
             
         if self.plots["filtered"]:
             self.prepareMedianFilter(data)
-            plotted = self.plotFilteredBarAndIvv(data)
+            plotted.append(self.plotFilteredBarAndIvv(data))
 
         if self.plots["interval"]:
             slidingIntervals = self.prepareSlidingInterval(data)
-            plotted = self.plotSlidingInterval(slidingIntervals)
+            plotted.append(self.plotSlidingInterval(slidingIntervals))
         
-        if plotted: self.logger.info("Successfully plotted")
-        else: self.logger.warning("Nothing to plot")
+        if self.plots["std"]:
+            if not self.plots["filtered"]:
+                self.prepareMedianFilter(data)
+            slidingIntervalForStd = self.prepareSlidingIntervalForStd(data) 
+            plotted.append(self.plotSlidingIntervalForStd(slidingIntervalForStd))
+
+        if all(plotted): self.logger.info("Successfully plotted")
+        else: self.logger.warning("Error while plotting")
         
     def prepareOccurrencesForAddresses(self, returnValue="datapoint") -> Union[List[Union[int, str]], List[int]]:
         dataPointsCounter = Counter([entry["address"] for entry in self.data])
@@ -156,7 +166,7 @@ class Engine:
         dataPoint.sort(reverse=True)
         return dataPoint
 
-    def prepareBarAndIvvAndTime(self, addresses:List[int] = []) -> List[Dict[str, Union[str, List[POINT]]]]:
+    def prepareBarAndIvvAndTime(self, addresses:List[int] = []) -> List[Dict[str, Union[str, List[DATA]]]]:
         plotData = []
         executor = concurrent.futures.ThreadPoolExecutor()
         addressData__futures = [executor.submit(self.__getDataForAddress, address) for address in addresses]
@@ -173,7 +183,7 @@ class Engine:
                 
         return plotData
 
-    def prepareMedianFilter(self, data: List[Dict[str, Union[str, List[POINT]]]]) -> None:
+    def prepareMedianFilter(self, data: List[Dict[str, Union[str, List[DATA]]]]) -> None:
         self.logger.log("Filtering data with n set to: " + str(self.medianN))
         executor = concurrent.futures.ThreadPoolExecutor()
         filteredAddressData__futures = [executor.submit(
@@ -187,7 +197,7 @@ class Engine:
                 self.logger.warning(
                     "Error occurred while filtering data for addresses\n" + str(type) + "::" + str(value))
                 
-    def prepareSlidingInterval(self, data: List[Dict[str, Union[str, List[POINT]]]]) -> None:
+    def prepareSlidingInterval(self, data: List[Dict[str, Union[str, List[DATA]]]]) -> List[Dict[str, Union[str, List[WINDOW_POINT]]]]:
         slidingIntervals = []
         executor = concurrent.futures.ThreadPoolExecutor()
         slidingInterval__futures = [executor.submit(
@@ -199,12 +209,57 @@ class Engine:
             except Exception as esc:
                 type, value, traceback = sys.exc_info()
                 self.logger.warning(
-                    "Error occurred while filtering data for addresses\n" + str(type) + "::" + str(value))
+                    "Error occurred while preparing sliding intervals for addresses\n" + str(type) + "::" + str(value))
             else:
                 slidingIntervals.append(slidingIntervalForAddress)
                 
         return slidingIntervals
     
+    def prepareSlidingIntervalForStd(self, data: List[Dict[str, Union[str, List[DATA]]]]) -> List[Dict[str, Union[str, List[WINDOW_DATA]]]]:
+        slidingIntervalForStd = []
+        executor = concurrent.futures.ThreadPoolExecutor()
+        slidingInterval__futures = [executor.submit(
+            self.__getSlidingIntervalForStdPerAddress, addressData) for addressData in data]
+
+        for completedThread in concurrent.futures.as_completed(slidingInterval__futures):
+            try:
+                slidingIntervalForStdPerAddress = completedThread.result()
+            except Exception as esc:
+                type, value, traceback = sys.exc_info()
+                self.logger.warning(
+                    "Error occurred while preparing sliding interval for std per addresses\n" + str(type) + "::" + str(value))
+            else:
+                slidingIntervalForStd.append(slidingIntervalForStdPerAddress)
+
+        return slidingIntervalForStd
+
+    def __getSlidingIntervalForStdPerAddress(self, addressData: Dict[str, Union[str, List[DATA]]]) -> Dict[str, Union[str, List[WINDOW_DATA]]]:
+        times = [point.time for point in addressData["points"]]
+        slidingWindows = [duration * 60 for duration in range(int(max(times) / 60))]
+        
+        slidingIntervalsForStd: Dict[str, Union[str, List[WINDOW_POINT]]] = {
+            "address": addressData["address"], 
+            "points": [], 
+        }
+        
+        actualIndex = 0
+        for windowIndex in range(len(slidingWindows)):
+            bars = [0, 0]
+            ivvs = [0, 0]
+            for dataIndex in range(actualIndex, len(addressData["filteredPoints"])):
+                if addressData["filteredPoints"][dataIndex].time > slidingWindows[windowIndex]:
+                    actualIndex = dataIndex
+                    break
+                bars.append(addressData["filteredPoints"][dataIndex].bar)
+                ivvs.append(addressData["filteredPoints"][dataIndex].ivv)
+            
+            bar_std = statistics.stdev(bars)
+            ivv_std = statistics.stdev(ivvs)
+
+            slidingIntervalsForStd["points"].append(WINDOW_DATA(slidingWindows[windowIndex]/60, bar_std, ivv_std))
+        
+        return slidingIntervalsForStd
+        
     def plotDataPointOccurrences(self, occurrences: List[Union[str, int]]) -> bool:
         self.logger.info("Plotting occurrence on addresses")
         
@@ -217,7 +272,7 @@ class Engine:
         
         return True
     
-    def plotBarAndIvv(self, plotData: List[Dict[str, Union[str, List[POINT]]]]) -> bool:
+    def plotBarAndIvv(self, plotData: List[Dict[str, Union[str, List[DATA]]]]) -> bool:
         self.logger.info("Plotting bar and ivv on time")
         
         nCol = int(round((len(plotData)/4) * 16/9))
@@ -241,19 +296,17 @@ class Engine:
             plt.legend(loc="upper right")
             plt.title("Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
                         
-        plt.tight_layout()
         plt.suptitle("IVV & BAR for addresses", fontsize=20)
         plt.show()
         
         return True
         
 
-    def plotFilteredBarAndIvv(self, plotData: List[Dict[str, Union[str, List[POINT]]]]) -> bool:
+    def plotFilteredBarAndIvv(self, plotData: List[Dict[str, Union[str, List[DATA]]]]) -> bool:
         self.logger.info("Plotting filtered bar and ivv on time")
         
         nCol = len(plotData)
         nRow = 2
-        if nRow == 0: nRow = 1
         
         plt.subplots(num="MODE-S @ Filtered BAR & IVV")
 
@@ -286,7 +339,6 @@ class Engine:
             plt.ylabel("v ft/min")
             plt.legend(loc="upper right")
             
-        plt.tight_layout()
         plt.suptitle("IVV & BAR, Raw and Filtered with n = " + str(self.medianN) + " for addresses", fontsize=20)
         plt.show()
         
@@ -302,7 +354,7 @@ class Engine:
         for index in range(len(plotData)):
             address = plotData[index]["address"]
             windows = [point.window for point in plotData[index]["points"]]
-            points = [point.points for point in plotData[index]["points"]]
+            points = [point.point for point in plotData[index]["points"]]
 
             plt.subplot(nRow, nCol, index + 1)
             plt.subplots_adjust(wspace=0.5, hspace=0.5)
@@ -313,9 +365,55 @@ class Engine:
             plt.ylabel("number of points [1]")
             plt.title("Address " + str(address))
                         
-        plt.tight_layout()
         plt.autoscale(enable=True, axis="x", tight=True)
         plt.suptitle("Sliding Intervals for addresses", fontsize=20)
+        plt.show()
+        
+        return True
+
+    def plotSlidingIntervalForStd(self, plotData: List[Dict[str, Union[str, List[WINDOW_DATA]]]]) -> bool:
+        self.logger.info("Plotting standard deviations")
+        
+        nCol = len(plotData)
+        nRow = 3
+        
+        plt.subplots(num="MODE-S @ STD BAR & IVV")
+
+        for index in range(len(plotData)):
+            address = plotData[index]["address"]
+            windows = [point.window for point in plotData[index]["points"]]
+            barsStd = [point.bar for point in plotData[index]["points"]]
+            ivvsStd = [point.ivv for point in plotData[index]["points"]]
+            diffStd = [barsStd[i] - ivvsStd[i] for i in range(len(barsStd))]
+
+            plt.subplot(nRow, nCol, index + 1)
+            plt.subplots_adjust(wspace=0.5, hspace=0.5)
+            plt.stem(windows, barsStd, marker=',', color='#4287f5', linestyle='-', ms=0.25, label="Std BAR")
+            plt.grid()
+            plt.title("BAR :: Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
+            plt.xlabel("min")
+            plt.ylabel("v ft/min")
+            plt.legend(loc="upper right")
+
+            plt.subplot(nRow, nCol, index + 1 + nCol)
+            plt.subplots_adjust(wspace=0.5, hspace=0.5)
+            plt.plot(windows, ivvsStd, marker=',', color='#3ccf9b', linestyle='-', ms=0.25, label="Std IVV")
+            plt.grid()
+            plt.title("IVV :: Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
+            plt.xlabel("min")
+            plt.ylabel("v ft/min")
+            plt.legend(loc="upper right")
+            
+            plt.subplot(nRow, nCol, index + 1 + 2*nCol)
+            plt.subplots_adjust(wspace=0.5, hspace=0.5)
+            plt.plot(windows, diffStd, marker=',', color='#a442f5', linestyle='-', ms=0.25, label="Diff Std")
+            plt.grid()
+            plt.title("DIFF :: Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
+            plt.xlabel("min")
+            plt.ylabel("v ft/min")
+            plt.legend(loc="upper right")
+            
+        plt.suptitle("Standard deviation of IVV & BAR. Data filtered with n = " + str(self.medianN) + " for addresses", fontsize=20)
         plt.show()
         
         return True

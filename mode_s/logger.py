@@ -45,7 +45,7 @@ class Logger:
     def info(self, msg):
         time = datetime.now()
         with open(self.outputFile, "a") as output:
-            output.write(str(datetime.now()) + ":: INFO::\t" + str(msg) + "\n")
+            output.write(str(datetime.now()) + ":: INFO\t::\t" + str(msg) + "\n")
 
         if self.terminal:
             print(colors.CYAN + "INFO\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + str(msg) + colors.ENDC)
@@ -53,7 +53,7 @@ class Logger:
     def warning(self, msg):
         time = datetime.now()
         with open(self.outputFile, "a") as output:
-            output.write(str(datetime.now()) + ":: WARNING ::\t" + str(msg) + "\n")
+            output.write(str(datetime.now()) + ":: WARNING::\t" + str(msg) + "\n")
 
         if self.terminal:
             print(colors.YELLOW + "WARNING\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + str(msg) + colors.ENDC)
