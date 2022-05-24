@@ -1,4 +1,5 @@
 # This Python file uses the following encoding: utf-8
+from asyncio import constants
 import os
 import sys
 import argparse
@@ -15,7 +16,7 @@ import qml.qrc_qml
 
 from logger import Logger
 from database import Database
-from constants import ENGINE_CONSTANTS
+from constants import *
 import engine as ModeSEngine
 
 
@@ -33,6 +34,8 @@ def init_argparse():
                         action="store_true", help="Whether the app should run only on the terminal", default=False)
     parser.add_argument("-d", "--debug",
                         action="store_true", help="Whether the app should run only on debug mode", default=False)
+    parser.add_argument("--local",
+                        action="store_true", help="Whether the app should should connect to local database", default=False)
     parser.add_argument("-la", "--latitude-minimal", metavar="latitude_minimal",
                         help="The desired minimal latitude. If not set, all available latitudes are evaluated")
     parser.add_argument("-LA", "--latitude-maximal",
@@ -79,6 +82,13 @@ if __name__ == "__main__":
     args = init_argparse().parse_args()
     if args.interactive: args.terminal = True
     
+    if args.local:
+        DB_CONSTANTS.HOSTNAME = False
+        DB_CONSTANTS.DATABASE_NAME = "local_mode_s"
+        DB_CONSTANTS.USER_NAME = "root"
+        DB_CONSTANTS.PASSWORD = "BisbiDb2022?"
+
+    
     # app = QGuiApplication(sys.argv) if not args.terminal else QCoreApplication(sys.argv)
     app = QApplication(sys.argv)
     
@@ -88,7 +98,8 @@ if __name__ == "__main__":
     db = Database(logger)
     
     modeSEngine = ModeSEngine.Engine(
-        logger=logger, plots=args.plots, plotAddresses=args.plot_addresses, medianN=args.median_n, durationLimit=args.duration_limit)
+        logger=logger, plots=args.plots, plotAddresses=args.plot_addresses, medianN=args.median_n, durationLimit=args.duration_limit
+    )
 
     if not args.terminal:
         engine = QQmlApplicationEngine()

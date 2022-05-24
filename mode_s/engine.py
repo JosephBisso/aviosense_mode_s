@@ -155,7 +155,7 @@ class Engine:
             slidingIntervalForStd = self.prepareSlidingIntervalForStd(data) 
             plotted.append(self.plotSlidingIntervalForStd(slidingIntervalForStd))
 
-        if all(plotted): self.logger.info("Successfully plotted")
+        if all(plotted): self.logger.success("Successfully plotted")
         else: self.logger.warning("Error while plotting")
         
     def prepareOccurrencesForAddresses(self, returnValue="datapoint") -> Union[List[Union[int, str]], List[int]]:
@@ -375,7 +375,7 @@ class Engine:
         self.logger.info("Plotting standard deviations")
         
         nCol = len(plotData)
-        nRow = 3
+        nRow = 2
         
         plt.subplots(num="MODE-S @ STD BAR & IVV")
 
@@ -386,34 +386,30 @@ class Engine:
             ivvsStd = [point.ivv for point in plotData[index]["points"]]
             diffStd = [barsStd[i] - ivvsStd[i] for i in range(len(barsStd))]
 
-            plt.subplot(nRow, nCol, index + 1)
-            plt.subplots_adjust(wspace=0.5, hspace=0.5)
-            plt.stem(windows, barsStd, marker=',', color='#4287f5', linestyle='-', ms=0.25, label="Std BAR")
-            plt.grid()
-            plt.title("BAR :: Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
-            plt.xlabel("min")
-            plt.ylabel("v ft/min")
-            plt.legend(loc="upper right")
+            barArray = np.absolute(np.array(barsStd))
+            ivvArray = np.absolute(np.array(ivvsStd))
+            threshold = np.average(barArray + 1.2 * ivvArray)
 
+            plt.subplot(nRow, nCol, index + 1)
+            plt.subplots_adjust(wspace=0.3, hspace=0.3)
+            plt.plot(windows, barsStd, marker='o', color='b', linestyle='-', ms=3, label="Std BAR")
+            plt.plot(windows, ivvsStd, marker='o', color='m', linestyle='-', ms=3, label="Std IVV")
+            plt.grid()
+            plt.legend(loc="upper right")
+            plt.title("BAR & IVV :: Address " + str(address))
+            plt.xlabel("min")
+            plt.ylabel("std v ft/min")
+            
             plt.subplot(nRow, nCol, index + 1 + nCol)
-            plt.subplots_adjust(wspace=0.5, hspace=0.5)
-            plt.plot(windows, ivvsStd, marker=',', color='#3ccf9b', linestyle='-', ms=0.25, label="Std IVV")
+            plt.subplots_adjust(wspace=0.3, hspace=0.3)
+            plt.stem(windows, diffStd, linefmt="g-", markerfmt="k.",basefmt="k-", label="Diff Std")
+            plt.plot([0, len(windows)-1], [threshold, threshold], color="#f20707", linestyle="--", label="Threshold")
             plt.grid()
-            plt.title("IVV :: Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
+            plt.title("DIFF :: Address " + str(address) + " (T ~ " + str(round(threshold)) + ")")
             plt.xlabel("min")
-            plt.ylabel("v ft/min")
-            plt.legend(loc="upper right")
+            plt.ylabel("delta std v ft/min")
             
-            plt.subplot(nRow, nCol, index + 1 + 2*nCol)
-            plt.subplots_adjust(wspace=0.5, hspace=0.5)
-            plt.plot(windows, diffStd, marker=',', color='#a442f5', linestyle='-', ms=0.25, label="Diff Std")
-            plt.grid()
-            plt.title("DIFF :: Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
-            plt.xlabel("min")
-            plt.ylabel("v ft/min")
-            plt.legend(loc="upper right")
-            
-        plt.suptitle("Standard deviation of IVV & BAR. Data filtered with n = " + str(self.medianN) + " for addresses", fontsize=20)
+        plt.suptitle("Standard deviation (Std) of IVV & BAR. Data filtered with n = " + str(self.medianN) + " for addresses", fontsize=20)
         plt.show()
         
         return True

@@ -17,7 +17,7 @@ class Database:
 
         executor = concurrent.futures.ThreadPoolExecutor()
         if db.open():
-            self.logger.info("Database accessible")
+            self.logger.success("Database accessible")
             db.close()
             rowCount__future = executor.submit(self.__getDBRowCount)
         else:
@@ -28,10 +28,10 @@ class Database:
         f.result()
         
     def __setUp(self, db: QtSql.QSqlDatabase):
-        db.setHostName(DB_CONSTANTS.HOSTNAME)
         db.setDatabaseName(DB_CONSTANTS.DATABASE_NAME)
         db.setUserName(DB_CONSTANTS.USER_NAME)
         db.setPassword(DB_CONSTANTS.PASSWORD)
+        if DB_CONSTANTS.HOSTNAME: db.setHostName(DB_CONSTANTS.HOSTNAME)
 
     def __getDBRowCount(self):
         q = self.__query("SELECT COUNT(*) FROM tbl_mode_s")
@@ -137,7 +137,8 @@ class Database:
             limit = self.limit
         
         dividing = int(limit) > DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION
-        numThread = max(int(int(limit) / DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION), DB_CONSTANTS.MIN_NUMBER_THREADS) if dividing else DB_CONSTANTS.MIN_NUMBER_THREADS
+        numThread = max(int(int(limit) / DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION), DB_CONSTANTS.MIN_NUMBER_THREADS_LONG_DURATION) if dividing else DB_CONSTANTS.MIN_NUMBER_THREADS
+        numThread = min(numThread, DB_CONSTANTS.MAX_NUMBER_THREADS_LONG_DURATION)
 
         limitPerThread = int(int(limit)/numThread)
         if limitPerThread == 0: 
@@ -231,8 +232,8 @@ class Database:
         except KeyError:
             limit = self.limit
                 
-        self.logger.info("Query successfully excecuted. Attributes were: " + str(attributes))
-        if len(allResults) < int(limit): self.logger.warning("Query results lower than expected (" + str(len(allResults)) + " < " + str(limit) + "). Query looked for: " + str(attributes))
+        if len(allResults) < int(limit): self.logger.warning("Query executed. Results lower than expected (" + str(len(allResults)) + " < " + str(limit) + "). Attributes were: " + str(attributes))
+        else: self.logger.success("Query successfully executed. Attributes were: " + str(attributes))
         return allResults
     
     def actualizeData(self) -> bool:
