@@ -12,7 +12,6 @@ from PySide6.QtWidgets import QApplication
 
 
 sys.path.append(os.getcwd())
-import qml.qrc_qml
 
 from logger import Logger
 from database import Database
@@ -82,6 +81,9 @@ if __name__ == "__main__":
     args = init_argparse().parse_args()
     if args.interactive: args.terminal = True
     
+    if not args.terminal:
+        import qml.qrc_qml
+        
     if args.local:
         DB_CONSTANTS.HOSTNAME = False
         DB_CONSTANTS.DATABASE_NAME = "local_mode_s"

@@ -48,7 +48,7 @@ except:
     print('Error : matplotlib must be installed!')
     not_installed = not_installed + 'matplotlib '
 
-# matplotlib [3.5.2]
+# scipy [1.7.3]
 try:
     import scipy
     print('scipy is found')
