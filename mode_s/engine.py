@@ -183,7 +183,7 @@ class Engine:
         if self.plots["bar_ivv"]:
             plotted.append(self.plotBarAndIvv(data))
             
-        if self.plots["filtered"]:
+        if self.plots["filtered"] and not self.plots["std"]:
             self.prepareMedianFilter(data)
             plotted.append(self.plotFilteredBarAndIvv(data))
 
@@ -191,11 +191,13 @@ class Engine:
             slidingIntervals = self.prepareSlidingInterval(data)
             plotted.append(self.plotSlidingInterval(slidingIntervals))
         
-        if self.plots["std"]:
-            if not self.plots["filtered"]:
-                self.prepareMedianFilter(data)
+        if self.plots["std"]: 
+            self.prepareMedianFilter(data)
             slidingIntervalForStd = self.prepareSlidingIntervalForStd(data) 
-            plotted.append(self.plotSlidingIntervalForStd(slidingIntervalForStd))
+            if self.plots["filtered"]: 
+                plotted.append(self.plotFilteredAndStd(filteredData=data, stdData=slidingIntervalForStd))
+            else:
+                plotted.append(self.plotSlidingIntervalForStd(slidingIntervalForStd))
 
         if all(plotted): self.logger.success("Successfully plotted")
         else: self.logger.warning("Error while plotting")
@@ -308,7 +310,7 @@ class Engine:
 
             plt.xlabel("min")
             plt.ylabel("v ft/min")
-            plt.legend(loc="upper right")
+            plt.legend()
             plt.title("Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
                         
         plt.suptitle("IVV & BAR for addresses", fontsize=20)
@@ -342,7 +344,7 @@ class Engine:
             plt.title("BAR :: Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
             plt.xlabel("min")
             plt.ylabel("v ft/min")
-            plt.legend(loc="upper right")
+            plt.legend()
 
             plt.subplot(nRow, nCol, index + 1 + nCol)
             plt.subplots_adjust(wspace=0.5, hspace=0.5)
@@ -352,7 +354,7 @@ class Engine:
             plt.title("IVV :: Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
             plt.xlabel("min")
             plt.ylabel("v ft/min")
-            plt.legend(loc="upper right")
+            plt.legend()
             
         plt.suptitle("IVV & BAR, Raw and Filtered with n = " + str(self.medianN) + " for addresses", fontsize=20)
         plt.show()
@@ -408,21 +410,78 @@ class Engine:
             plt.plot(windows, barsStd, marker='o', color='b', linestyle='-', ms=3, label="Std BAR")
             plt.plot(windows, ivvsStd, marker='o', color='m', linestyle='-', ms=3, label="Std IVV")
             plt.grid()
-            plt.legend(loc="upper right")
+            plt.legend()
             plt.title("BAR & IVV :: Address " + str(address))
             plt.xlabel("min")
             plt.ylabel("std v ft/min")
             
             plt.subplot(nRow, nCol, index + 1 + nCol)
             plt.subplots_adjust(wspace=0.3, hspace=0.3)
-            plt.stem(windows, diffStd, linefmt="g-", markerfmt="k.",basefmt="k-", label="Diff Std")
+            plt.stem(windows, diffStd, linefmt="g-", markerfmt="k.",basefmt="k-")
             plt.plot([0, len(windows)-1], [threshold, threshold], color="#f20707", linestyle="--", label="Threshold")
             plt.grid()
+            plt.legend()
             plt.title("DIFF :: Address " + str(address) + " (T ~ " + str(round(threshold)) + ")")
             plt.xlabel("min")
             plt.ylabel("delta std v ft/min")
             
         plt.suptitle("Standard deviation (Std) of IVV & BAR. Data filtered with n = " + str(self.medianN) + " for addresses", fontsize=20)
+        plt.show()
+        
+        return True
+
+    def plotFilteredAndStd(self, filteredData: List[Dict[str, Union[str, List[DATA]]]], stdData: List[Dict[str, Union[str, List[WINDOW_DATA]]]]) -> bool:
+        self.logger.info("Plotting filtered data and standard deviations")
+        
+        nCol = len(stdData)
+        nRow = 3
+        
+        plt.subplots(num="MODE-S @ FILTERED & STD -> BAR & IVV")
+
+        for index in range(len(stdData)):
+            address = stdData[index]["address"]
+            windows = [point.window for point in stdData[index]["points"]]
+            barsStd = [point.bar for point in stdData[index]["points"]]
+            ivvsStd = [point.ivv for point in stdData[index]["points"]]
+            diffStd = [barsStd[i] - ivvsStd[i] for i in range(len(barsStd))]
+
+            threshold = stdData[index]["threshold"]
+            
+            time = list(map(lambda el: el/60, [point.time for point in filteredData[index]["filteredPoints"]]))
+            filteredBar = [point.bar for point in filteredData[index]["filteredPoints"]]
+            filteredIvv = [point.ivv for point in filteredData[index]["filteredPoints"]]
+            
+            plt.subplot(nRow, nCol, index + 1)
+            plt.subplots_adjust(wspace=0.5, hspace=0.5)
+            plt.plot(time, filteredBar, marker=',', color='b', linestyle='-', ms=0.25, label="BAR")
+            plt.plot(time, filteredIvv, marker=',', color='m', linestyle='-', ms=0.25, label="IVV")
+            plt.grid()
+            plt.legend()
+            plt.xlabel("min")
+            plt.ylabel("v ft/min")
+            plt.title("Filtered :: Address " + str(address))
+
+            plt.subplot(nRow, nCol, index + 1 + nCol)
+            plt.subplots_adjust(wspace=0.5, hspace=0.5)
+            plt.plot(windows, barsStd, marker='o', color='b', linestyle='-', ms=3, label="BAR")
+            plt.plot(windows, ivvsStd, marker='o', color='m', linestyle='-', ms=3, label="IVV")
+            plt.grid()
+            plt.legend()
+            plt.title("STD :: Address " + str(address))
+            plt.xlabel("min")
+            plt.ylabel("std v ft/min")
+            
+            plt.subplot(nRow, nCol, index + 1 + 2*nCol)
+            plt.subplots_adjust(wspace=0.5, hspace=0.5)
+            plt.stem(windows, diffStd, linefmt="g-", markerfmt="k.",basefmt="k-")
+            plt.plot([0, len(windows)-1], [threshold, threshold], color="#f20707", linestyle="--", label="Threshold")
+            plt.grid()
+            plt.legend()
+            plt.title("DIFF :: Address " + str(address) + " (T ~ " + str(round(threshold)) + ")")
+            plt.xlabel("min")
+            plt.ylabel("delta std v ft/min")
+            
+        plt.suptitle("Filtered Data & Standard deviation (Std) of IVV & BAR. Filtered with n = " + str(self.medianN) + " for addresses", fontsize=20)
         plt.show()
         
         return True
