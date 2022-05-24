@@ -118,6 +118,48 @@ class Engine:
         
         return slidingIntervals
 
+    def __getSlidingIntervalForStdPerAddress(self, addressData: Dict[str, Union[str, List[DATA]]]) -> Dict[str, Union[str, List[WINDOW_DATA]]]:
+        times = [point.time for point in addressData["points"]]
+        slidingWindows = [duration *
+                          60 for duration in range(int(max(times) / 60))]
+
+        slidingIntervalsForStd: Dict[str, Union[str, List[WINDOW_POINT]]] = {
+            "address": addressData["address"],
+            "points": [],
+            "threshold": 0
+        }
+        
+        barStds = []
+        ivvStds = []
+
+        actualIndex = 0
+        for windowIndex in range(len(slidingWindows)):
+            bars = [0, 0]
+            ivvs = [0, 0]
+            for dataIndex in range(actualIndex, len(addressData["filteredPoints"])):
+                if addressData["filteredPoints"][dataIndex].time > slidingWindows[windowIndex]:
+                    actualIndex = dataIndex
+                    break
+                bars.append(addressData["filteredPoints"][dataIndex].bar)
+                ivvs.append(addressData["filteredPoints"][dataIndex].ivv)
+
+            barStd = statistics.stdev(bars)
+            ivvStd = statistics.stdev(ivvs)
+            
+            slidingIntervalsForStd["points"].append(WINDOW_DATA(
+                slidingWindows[windowIndex]/60, barStd, ivvStd))
+
+            barStds.append(barStd)
+            ivvStds.append(ivvStd)
+
+        arrayBarStds = np.array(barStds)
+        arrayIvvStds = np.array(ivvStds)
+        diffStds = arrayBarStds - arrayIvvStds
+        threshold = np.average(diffStds) + 1.2 * np.std(diffStds, ddof=1) 
+        slidingIntervalsForStd["threshold"] = threshold
+        
+        return slidingIntervalsForStd
+
     def setDataSet(self, dataset: List[Dict[str, Union[str, int]]]):
         self.data = sorted(dataset, key=lambda el: el["address"])
         
@@ -233,33 +275,6 @@ class Engine:
 
         return slidingIntervalForStd
 
-    def __getSlidingIntervalForStdPerAddress(self, addressData: Dict[str, Union[str, List[DATA]]]) -> Dict[str, Union[str, List[WINDOW_DATA]]]:
-        times = [point.time for point in addressData["points"]]
-        slidingWindows = [duration * 60 for duration in range(int(max(times) / 60))]
-        
-        slidingIntervalsForStd: Dict[str, Union[str, List[WINDOW_POINT]]] = {
-            "address": addressData["address"], 
-            "points": [], 
-        }
-        
-        actualIndex = 0
-        for windowIndex in range(len(slidingWindows)):
-            bars = [0, 0]
-            ivvs = [0, 0]
-            for dataIndex in range(actualIndex, len(addressData["filteredPoints"])):
-                if addressData["filteredPoints"][dataIndex].time > slidingWindows[windowIndex]:
-                    actualIndex = dataIndex
-                    break
-                bars.append(addressData["filteredPoints"][dataIndex].bar)
-                ivvs.append(addressData["filteredPoints"][dataIndex].ivv)
-            
-            bar_std = statistics.stdev(bars)
-            ivv_std = statistics.stdev(ivvs)
-
-            slidingIntervalsForStd["points"].append(WINDOW_DATA(slidingWindows[windowIndex]/60, bar_std, ivv_std))
-        
-        return slidingIntervalsForStd
-        
     def plotDataPointOccurrences(self, occurrences: List[Union[str, int]]) -> bool:
         self.logger.info("Plotting occurrence on addresses")
         
@@ -386,9 +401,7 @@ class Engine:
             ivvsStd = [point.ivv for point in plotData[index]["points"]]
             diffStd = [barsStd[i] - ivvsStd[i] for i in range(len(barsStd))]
 
-            barArray = np.absolute(np.array(barsStd))
-            ivvArray = np.absolute(np.array(ivvsStd))
-            threshold = np.average(barArray + 1.2 * ivvArray)
+            threshold = plotData[index]["threshold"]
 
             plt.subplot(nRow, nCol, index + 1)
             plt.subplots_adjust(wspace=0.3, hspace=0.3)
