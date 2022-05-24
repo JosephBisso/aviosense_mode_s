@@ -23,7 +23,7 @@ import engine as ModeSEngine
 # Initialize argparse
 def init_argparse():
     parser = argparse.ArgumentParser(
-        description="Framework for automatic Mode-S data tranfer and turbulence prediction."
+        description="Framework for automatic Mode-S data transfer and turbulence prediction."
     )    
     parser.add_argument("-t", "--terminal",
                         action="store_true", help="Whether the app should run only on the terminal", default=False)
@@ -50,7 +50,7 @@ def init_argparse():
     parser.add_argument("-ID", "--id-maximal",
                         help="The desired maximal id. If not set, all available ids are evaluated")
     parser.add_argument("-l", "--limit",
-                        help="The desired limit for the mysql commmands. (default = 50000)", default=50000)
+                        help="The desired limit for the mysql commands. (default = 50000)", default=50000)
     parser.add_argument("-dl", "--duration-limit",
                         help="The desired flight duration limit in seconds for the analysis. (default = None)", default=None)
     parser.add_argument("-n", "--median-n",
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     
     logger = Logger(args.terminal, args.verbose, args.debug)
-    logger.info("Framework for automatic Mode-S data tranfer and turbulence prediction.")
+    logger.info("Framework for automatic Mode-S data transfer and turbulence prediction.")
     logger.debug(args)
     db = Database(logger)
     

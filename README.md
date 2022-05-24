@@ -25,7 +25,7 @@ Processed data from many MODE-S receivers are available. These data comprise a l
 - [ ] Problem of the size of the database. So far, the data is stored in MySQL. 
 Research on more efficient storage of data in other database formats.
 
-- [ ] Problem of unevenly distributed timeseries ("unevenly distributed timeseries").  Research methods to ensure the quality of the analysis.
+- [ ] Problem of unevenly distributed time series ("unevenly distributed time series").  Research methods to ensure the quality of the analysis.
 
 - [ ] Matching with weather data (Prefer "AMDAR" data - availability to be checked).
 
@@ -35,7 +35,7 @@ Research on more efficient storage of data in other database formats.
 
 ## Get the code
 
-Get the source code with the following command:
+Get the source code with the following commands. First you will need [**git**](https://git-scm.com/download/win), [**python**](https://www.python.org/downloads/release/python-377/) and [**pip**](https://pip.pypa.io/en/stable/installation/) install to your pc:
 
 ```powershell
 git clone https://git.rz.tu-bs.de/j.bisso-bi-ela/ba_mode-s_analysis.git
@@ -43,10 +43,11 @@ cd ba_mode-s_analysis
 
 # Install the Dependencies and setup the app
 pip install -r .\requirements.txt
+pip install .
 ```
 ## Dependencies
 
-Following packaged are required to run the development version of the app. They are automatically installed during the previous installations processes:
+Following packaged are required to run the development version of the app. They are **automatically installed** during the previous installations processes:
 
 - PySide6==6.3.0
 - numpy==1.21.6
