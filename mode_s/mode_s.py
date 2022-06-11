@@ -1,13 +1,11 @@
 # This Python file uses the following encoding: utf-8
-from asyncio import constants
 import os
 import sys
 import argparse
-from typing import List, Dict, NamedTuple
+from typing import Dict, NamedTuple
 
-from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
-from PySide6.QtCore import QUrl, QCoreApplication
+from PySide6 import QtCore
 from PySide6.QtWidgets import QApplication
 
 
@@ -19,12 +17,11 @@ from constants import *
 import engine as ModeSEngine
 
 
-
 # Initialize argparse
 def init_argparse():
     parser = argparse.ArgumentParser(
         description="Framework for automatic Mode-S data transfer and turbulence prediction."
-    )    
+    )
     parser.add_argument("-t", "--terminal",
                         action="store_true", help="Whether the app should run only on the terminal", default=False)
     parser.add_argument("-it", "--interactive",
@@ -62,50 +59,64 @@ def init_argparse():
 
     return parser
 
-def getAllArgs(args : NamedTuple) -> Dict[str, str]:
+
+def getAllArgs(args: NamedTuple) -> Dict[str, str]:
     params = {}
-    
     for key in ["limit", "id_minimal", "id_maximal", "latitude_minimal", "latitude_maximal", "longitude_maximal", "longitude_minimal", "bds"]:
         if not args.interactive:
-            if not getattr(args, key): continue
+            if not getattr(args, key):
+                continue
             params[key] = getattr(args, key)
         elif not getattr(args, key):
             userInput = input("Enter desired " + key + "(-1 for none):")
-            if userInput == -1: continue
+            if userInput == -1:
+                continue
             params[key] = userInput
-            
     return params
 
-
+def qt_message_handler(mode, context, message):
+    if mode == QtCore.QtInfoMsg:
+        logger.info(message)
+    elif mode == QtCore.QtWarningMsg:
+        logger.warning(message)
+    elif mode == QtCore.QtCriticalMsg:
+        logger.critical(message)
+    elif mode == QtCore.QtFatalMsg:
+        logger.critical(message)
+    else:
+        logger.debug(message)
+    
 if __name__ == "__main__":
     args = init_argparse().parse_args()
-    if args.interactive: args.terminal = True
-    
+    if args.interactive:
+        args.terminal = True
+
     if not args.terminal:
-        import qml.qrc_qml
-        
+        import gui.qrc_gui
+
     if args.local:
         DB_CONSTANTS.HOSTNAME = False
         DB_CONSTANTS.DATABASE_NAME = "local_mode_s"
         DB_CONSTANTS.USER_NAME = "root"
         DB_CONSTANTS.PASSWORD = "BisbiDb2022?"
-
     
-    # app = QGuiApplication(sys.argv) if not args.terminal else QCoreApplication(sys.argv)
+    sys.argv += ['--style', 'Fusion']
     app = QApplication(sys.argv)
     
     logger = Logger(args.terminal, args.verbose, args.debug)
     logger.info("Framework for automatic Mode-S data transfer and turbulence prediction.")
     logger.debug(args)
-    db = Database(logger)
+    
+    db = Database(logger, terminal=args.terminal)
     
     modeSEngine = ModeSEngine.Engine(
         logger=logger, plots=args.plots, plotAddresses=args.plot_addresses, medianN=args.median_n, durationLimit=args.duration_limit
     )
 
     if not args.terminal:
+        QtCore.qInstallMessageHandler(qt_message_handler)
         engine = QQmlApplicationEngine()
-        engine.load(QUrl("qrc://qml/main.qml"))
+        engine.load(QtCore.QUrl("qrc://gui/qml/main.qml"))
         if not engine.rootObjects():
             sys.exit(-1)
         sys.exit(app.exec())

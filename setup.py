@@ -82,7 +82,7 @@ setup (
     maintainer='Joseph Loic Bisso-Bi-Ela',
     maintainer_email='j.bisso-bi-ela@tu-braunschweig.de',
     packages=[
-        'qml', 'mode_s', 'mode_s.gui',
-        'mode_s.analysis'
+        'mode_s', 'mode_s.gui',
+        'mode_s.analysis', 'mode_s.gui.qml',
     ]
 )

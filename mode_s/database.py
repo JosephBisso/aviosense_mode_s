@@ -8,7 +8,7 @@ from logger import Logger
 from constants import DB_CONSTANTS
 
 class Database:
-    def __init__(self, logger: Logger):        
+    def __init__(self, logger: Logger, terminal:bool):        
         db = QtSql.QSqlDatabase.addDatabase("QMYSQL")
         self.__setUp(db)
         self.filterOn: bool = False 
@@ -22,10 +22,12 @@ class Database:
             rowCount__future = executor.submit(self.__getDBRowCount)
         else:
             self.logger.critical("Database not accessible")
-
+        
         rowCount__future.result()
-        f = executor.submit(self.__getLattestDBTimeStamp)
-        f.result()
+        timeStamp__future = executor.submit(self.__getLattestDBTimeStamp)
+
+        if terminal:
+            timeStamp__future.result()
         
     def __setUp(self, db: QtSql.QSqlDatabase):
         db.setDatabaseName(DB_CONSTANTS.DATABASE_NAME)

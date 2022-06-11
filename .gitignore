@@ -4,3 +4,4 @@
 **/qrc_*
 *.log
 database/*
+**/*~

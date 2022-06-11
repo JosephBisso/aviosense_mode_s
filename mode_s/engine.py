@@ -45,7 +45,7 @@ class Engine:
         
         self.logger.log("Engine plot status : " + str(plots))
         return plots
-         
+
     def __getDataForAddress(self, address: int) -> Dict[str, Union[str, List[DATA]]]:
         addressData: Dict[str, Union[str, List[int]]] = {
             "address": address,
