@@ -127,11 +127,13 @@ Drawer {
                 options: ListModel {
                     ListElement {
                         option_name: "Threads"
-                        option_value: "Automatic"
+                        option_value: "Auto"
+                        option_id:"threads"
                     }
                     ListElement {
                         option_name: "Filter"
                         option_value: "7"
+                        option_id:"median_n"
                     }
                 }
 

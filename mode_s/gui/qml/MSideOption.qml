@@ -44,7 +44,7 @@ ColumnLayout {
                 option.value = option.textField.text
                 option.activated = false
             } 
-            allData[option.name] = option.value
+            allData[option.identification] = option.value
         }
 
         let allDataJson = JSON.stringify(allData)
@@ -130,6 +130,7 @@ ColumnLayout {
             clip: true
             property string name: option_name
             property string value: option_value
+            property string identification: option_id
             property alias textField: delegateTextField
             property bool activated: false
             Layout.leftMargin: rootSideOption.leftMarginContent
@@ -158,7 +159,7 @@ ColumnLayout {
                 font: Constants.FONT_SMALL
                 color: Constants.FONT_COLOR
                 readOnly: false
-
+                validator: RegularExpressionValidator{regularExpression: /^[aA]((ll)|uto)$|^[Nn]one$|^\d+$/}
                 onFocusChanged: delegateTextField.accepted()
                 onAccepted: {
                     if(textBefore !== text) {

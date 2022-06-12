@@ -3,7 +3,10 @@ import os
 import sys
 import argparse
 import json
+import concurrent.futures
+from collections import namedtuple
 from typing import Dict, NamedTuple
+
 
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtCore import *
@@ -89,18 +92,76 @@ def qt_message_handler(mode, context, message):
 
 
 class Mode_S(QObject):
+    
+    logged = Signal(str, arguments=['log'])
+    computingStarted = Signal()
+    computingFinished = Signal()
+    filterUpdated = Signal()
+
     def __init__(self, db: Database, msEngine: ModeSEngine.Engine, logger: Logger):
         super(Mode_S, self).__init__(None)
         self.db = db
         self.engine = msEngine
         self.logger = logger
+        logger.logged.connect(self.__log)
+        self.filterUpdated.connect(self.compute)
+
+    @Slot(str)
+    def __log(self, log: str):
+        self.logged.emit(log)
+    
+    def __computingFinished(self, future: concurrent.futures.Future):
+        future.result()
+        self.computingFinished.emit()
+
+    def __computing(self):
+        self.db.actualizeData()
+        self.engine.setDataSet(self.db.getData())
     
     @Slot(str, result=None)
     def updateFilter(self, dataJson: str): 
-        data = json.loads(dataJson)
-        logger.debug(str(data))
-        pass
+        data: Dict[str, str] = json.loads(dataJson)
+        median = 1
+        addresses = []
+        durationLimit = None
+        
+        for key in data:
+            if data[key].lower() == "none" or data[key].lower() == "all" or data[key].lower() == "auto":
+                if key == "threads": 
+                    DB_CONSTANTS.MIN_NUMBER_THREADS = 4
+                    continue
+                data[key]=False
+            elif key == "threads":
+                DB_CONSTANTS.MIN_NUMBER_THREADS = int(data[key])
+            elif key == "address":
+                addresses = [address.strip() for address in data[key].split(",")]
+            elif key == "median_n":
+                median = data[key]
+            elif key == "duration_limit":
+                durationLimit = data[key]
+                        
+        data.update({
+            "interactive":False,
+            "id_minimal": False,
+            "id_maximal": False,
+        })
+        tupledData = namedtuple("ArgsLike", data.keys()) (*data.values())
+        dbFilter = getAllArgs(tupledData)
+        
+        self.db.setDefaultFilter(dbFilter)
+        self.engine.updateParameters(plotAddresses=addresses, 
+                medianN=median, durationLimit=durationLimit)
 
+        self.filterUpdated.emit()
+    
+    @Slot()
+    def compute(self):
+        self.computingStarted.emit()
+        executor = concurrent.futures.ThreadPoolExecutor()
+        future = executor.submit(self.__computing)
+        future.add_done_callback(self.__computingFinished)
+
+    
 if __name__ == "__main__":
     args = init_argparse().parse_args()
     if args.interactive:
@@ -131,11 +192,11 @@ if __name__ == "__main__":
     if not args.terminal:
         qInstallMessageHandler(qt_message_handler)
         engine = QQmlApplicationEngine()
+        mode_s = Mode_S(db, modeSEngine, logger)
+        engine.rootContext().setContextProperty("__mode_s", mode_s)
         engine.load(QUrl("qrc://gui/qml/main.qml"))
         if not engine.rootObjects():
             sys.exit(-1)
-        mode_s = Mode_S(db, modeSEngine, logger)
-        engine.rootContext().setContextProperty("__mode_s", mode_s)
         sys.exit(app.exec())
     else:
         db.setDefaultFilter(getAllArgs(args))

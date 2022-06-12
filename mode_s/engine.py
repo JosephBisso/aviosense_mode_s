@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 from logger import Logger
 from constants import ENGINE_CONSTANTS
+from constants import DB_CONSTANTS
 
 class DATA(NamedTuple):
     time: float # in Seconds
@@ -33,7 +34,7 @@ class Engine:
         self.plotAddresses = [int(address) for address in plotAddresses]
         self.medianN = int(medianN)
         self.durationLimit = float(durationLimit) if durationLimit else None
-        
+    
     def __activatePlot(self, plots:List[str]):
         plotsInsensitive = [plot.lower() for plot in plots]
         plots = {plot: plot in plotsInsensitive for plot in ENGINE_CONSTANTS.PLOTS}
@@ -159,6 +160,19 @@ class Engine:
         slidingIntervalsForStd["threshold"] = threshold
         
         return slidingIntervalsForStd
+
+    def updateParameters(self, plotAddresses: List[str] = [], medianN: int = 1, durationLimit: int = None):
+        self.gui = True
+        self.plots = self.__activatePlot([""])
+        self.plotAddresses = [int(address) for address in plotAddresses]
+        self.medianN = int(medianN)
+        self.durationLimit = float(durationLimit) if durationLimit else None
+
+        self.logger.log("Minimum number of threads : " + str(DB_CONSTANTS.MIN_NUMBER_THREADS))
+        self.logger.log("Setting median Filter to : " + str(self.medianN))
+        self.logger.log("Watching following address(es) : " + str(self.plotAddresses))
+        self.logger.log("Setting duration limit to : " + str(self.durationLimit))
+
 
     def setDataSet(self, dataset: List[Dict[str, Union[str, int]]]):
         self.data = sorted(dataset, key=lambda el: el["address"])

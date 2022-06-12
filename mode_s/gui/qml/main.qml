@@ -78,5 +78,8 @@ ApplicationWindow {
         }
 
     }
-
+    
+    MBusyIndicator{
+        id: busyIndicator
+    }
 }

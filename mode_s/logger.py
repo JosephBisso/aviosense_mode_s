@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from PySide6.QtCore import *
 
 os.system("color")
 
@@ -13,8 +14,13 @@ class colors:  # for colored print output
     VIOLET = '\033[95m'
     CYAN = '\033[96m'
 
-class Logger:
+
+class Logger(QObject):
+    
+    logged = Signal(str)
+    
     def __init__(self, terminal = True, verbose = False, debug = False):
+        super(Logger, self).__init__(None)
         self.terminal = terminal
         self.verbose = verbose
         self.debugging = debug
@@ -33,6 +39,7 @@ class Logger:
             
         if self.debugging:
             print(colors.VIOLET + "DEBUG\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + colors.ENDC + str(msg))
+            # self.logged.emit("<p style='color:Violet;'>DEBUG\t: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + str(msg) + "</p>\n")
     
     def log(self, msg):
         time = datetime.now()
@@ -41,6 +48,9 @@ class Logger:
             
         if self.terminal or self.verbose or self.debugging:
             print(colors.BLUE + "LOG\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + colors.ENDC + str(msg))
+        
+        self.logged.emit("<p style='color:DodgerBlue;'>LOG\t: : " + str(time.hour) + ": " + str(time.minute) + ": " +
+                         str(time.second) + " : : <label style='color:White;'>" + str(msg) + "</label></p>\n")
 
     def success(self, msg):
         time = datetime.now()
@@ -49,6 +59,8 @@ class Logger:
             
         if self.terminal or self.verbose:
             print(colors.GREEN + "SUCCESS\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + str(msg) + colors.ENDC)
+        
+        self.logged.emit("<p style='color:MediumSeaGreen;'>SUCCESS: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + str(msg) + "</p>\n")
             
     def info(self, msg):
         time = datetime.now()
@@ -57,6 +69,8 @@ class Logger:
 
         if self.terminal or self.verbose:
             print(colors.CYAN + "INFO\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + str(msg) + colors.ENDC)
+
+        self.logged.emit("<p style='color:Cyan;'>INFO\t: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + str(msg) + "</p>\n")
             
     def warning(self, msg):
         time = datetime.now()
@@ -65,6 +79,9 @@ class Logger:
 
         if self.terminal or self.verbose:
             print(colors.YELLOW + "WARNING\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + str(msg) + colors.ENDC)
+        
+        self.logged.emit("<p style='color:Orange;'>WARNING: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + str(msg) + "</p>\n")
+        
             
     def critical(self, msg, exception = Exception):
         time = datetime.now()
@@ -73,7 +90,9 @@ class Logger:
 
         if self.terminal or self.verbose:
             print(colors.RED + "CRITICAL:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + str(msg) + colors.ENDC)
-            
+        
+        self.logged.emit("<p style='color:Tomato;'>CRITICAL: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + str(msg) + "</p>\n")
+        
         raise exception(msg)
                 
         
