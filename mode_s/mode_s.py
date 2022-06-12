@@ -2,11 +2,12 @@
 import os
 import sys
 import argparse
+import json
 from typing import Dict, NamedTuple
 
 from PySide6.QtQml import QQmlApplicationEngine
-from PySide6 import QtCore
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import *
+from PySide6.QtGui import QGuiApplication
 
 
 sys.path.append(os.getcwd())
@@ -75,17 +76,31 @@ def getAllArgs(args: NamedTuple) -> Dict[str, str]:
     return params
 
 def qt_message_handler(mode, context, message):
-    if mode == QtCore.QtInfoMsg:
+    if mode == QtMsgType.QtInfoMsg:
         logger.info(message)
-    elif mode == QtCore.QtWarningMsg:
+    elif mode == QtMsgType.QtWarningMsg:
         logger.warning(message)
-    elif mode == QtCore.QtCriticalMsg:
+    elif mode == QtMsgType.QtCriticalMsg:
         logger.critical(message)
-    elif mode == QtCore.QtFatalMsg:
+    elif mode == QtMsgType.QtFatalMsg:
         logger.critical(message)
     else:
         logger.debug(message)
+
+
+class Mode_S(QObject):
+    def __init__(self, db: Database, msEngine: ModeSEngine.Engine, logger: Logger):
+        super(Mode_S, self).__init__(None)
+        self.db = db
+        self.engine = msEngine
+        self.logger = logger
     
+    @Slot(str, result=None)
+    def updateFilter(self, dataJson: str): 
+        data = json.loads(dataJson)
+        logger.debug(str(data))
+        pass
+
 if __name__ == "__main__":
     args = init_argparse().parse_args()
     if args.interactive:
@@ -101,7 +116,7 @@ if __name__ == "__main__":
         DB_CONSTANTS.PASSWORD = "BisbiDb2022?"
     
     sys.argv += ['--style', 'Fusion']
-    app = QApplication(sys.argv)
+    app = QGuiApplication(sys.argv)
     
     logger = Logger(args.terminal, args.verbose, args.debug)
     logger.info("Framework for automatic Mode-S data transfer and turbulence prediction.")
@@ -114,11 +129,13 @@ if __name__ == "__main__":
     )
 
     if not args.terminal:
-        QtCore.qInstallMessageHandler(qt_message_handler)
+        qInstallMessageHandler(qt_message_handler)
         engine = QQmlApplicationEngine()
-        engine.load(QtCore.QUrl("qrc://gui/qml/main.qml"))
+        engine.load(QUrl("qrc://gui/qml/main.qml"))
         if not engine.rootObjects():
             sys.exit(-1)
+        mode_s = Mode_S(db, modeSEngine, logger)
+        engine.rootContext().setContextProperty("__mode_s", mode_s)
         sys.exit(app.exec())
     else:
         db.setDefaultFilter(getAllArgs(args))

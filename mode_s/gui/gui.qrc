@@ -5,10 +5,15 @@
     <file>qml/MButton.qml</file>
     <file>qml/MSideOption.qml</file>
     <file>qml/MMenuBar.qml</file>
+    <file>qml/MIMGButton.qml</file>
+    <file>qml/MSideOptionList.qml</file>
     <file>scripts/Constants.js</file>
+    <file>scripts/main.js</file>
     <file>img/database.png</file>
     <file>img/settings.png</file>
     <file>img/params.png</file>
+    <file>img/download.png</file>
+    <file>img/play.png</file>
     <file>img/background.jpg</file>
 </qresource>
 </RCC>

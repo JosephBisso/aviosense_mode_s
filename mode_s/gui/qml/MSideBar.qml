@@ -4,17 +4,20 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQml.Models
 import "qrc:/scripts/Constants.js" as Constants
+import "qrc:/scripts/main.js" as JS
 
 Drawer {
     id: rootSideBar
+
+    property int leftMarginTitle: 50
+    property int verticalMarginItems: 20
+    property bool edited: false
     width: {
         if (rootWindow.width > rootWindow.minimumWidth ) {return 0.95 * rootWindow.width}
         else {return 0.95 * rootWindow.minimumWidth}
     }
     height: rootWindow.height 
 
-    property int leftMarginTitle: 50
-    property int verticalMarginItems: 20
 
     background: Rectangle {
         anchors.fill: parent
@@ -23,6 +26,25 @@ Drawer {
         border {
             width: 1
             color: "black"
+        }
+    }
+
+    function getData() {
+        let allData = {}
+
+        for (let sideOption of [database, settings]) {
+            Object.assign(allData, sideOption.getData())
+        }
+
+        let allDataJson = JSON.stringify(allData)
+        console.info("All Params", allDataJson)
+        return allDataJson
+    }
+
+    onClosed: {
+        if (rootSideBar.edited) {
+            __mode_s.updateFilter(rootSideBar.getData())
+            rootSideBar.edited = false
         }
     }
 
@@ -47,10 +69,22 @@ Drawer {
         font: Constants.FONT_VERY_BIG
         color: Constants.ACCENT_COLOR1
     }
+    Label {
+        id: subheader
+        height: 20
+        anchors {
+            top: header.bottom
+            right: parent.right
+            rightMargin: 40
+        }
+        text: "Data Transfer & Turbulence Prediction"
+        font: Constants.FONT_SMALL
+        color: "white"
+    }
 
     ScrollView {
         id: scrollOptions
-        width: 1/2 * rootSideBar.width
+        width: 3/8 * rootSideBar.width
         anchors {
             top: parent.top
             bottom: params.top
@@ -67,29 +101,13 @@ Drawer {
             MSideOption {
                 id: database
                 img_src: "qrc:/img/database.png"
-                title: "Data set"
+                title: "Database"
                 Layout.fillWidth: true
-                options: ListModel {
-                    ListElement {
-                        option_name: "Address"
-                        option_value: "All"
-                    }
-                    ListElement {
-                        option_name: "Latitude"
-                        option_value: "All"
-                    }
-                    ListElement {
-                        option_name: "Longitude"
-                        option_value: "All"
-                    }
-                    ListElement {
-                        option_name: "BDS"
-                        option_value: "All"
-                    }
-                    ListElement {
-                        option_name: "Limit"
-                        option_value: "3000000"
-                    }
+                options: MSideOptionList{}
+
+                onEdited: {
+                    if (rootSideBar.edited){return}
+                    rootSideBar.edited = true
                 }
             }
 
@@ -103,18 +121,23 @@ Drawer {
             MSideOption {
                 id: settings
                 img_src: "qrc:/img/settings.png"
-                title: "Computing"
+                title: "Engine"
                 Layout.fillWidth: true
 
                 options: ListModel {
                     ListElement {
-                        option_name: "Number of Threads"
+                        option_name: "Threads"
                         option_value: "Automatic"
                     }
                     ListElement {
-                        option_name: "Median Filter"
+                        option_name: "Filter"
                         option_value: "7"
                     }
+                }
+
+                onEdited: {
+                    if (rootSideBar.edited){return}
+                    rootSideBar.edited = true
                 }
             }
         }
@@ -132,6 +155,5 @@ Drawer {
             bottomMargin: rootSideBar.verticalMarginItems
         }
     }
-    
 
 }

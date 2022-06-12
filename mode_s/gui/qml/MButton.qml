@@ -22,7 +22,7 @@ Rectangle {
 
     width: 150
     height: 45
-    radius: p_borderRadius
+    radius: 10
     color: mEnabled ? mDefaultColor : "darkgrey"
 
     border {
@@ -44,6 +44,7 @@ Rectangle {
         onClicked:
             (event) => {
                 if (event.button === Qt.LeftButton) {
+                    mouseArea.focus = true
                     root.clicked()
                 }
             }

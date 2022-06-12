@@ -23,6 +23,11 @@ ApplicationWindow {
 
     MSideBar {
         id: sideBar
+        onClosed: {
+            sideButton.canOpen = true
+            z = -1
+            sideButton.z = 1
+        }
     }
 
     MButton {
@@ -36,10 +41,16 @@ ApplicationWindow {
         radius: width / 2
         mText: sideBar.x + sideBar.width > 0 ? "-<" : "->"
         mTextColor: "white"
+        property bool canOpen: true
 
         onClicked: {
-            if (sideBar.opened) {sideBar.close(); return}
-            sideBar.open()
+            if (sideBar.opened) {sideBar.close();return}
+            if (sideButton.canOpen){
+                sideButton.canOpen = false
+                z = -1
+                sideBar.z = 0
+                sideBar.open()
+            }
         }
     }
 
@@ -51,6 +62,21 @@ ApplicationWindow {
 
             topMargin: 10
         }
+    }
+
+    MIMGButton {
+        id: saveButton
+        img_src:"qrc:/img/download.png"
+        mText: ""
+        z: 1
+
+        anchors {
+            right: parent.right
+            bottom: parent.bottom
+
+            margins: 20
+        }
+
     }
 
 }

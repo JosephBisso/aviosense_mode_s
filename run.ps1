@@ -22,7 +22,7 @@ if ("-t" -notin $args -and "-i" -notin $args) {
 
 
 Write-Host ("# Starting the app...") -ForegroundColor Cyan
-$app = Start-Process -FilePath "python" -ArgumentList "$(Get-ChildItem .\mode_s\mode_s.py)", "$($args | Where-Object {$_ -ne "-nl"})" -WorkingDirectory "$(Get-Location)" -NoNewWindow -PassThru -Wait
+$app = Start-Process -FilePath "python" -ArgumentList "$(Get-ChildItem .\mode_s\mode_s.py)", "$($args | Where-Object {$_ -ne "-nl" -and $_ -ne "--loop"})" -WorkingDirectory "$(Get-Location)" -NoNewWindow -PassThru -Wait
 
 $? ? (Write-Host ("App existed normally.") -ForegroundColor Green) : (Write-Error ("App finished unnormay.. Last exit code: $LASTEXITCODE")) 
 exit $LASTEXITCODE
