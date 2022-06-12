@@ -4,10 +4,12 @@
     <file>qml/MSideBar.qml</file>
     <file>qml/MButton.qml</file>
     <file>qml/MSideOption.qml</file>
+    <file>qml/MMainView.qml</file>
     <file>qml/MMenuBar.qml</file>
     <file>qml/MIMGButton.qml</file>
     <file>qml/MSideOptionList.qml</file>
     <file>qml/MBusyIndicator.qml</file>
+    <file>qml/MPlot.qml</file>
     <file>scripts/Constants.js</file>
     <file>scripts/main.js</file>
     <file>img/database.png</file>

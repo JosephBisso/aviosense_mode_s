@@ -10,8 +10,8 @@ from typing import Dict, NamedTuple
 
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtCore import *
-from PySide6.QtGui import QGuiApplication
-
+from PySide6.QtWidgets import QApplication
+from PySide6 import QtCharts
 
 sys.path.append(os.getcwd())
 
@@ -97,6 +97,7 @@ class Mode_S(QObject):
     computingStarted = Signal()
     computingFinished = Signal()
     filterUpdated = Signal()
+    readyToPlot = Signal()
 
     def __init__(self, db: Database, msEngine: ModeSEngine.Engine, logger: Logger):
         super(Mode_S, self).__init__(None)
@@ -105,6 +106,7 @@ class Mode_S(QObject):
         self.logger = logger
         logger.logged.connect(self.__log)
         self.filterUpdated.connect(self.compute)
+        self.plotted = 0
 
     @Slot(str)
     def __log(self, log: str):
@@ -113,6 +115,10 @@ class Mode_S(QObject):
     def __computingFinished(self, future: concurrent.futures.Future):
         future.result()
         self.computingFinished.emit()
+
+    def __readyToPlot(self, future: concurrent.futures.Future):
+        future.result()
+        self.readyToPlot.emit()
 
     def __computing(self):
         self.db.actualizeData()
@@ -159,7 +165,40 @@ class Mode_S(QObject):
         self.computingStarted.emit()
         executor = concurrent.futures.ThreadPoolExecutor()
         future = executor.submit(self.__computing)
-        future.add_done_callback(self.__computingFinished)
+        future.add_done_callback(self.__readyToPlot)
+
+    def __plotting(self, plot: str):
+        chart = QtCharts.QChart()
+        
+        if plot.lower() == "occurrence":
+            dataPoint = self.engine.prepareOccurrencesForAddresses()
+            chart = self.engine.getChartDataPointOccurrences(dataPoint)
+        elif plot.lower() == "raw":
+            dataPoint = self.engine.prepareOccurrencesForAddresses()
+            chart = self.engine.getChartDataPointOccurrences(dataPoint)
+        elif plot.lower() == "filtered":
+            dataPoint = self.engine.prepareOccurrencesForAddresses()
+            chart = self.engine.getChartDataPointOccurrences(dataPoint)
+        elif plot.lower() == "interval":
+            dataPoint = self.engine.prepareOccurrencesForAddresses()
+            chart = self.engine.getChartDataPointOccurrences(dataPoint)
+        elif plot.lower() == "std":
+            dataPoint = self.engine.prepareOccurrencesForAddresses()
+            chart = self.engine.getChartDataPointOccurrences(dataPoint)
+        elif plot.lower() == "location":
+            dataPoint = self.engine.prepareOccurrencesForAddresses()
+            chart = self.engine.getChartDataPointOccurrences(dataPoint)
+
+        self.plotted += 1
+        if self.plotted >= 6:
+            self.computingFinished.emit()
+        
+        return chart
+        
+    @Slot(str, result=None)
+    def plot(self, plot: str):
+        executor =  concurrent.futures.ThreadPoolExecutor()
+        future = executor.submit(self.__plotting, plot)
 
     
 if __name__ == "__main__":
@@ -177,7 +216,7 @@ if __name__ == "__main__":
         DB_CONSTANTS.PASSWORD = "BisbiDb2022?"
     
     sys.argv += ['--style', 'Fusion']
-    app = QGuiApplication(sys.argv)
+    app = QApplication(sys.argv)
     
     logger = Logger(args.terminal, args.verbose, args.debug)
     logger.info("Framework for automatic Mode-S data transfer and turbulence prediction.")
@@ -196,6 +235,7 @@ if __name__ == "__main__":
         engine.rootContext().setContextProperty("__mode_s", mode_s)
         engine.load(QUrl("qrc://gui/qml/main.qml"))
         if not engine.rootObjects():
+            logger.warning("Could not start application Engine")
             sys.exit(-1)
         sys.exit(app.exec())
     else:

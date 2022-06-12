@@ -30,6 +30,11 @@ ApplicationWindow {
         }
     }
 
+    MMainView {
+        id: mainView
+        anchors.fill: parent
+    }
+
     MButton {
         id: sideButton
 

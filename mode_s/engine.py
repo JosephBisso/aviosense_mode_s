@@ -1,13 +1,14 @@
 
-import concurrent.futures
 import sys
-from typing import List, Dict, NamedTuple, Union
-from collections import Counter, namedtuple
-
 import statistics
 import numpy as np
-from scipy.signal import medfilt
+import concurrent.futures
 import matplotlib.pyplot as plt
+from scipy.signal import medfilt
+from collections import Counter, namedtuple
+from typing import List, Dict, NamedTuple, Union
+
+from PySide6 import QtCharts
 
 from logger import Logger
 from constants import ENGINE_CONSTANTS
@@ -215,7 +216,7 @@ class Engine:
 
         if all(plotted): self.logger.success("Successfully plotted")
         else: self.logger.warning("Error while plotting")
-        
+               
     def prepareOccurrencesForAddresses(self, returnValue="datapoint") -> Union[List[Union[int, str]], List[int]]:
         dataPointsCounter = Counter([entry["address"] for entry in self.data])
         if returnValue != "datapoint": return [mostCommonAddress[0] for mostCommonAddress in (dataPointsCounter.most_common())]
@@ -302,6 +303,17 @@ class Engine:
         plt.show()
         
         return True
+    
+    def getChartDataPointOccurrences(self, occurrences: List[Union[str, int]]) -> QtCharts.QChart:
+        self.logger.info("Getting Chart occurrence on addresses")
+        
+        points = QtCharts.QLineSeries()
+        for index, el in enumerate(occurrences): 
+            points.append(index+1, occurrences[index])
+        chart = QtCharts.QChart()
+        chart.addSeries(points)
+        chart.setTitle("DataPoints over addresses")
+        return chart
     
     def plotBarAndIvv(self, plotData: List[Dict[str, Union[str, List[DATA]]]]) -> bool:
         self.logger.info("Plotting bar and ivv on time")
