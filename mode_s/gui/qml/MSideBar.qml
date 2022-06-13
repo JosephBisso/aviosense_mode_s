@@ -37,7 +37,7 @@ Drawer {
         }
 
         let allDataJson = JSON.stringify(allData)
-        console.info("All Params", allDataJson)
+        console.log("All Params", allDataJson)
         return allDataJson
     }
 

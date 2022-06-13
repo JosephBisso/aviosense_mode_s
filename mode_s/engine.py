@@ -35,6 +35,7 @@ class Engine:
         self.plotAddresses = [int(address) for address in plotAddresses]
         self.medianN = int(medianN)
         self.durationLimit = float(durationLimit) if durationLimit else None
+        self.executor = concurrent.futures.ThreadPoolExecutor()
     
     def __activatePlot(self, plots:List[str]):
         plotsInsensitive = [plot.lower() for plot in plots]
@@ -180,19 +181,18 @@ class Engine:
         
         if not any(self.plots.values()) : return
         
-        executor = concurrent.futures.ThreadPoolExecutor()
         plotted = False
         
         if self.plots["occurrence"]:
-            dataPoint__future = executor.submit(self.prepareOccurrencesForAddresses)
+            dataPoint__future = self.executor.submit(self.prepareOccurrencesForAddresses)
             plotted = self.plotDataPointOccurrences(occurrences=dataPoint__future.result())
 
         
-        addresses__future = executor.submit(self.prepareOccurrencesForAddresses, "addresses")
+        addresses__future = self.executor.submit(self.prepareOccurrencesForAddresses, "addresses")
         addressesToPlot = addresses__future.result()[:4] if len(self.plotAddresses) == 0 else self.plotAddresses
         self.logger.log("Plotting for following addresses: " + str(addressesToPlot))
             
-        barAndIvvAndTime__future = executor.submit(self.prepareBarAndIvvAndTime, addressesToPlot)
+        barAndIvvAndTime__future = self.executor.submit(self.prepareBarAndIvvAndTime, addressesToPlot)
         data = barAndIvvAndTime__future.result()
         plotted = []
         if self.plots["bar_ivv"]:
@@ -227,8 +227,7 @@ class Engine:
 
     def prepareBarAndIvvAndTime(self, addresses:List[int] = []) -> List[Dict[str, Union[str, List[DATA]]]]:
         plotData = []
-        executor = concurrent.futures.ThreadPoolExecutor()
-        addressData__futures = [executor.submit(self.__getDataForAddress, address) for address in addresses]
+        addressData__futures = [self.executor.submit(self.__getDataForAddress, address) for address in addresses]
 
         for completedThread in concurrent.futures.as_completed(addressData__futures):
             try:
@@ -244,8 +243,7 @@ class Engine:
 
     def prepareMedianFilter(self, data: List[Dict[str, Union[str, List[DATA]]]]) -> None:
         self.logger.log("Filtering data with n set to: " + str(self.medianN))
-        executor = concurrent.futures.ThreadPoolExecutor()
-        filteredAddressData__futures = [executor.submit(
+        filteredAddressData__futures = [self.executor.submit(
             self.__applyMedianFilter, addressData) for addressData in data]
 
         for completedThread in concurrent.futures.as_completed(filteredAddressData__futures):
@@ -258,8 +256,7 @@ class Engine:
                 
     def prepareSlidingInterval(self, data: List[Dict[str, Union[str, List[DATA]]]]) -> List[Dict[str, Union[str, List[WINDOW_POINT]]]]:
         slidingIntervals = []
-        executor = concurrent.futures.ThreadPoolExecutor()
-        slidingInterval__futures = [executor.submit(
+        slidingInterval__futures = [self.executor.submit(
             self.__getSlidingIntervalForAddress, addressData) for addressData in data]
 
         for completedThread in concurrent.futures.as_completed(slidingInterval__futures):
@@ -276,8 +273,7 @@ class Engine:
     
     def prepareSlidingIntervalForStd(self, data: List[Dict[str, Union[str, List[DATA]]]]) -> List[Dict[str, Union[str, List[WINDOW_DATA]]]]:
         slidingIntervalForStd = []
-        executor = concurrent.futures.ThreadPoolExecutor()
-        slidingInterval__futures = [executor.submit(
+        slidingInterval__futures = [self.executor.submit(
             self.__getSlidingIntervalForStdPerAddress, addressData) for addressData in data]
 
         for completedThread in concurrent.futures.as_completed(slidingInterval__futures):
@@ -304,16 +300,9 @@ class Engine:
         
         return True
     
-    def getChartDataPointOccurrences(self, occurrences: List[Union[str, int]]) -> QtCharts.QChart:
-        self.logger.info("Getting Chart occurrence on addresses")
-        
-        points = QtCharts.QLineSeries()
-        for index, el in enumerate(occurrences): 
-            points.append(index+1, occurrences[index])
-        chart = QtCharts.QChart()
-        chart.addSeries(points)
-        chart.setTitle("DataPoints over addresses")
-        return chart
+    def getLineSeriesDataPointOccurrences(self, occurrences: List[Union[str, int]]) -> List[int]:
+        self.logger.info("Getting lineSeries for  occurrence on addresses")
+        return occurrences 
     
     def plotBarAndIvv(self, plotData: List[Dict[str, Union[str, List[DATA]]]]) -> bool:
         self.logger.info("Plotting bar and ivv on time")
@@ -343,8 +332,25 @@ class Engine:
         plt.show()
         
         return True
-        
+    
+    def getLineSeriesBarAndIvv(self,  plotData: List[Dict[str, Union[str, List[DATA]]]]) -> List[Dict[str, List[int]]]:
+        self.logger.info("Getting lineSeries for raw bar & ivv")
+        lineSeries = []
+        for index in range(len(plotData)):
+            addressSeries = {"address": plotData[index]["address"], "bar":[], "ivv": [], "time": []}
 
+            time = list(map(lambda el: el/60, [point.time for point in plotData[index]["points"]]))
+            bar = [point.bar for point in plotData[index]["points"]]
+            ivv = [point.ivv for point in plotData[index]["points"]]
+
+            addressSeries["bar"] = bar
+            addressSeries["ivv"] = ivv
+            addressSeries["time"] = time
+            
+            lineSeries.append(addressSeries)
+            
+        return lineSeries
+    
     def plotFilteredBarAndIvv(self, plotData: List[Dict[str, Union[str, List[DATA]]]]) -> bool:
         self.logger.info("Plotting filtered bar and ivv on time")
         
@@ -386,7 +392,47 @@ class Engine:
         plt.show()
         
         return True
+    
+    def getLineSeriesFilteredBarAndIvv(self, plotData: List[Dict[str, Union[str, List[DATA]]]]) -> List[Dict[str, List[int]]]:
+        self.logger.info("Getting line series for filtered bar and ivv on time")
         
+        lineSeries = []
+        for index in range(len(plotData)):
+            addressSeries = {
+                "address": plotData[index]["address"],
+                "points": [
+                    {
+                        "dataSet": "BAR",
+                        "raw": [],
+                        "filtered": [],
+                        "time": []
+                    },
+                    {
+                        "dataSet": "IVV",
+                        "raw":[],
+                        "filtered":[],
+                        "time": []
+                    }    
+                ]
+            }
+
+            time = list(map(lambda el: el/60, [point.time for point in plotData[index]["points"]]))
+            bar = [point.bar for point in plotData[index]["points"]]
+            ivv = [point.ivv for point in plotData[index]["points"]]
+            filteredBar = [float(point.bar) for point in plotData[index]["filteredPoints"]]
+            filteredIvv = [float(point.ivv) for point in plotData[index]["filteredPoints"]]
+
+            addressSeries["points"][0]["raw"] = bar
+            addressSeries["points"][0]["filtered"] = filteredBar
+            addressSeries["points"][1]["raw"] = ivv
+            addressSeries["points"][1]["filtered"] = filteredIvv
+            addressSeries["points"][0]["time"] = time
+            addressSeries["points"][1]["time"] = time
+            
+            lineSeries.append(addressSeries)
+            
+        return lineSeries
+    
     def plotSlidingInterval(self, plotData: List[Dict[str, Union[str, List[WINDOW_POINT]]]]) -> bool:
         self.logger.info("Plotting sliding Intervals")
         
@@ -414,6 +460,26 @@ class Engine:
         
         return True
 
+    def getLineSeriesSlidingInterval(self, plotData: List[Dict[str, Union[str, List[WINDOW_POINT]]]]) -> List[Dict[str, List[int]]]:
+        self.logger.info("Getting lineSeries for sliding interval")
+        lineSeries = []
+        for index in range(len(plotData)):
+            addressSeries = {
+                "address": plotData[index]["address"],
+                "points": [],
+                "windows": []
+            }
+
+            windows = [point.window for point in plotData[index]["points"]]
+            points = [point.point for point in plotData[index]["points"]]
+
+            addressSeries["points"] = points
+            addressSeries["windows"] = windows
+            
+            lineSeries.append(addressSeries)
+            
+        return lineSeries
+    
     def plotSlidingIntervalForStd(self, plotData: List[Dict[str, Union[str, List[WINDOW_DATA]]]]) -> bool:
         self.logger.info("Plotting standard deviations")
         
@@ -455,6 +521,43 @@ class Engine:
         plt.show()
         
         return True
+
+    def getLineSeriesSlidingIntervalForStd(self, plotData: List[Dict[str, Union[str, List[WINDOW_DATA]]]]) -> List[Dict[str, List[int]]]:
+        self.logger.info("Getting lineSeries for sliding interval for Std")
+        lineSeries = []
+        for index in range(len(plotData)):
+            addressSeries = {
+                "address": plotData[index]["address"],
+                "points": [
+                    {
+                        "dataSet": "STD",
+                        "bar": [],
+                        "ivv": [],
+                        "windows": []
+                    },
+                    {
+                        "dataSet": "DIFF",
+                        "diff": [],
+                        "threshold": float(plotData[index]["threshold"]),
+                        "windows": []
+                    }    
+                ]
+            }
+
+            windows = [point.window for point in plotData[index]["points"]]
+            bar = [point.bar for point in plotData[index]["points"]]
+            ivv = [point.ivv for point in plotData[index]["points"]]
+            diff = [bar[i] - ivv[i] for i in range(len(bar))]
+
+            addressSeries["points"][0]["windows"] = windows
+            addressSeries["points"][1]["windows"] = windows
+            addressSeries["points"][0]["bar"] = bar
+            addressSeries["points"][0]["ivv"] = ivv
+            addressSeries["points"][1]["diff"] = diff
+
+            lineSeries.append(addressSeries)
+
+        return lineSeries
 
     def plotFilteredAndStd(self, filteredData: List[Dict[str, Union[str, List[DATA]]]], stdData: List[Dict[str, Union[str, List[WINDOW_DATA]]]]) -> bool:
         self.logger.info("Plotting filtered data and standard deviations")

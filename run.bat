@@ -8,8 +8,11 @@ goto launch
 :loop
 set /p input="Start ?[y/n]"
 if "%input%"=="n" goto end
-cls
-goto launch
+if "%input%"=="y" (
+    cls
+    goto launch
+)
+goto end
 
 :launch
 pwsh .\run.ps1 %*

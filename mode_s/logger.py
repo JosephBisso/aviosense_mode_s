@@ -50,7 +50,7 @@ class Logger(QObject):
             print(colors.BLUE + "LOG\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + colors.ENDC + str(msg))
         
         self.logged.emit("<p style='color:DodgerBlue;'>LOG\t: : " + str(time.hour) + ": " + str(time.minute) + ": " +
-                         str(time.second) + " : : <label style='color:White;'>" + str(msg) + "</label></p>\n")
+                         str(time.second) + " : : <i style='color:White;'>" + str(msg) + "</i></p>\n")
 
     def success(self, msg):
         time = datetime.now()

@@ -94,10 +94,17 @@ def qt_message_handler(mode, context, message):
 class Mode_S(QObject):
     
     logged = Signal(str, arguments=['log'])
+
+    filterUpdated = Signal()
     computingStarted = Signal()
     computingFinished = Signal()
-    filterUpdated = Signal()
+
     readyToPlot = Signal()
+    plotStdReady = Signal(list, arguments=["pointLists"])
+    plotRawReady = Signal(list, arguments=["pointLists"])
+    plotIntervalReady = Signal(list, arguments=["pointLists"])
+    plotFilteredReady = Signal(list, arguments=["pointLists"])
+    plotOccurrenceReady = Signal(list, arguments=["pointList"])
 
     def __init__(self, db: Database, msEngine: ModeSEngine.Engine, logger: Logger):
         super(Mode_S, self).__init__(None)
@@ -106,7 +113,9 @@ class Mode_S(QObject):
         self.logger = logger
         logger.logged.connect(self.__log)
         self.filterUpdated.connect(self.compute)
+        self.readyToPlot.connect(self.plot)
         self.plotted = 0
+        self.executor = concurrent.futures.ThreadPoolExecutor()
 
     @Slot(str)
     def __log(self, log: str):
@@ -163,29 +172,39 @@ class Mode_S(QObject):
     @Slot()
     def compute(self):
         self.computingStarted.emit()
-        executor = concurrent.futures.ThreadPoolExecutor()
-        future = executor.submit(self.__computing)
+        future = self.executor.submit(self.__computing)
         future.add_done_callback(self.__readyToPlot)
 
-    def __plotting(self, plot: str):
-        chart = QtCharts.QChart()
-        
-        if plot.lower() == "occurrence":
-            dataPoint = self.engine.prepareOccurrencesForAddresses()
-            chart = self.engine.getChartDataPointOccurrences(dataPoint)
-        elif plot.lower() == "raw":
-            dataPoint = self.engine.prepareOccurrencesForAddresses()
-            chart = self.engine.getChartDataPointOccurrences(dataPoint)
-        elif plot.lower() == "filtered":
-            dataPoint = self.engine.prepareOccurrencesForAddresses()
-            chart = self.engine.getChartDataPointOccurrences(dataPoint)
-        elif plot.lower() == "interval":
-            dataPoint = self.engine.prepareOccurrencesForAddresses()
-            chart = self.engine.getChartDataPointOccurrences(dataPoint)
-        elif plot.lower() == "std":
-            dataPoint = self.engine.prepareOccurrencesForAddresses()
-            chart = self.engine.getChartDataPointOccurrences(dataPoint)
-        elif plot.lower() == "location":
+    def __plotting(self):
+        self.logger.debug("Getting data for Occurrence")
+        dataPoint = self.engine.prepareOccurrencesForAddresses()
+        pointList = self.engine.getLineSeriesDataPointOccurrences(dataPoint)
+        self.plotOccurrenceReady.emit(pointList)
+    
+        addressesToPlot = self.engine.prepareOccurrencesForAddresses("address")[:4]
+        data = self.engine.prepareBarAndIvvAndTime(addressesToPlot)
+
+        self.logger.debug("Getting data for raw")
+        pointLists = self.engine.getLineSeriesBarAndIvv(data)
+        self.plotRawReady.emit(pointLists)
+
+        self.logger.debug("Getting data for filtered")
+        self.engine.prepareMedianFilter(data)
+        pointLists = self.engine.getLineSeriesFilteredBarAndIvv(data)
+        self.plotFilteredReady.emit(pointLists)
+
+        self.logger.debug("Getting data for interval")
+        slidingIntervals = self.engine.prepareSlidingInterval(data)
+        pointLists = self.engine.getLineSeriesSlidingInterval(slidingIntervals)
+        self.plotIntervalReady.emit(pointLists)
+
+        self.logger.debug("Getting data for std")
+        self.engine.prepareMedianFilter(data)
+        slidingIntervalForStd = self.engine.prepareSlidingIntervalForStd(data) 
+        pointLists = self.engine.getLineSeriesSlidingIntervalForStd(slidingIntervalForStd)
+        self.plotStdReady.emit(pointLists)
+        return
+        if plot.lower() == "location":
             dataPoint = self.engine.prepareOccurrencesForAddresses()
             chart = self.engine.getChartDataPointOccurrences(dataPoint)
 
@@ -195,10 +214,11 @@ class Mode_S(QObject):
         
         return chart
         
-    @Slot(str, result=None)
-    def plot(self, plot: str):
-        executor =  concurrent.futures.ThreadPoolExecutor()
-        future = executor.submit(self.__plotting, plot)
+    @Slot()
+    def plot(self): 
+        future = self.executor.submit(self.__plotting)
+        future.add_done_callback(self.__computingFinished)
+        
 
     
 if __name__ == "__main__":

@@ -15,16 +15,16 @@ class Database:
         self.logger: Logger = logger
         self.data: List[Dict[str, Union[str, int]]] = []  
 
-        executor = concurrent.futures.ThreadPoolExecutor()
+        self.executor = concurrent.futures.ThreadPoolExecutor()
         if db.open():
             self.logger.success("Database accessible")
             db.close()
-            rowCount__future = executor.submit(self.__getDBRowCount)
+            rowCount__future = self.executor.submit(self.__getDBRowCount)
         else:
             self.logger.critical("Database not accessible")
         
         rowCount__future.result()
-        timeStamp__future = executor.submit(self.__getLattestDBTimeStamp)
+        timeStamp__future = self.executor.submit(self.__getLattestDBTimeStamp)
 
         if terminal:
             timeStamp__future.result()
@@ -217,8 +217,7 @@ class Database:
         # option={..., "limit":50000}
         queries = self.__generateQueries(attributes, options) 
             
-        queryExecutor = concurrent.futures.ThreadPoolExecutor()
-        threadedQueries = [queryExecutor.submit(self.__query, query) for query in queries]
+        threadedQueries = [self.executor.submit(self.__query, query) for query in queries]
 
         allResults = []
         for completedQuery in concurrent.futures.as_completed(threadedQueries):
@@ -240,27 +239,24 @@ class Database:
     
     def actualizeData(self) -> bool:
         try:
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                idAndAddress__future = executor.submit(self.getFromDB, ["identification", "address"], options={
-                                                     "select_distinct": True, "not_null_values": ["identification", "address"]})
-
-                latAndlon__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "latitude", "longitude"], options={
-                                                  "not_null_values": ["bds", "altitude"], "limit": int(int(self.limit) / 2)})
-
-                barAndivv__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "bar", "ivv"], options={
-                                                  "not_null_values": ["bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"], "limit": int(int(self.limit) / 2)})
-
-                executor.submit(self.__actualizeKnownAddresses, idAndAddress__future.result())
-                
-                for completedTask in concurrent.futures.as_completed([latAndlon__future, barAndivv__future]):
-                    try:
-                        halfResult = completedTask.result()
-                        self.logger.debug("actualizeData :: half result length: " + str(len(halfResult)))
-                    except Exception as esc:
-                        self.logger.warning(
-                            "Error occurred while getting results \nERROR: " + str(esc))
-                    else:
-                        self.data.extend(halfResult)
+            idAndAddress__future = self.executor.submit(self.getFromDB, ["identification", "address"], options={
+                                                 "select_distinct": True, "not_null_values": ["identification", "address"]})
+            latAndlon__future = self.executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "latitude", "longitude"], options={
+                                              "not_null_values": ["bds", "altitude"], "limit": int(int(self.limit) / 2)})
+            barAndivv__future = self.executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "bar", "ivv"], options={
+                                              "not_null_values": ["bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"], "limit": int(int(self.limit) / 2)})
+                                              
+            self.executor.submit(self.__actualizeKnownAddresses, idAndAddress__future.result())
+            
+            for completedTask in concurrent.futures.as_completed([latAndlon__future, barAndivv__future]):
+                try:
+                    halfResult = completedTask.result()
+                    self.logger.debug("actualizeData :: half result length: " + str(len(halfResult)))
+                except Exception as esc:
+                    self.logger.warning(
+                        "Error occurred while getting results \nERROR: " + str(esc))
+                else:
+                    self.data.extend(halfResult)
 
             self.logger.info("Data actualized. Size: " + str(len(self.data)))
 
