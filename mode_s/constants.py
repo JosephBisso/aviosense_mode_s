@@ -1,5 +1,5 @@
 class ENGINE_CONSTANTS:
-    PLOTS = ["occurrence", "bar_ivv", "filtered", "interval", "std"]
+    PLOTS = ["occurrence", "bar_ivv", "filtered", "interval", "std", "location", "heat_map"]
     
 class DB_CONSTANTS:
     VALID_DB_COLUMNS = ["id", "timestamp", "frame_hex_chars", "address", "downlink_format", "bds", "on_ground", "adsb_version", "altitude", "altitude_is_barometric", "nuc_p", "latitude", "longitude", "nuc_r", "true_track", "groundspeed", "vertical_rate", "gnss_height_diff_from_baro_alt", "identification",
