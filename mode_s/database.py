@@ -14,21 +14,28 @@ class Database:
         self.filterOn: bool = False 
         self.logger: Logger = logger
         self.data: List[Dict[str, Union[str, int]]] = []  
-
-        self.executor = concurrent.futures.ThreadPoolExecutor()
+        self.executors = []
+        executor = self.__executor()
         if db.open():
             self.logger.success("Database accessible")
             db.close()
-            rowCount__future = self.executor.submit(self.__getDBRowCount)
+            rowCount__future = executor.submit(self.__getDBRowCount)
         else:
             self.logger.critical("Database not accessible")
         
         rowCount__future.result()
-        timeStamp__future = self.executor.submit(self.__getLattestDBTimeStamp)
+        timeStamp__future = executor.submit(self.__getLattestDBTimeStamp)
 
         if terminal:
             timeStamp__future.result()
         
+        executor.shutdown()
+    
+    def __executor(self) -> concurrent.futures.ThreadPoolExecutor: 
+        ex = concurrent.futures.ThreadPoolExecutor()
+        self.executors.append(ex)
+        return ex
+    
     def __setUp(self, db: QtSql.QSqlDatabase):
         db.setDatabaseName(DB_CONSTANTS.DATABASE_NAME)
         db.setUserName(DB_CONSTANTS.USER_NAME)
@@ -159,7 +166,8 @@ class Database:
         queries = [(selectStr + " FROM tbl_mode_s " + whereStr + (" ORDER BY timestamp DESC " if not ident_run else "") + offset) for offset in offsetStr]
         return queries
 
-    def __actualizeKnownAddresses(self, id_address: List[Dict[str, Union[int, str]]] = []):
+    def __actualizeKnownAddresses(self, future: concurrent.futures.Future):
+        id_address: List[Dict[str, Union[int, str]]] = future.result()
         self.addresses = []
         self.knownIdents = {}
         skippedAddresses = []
@@ -174,7 +182,22 @@ class Database:
         if len(skippedAddresses) > 0:
             self.logger.warning("Skipping following addresses: " + str(skippedAddresses) + " :: Already added or invalid identification")
         self.logger.info("Known Addresses: " + str(len(self.addresses)))
-        
+    
+    def __updatedUsedAddresses(self, halfData: List[Dict[str, Union[int, str]]]) -> None:
+        self.usedAddresses = []
+        for el in halfData:
+            if el["address"] in self.usedAddresses: continue
+            self.usedAddresses.append(el["address"])
+        self.filterOn = True 
+        strFilter = " address IN (" + ",".join(str(address) for address in self.usedAddresses) + ") "
+        if self.strFilter == " ": 
+            self.strFilter = strFilter + " "
+        else:
+            self.strFilter += " AND " + strFilter + " "
+            
+        self.logger.log("Updated database filter")
+        self.logger.debug("New filter is:" + self.strFilter)
+
     def __getLattestDBTimeStamp(self):
         time = self.getFromDB( ["timestamp"], options = {"not_null_values": ["timestamp"], "limit": 1})
         lastDBUpdate = QDateTime.fromMSecsSinceEpoch(int(time[0]["timestamp"]) / 10**6).toString()
@@ -216,8 +239,8 @@ class Database:
     def getFromDB(self, attributes: List[str] = [], options: Dict[str, str] = {"default_filter_on": False, "select_distinct": False, "not_null_values": []}) -> List[Dict[str, Union[int, str]]]:
         # option={..., "limit":50000}
         queries = self.__generateQueries(attributes, options) 
-            
-        threadedQueries = [self.executor.submit(self.__query, query) for query in queries]
+        executor = self.__executor()
+        threadedQueries = [executor.submit(self.__query, query) for query in queries]
 
         allResults = []
         for completedQuery in concurrent.futures.as_completed(threadedQueries):
@@ -235,33 +258,40 @@ class Database:
                 
         if len(allResults) < int(limit): self.logger.warning("Query executed. Results lower than expected (" + str(len(allResults)) + " < " + str(limit) + "). Attributes were: " + str(attributes))
         else: self.logger.success("Query successfully executed. Attributes were: " + str(attributes))
+
+        executor.shutdown()
         return allResults
     
     def actualizeData(self) -> bool:
+        executor = self.__executor()
         try:
-            idAndAddress__future = self.executor.submit(self.getFromDB, ["identification", "address"], options={
+
+            idAndAddress__future = executor.submit(self.getFromDB, ["identification", "address"], options={
                                                  "select_distinct": True, "not_null_values": ["identification", "address"]})
-            latAndlon__future = self.executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "latitude", "longitude"], options={
+            idAndAddress__future.add_done_callback(self.__actualizeKnownAddresses)
+
+            latAndlon__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "latitude", "longitude"], options={
                                               "not_null_values": ["bds", "altitude"], "limit": int(int(self.limit) / 2)})
-            barAndivv__future = self.executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "bar", "ivv"], options={
-                                              "not_null_values": ["bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"], "limit": int(int(self.limit) / 2)})
-                                              
-            self.executor.submit(self.__actualizeKnownAddresses, idAndAddress__future.result())
             
-            for completedTask in concurrent.futures.as_completed([latAndlon__future, barAndivv__future]):
-                try:
-                    halfResult = completedTask.result()
-                    self.logger.debug("actualizeData :: half result length: " + str(len(halfResult)))
-                except Exception as esc:
-                    self.logger.warning(
-                        "Error occurred while getting results \nERROR: " + str(esc))
-                else:
-                    self.data.extend(halfResult)
+            halfResult = latAndlon__future.result()
+            self.__updatedUsedAddresses(halfResult)
+
+            barAndivv__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "bar", "ivv"], options={
+                                              "not_null_values": ["bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"], "limit": int(int(self.limit) / 2)})
+            
+            
+            self.data.extend(halfResult)
+            self.data.extend(barAndivv__future.result())
 
             self.logger.info("Data actualized. Size: " + str(len(self.data)))
-
-            return True
 
         except ConnectionError:
             self.logger.warning("Could not actualize Addresses")
             return False
+        except Exception as esc:
+            self.logger.warning(
+                "Error occurred while getting results \nERROR: " + str(esc))
+        finally:
+            executor.shutdown()
+
+        return True

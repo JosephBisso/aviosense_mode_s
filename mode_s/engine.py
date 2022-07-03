@@ -47,8 +47,13 @@ class Engine:
         self.plotAll = plotAll
         self.medianN = int(medianN) if int(medianN) % 2 == 1 else int(medianN) + 1
         self.durationLimit = float(durationLimit) if durationLimit else None
-        self.executor = concurrent.futures.ThreadPoolExecutor()
+        self.executors = []
     
+    def __executor(self) -> concurrent.futures.ThreadPoolExecutor:
+        ex = concurrent.futures.ThreadPoolExecutor()
+        self.executors.append(ex)
+        return ex
+
     def __activatePlot(self, plots:List[str]):
         plotsInsensitive = [plot.lower() for plot in plots]
         plots = {plot: plot in plotsInsensitive for plot in ENGINE_CONSTANTS.PLOTS}
@@ -71,10 +76,10 @@ class Engine:
         ivvs = []
         times = []
 
-        startIndex = next((index for index, data in enumerate(self.data) if data["address"] == address and data["bar"] is not None and data["ivv"] is not None), None)
+        startIndex = next((index for index, data in enumerate(self.data) if data["address"] == address), None)
 
         if not startIndex:
-            raise EngineError("Skipping address " + str(address) + " : Invalid bar or ivv")
+            raise EngineError("Skipping address " + str(address) + " : Cannot be found")
 
         for index in range(startIndex, len(self.data)):
             if self.data[index]["bar"] is None or self.data[index]["ivv"] is None:
@@ -85,6 +90,9 @@ class Engine:
             ivvs.append(self.data[index]["ivv"])
             times.append(self.data[index]["timestamp"])
         
+        if not times:
+            raise EngineError("Skipping address " + str(address) + " : No valid entry")
+
         startTime = min(times)
         addressData["points"] = [DATA((times[i] - startTime)*10**-9, bars[i], ivvs[i]) for i in range(len(times))]
         addressData["points"].sort(key=lambda el: el.time)
@@ -171,7 +179,8 @@ class Engine:
 
         actualIndex = 0
         for windowIndex in range(len(slidingWindows)):
-            bars = ivvs = []
+            bars = []
+            ivvs = []
             for dataIndex in range(actualIndex, len(addressData["filteredPoints"])):
                 if addressData["filteredPoints"][dataIndex].time > slidingWindows[windowIndex]:
                     actualIndex = dataIndex
@@ -180,7 +189,8 @@ class Engine:
                 ivvs.append(addressData["filteredPoints"][dataIndex].ivv)
 
             if not bars or not ivvs:
-                bars = ivvs = [0,0]
+                bars = [0,0]
+                ivvs = [0,0]
             
             if len(bars) == 1 :
                 bars.append(bars[0])
@@ -196,7 +206,8 @@ class Engine:
             ivvStds.append(ivvStd)
             
         if not barStds or not ivvStds: 
-            barStds = ivvStds = [0, 0]
+            barStds = [0, 0]
+            ivvStds = [0, 0]
             
         arrayBarStds = np.array(barStds)
         arrayIvvStds = np.array(ivvStds)
@@ -235,6 +246,11 @@ class Engine:
         startTime = min(times)
 
         foundLongitude = False
+        foundWindow = False
+        closestTimes = []
+        closestTimes.append(
+            ((self.data[startIndex]["timestamp"] - startTime)*10**-9) / 60
+        )
         for index in range(startIndex, len(self.data)):
             if self.data[index]["longitude"] is None or self.data[index]["latitude"] is None:
                 continue
@@ -247,12 +263,14 @@ class Engine:
             time = (rawTime - startTime)*10**-9
             time /= 60
             
-            windows = next((window for window in turbulentSlidingWindows if time < window), None)
+            windows = next((window for window in turbulentSlidingWindows if time <= window), None)
             
             if not windows: break
             
-            
-            if time < windows - 1: continue
+            foundWindow = True
+            if time < windows - 1: 
+                closestTimes.append(time)
+                continue
             
             longitude = self.data[index]["longitude"]
             latitude = self.data[index]["latitude"]
@@ -263,7 +281,11 @@ class Engine:
         
         if len(heatPointsForAddress) < len(turbulentSlidingWindows):
             self.logger.warning("Doubtful results for Heat Points for address " + str(
-            addressData["address"]) + ". Points Count: " + str(len(heatPointsForAddress)) + ". Found longitude and latitude data? " + str(foundLongitude))
+                addressData["address"]) + ". Points Count: " + str(len(heatPointsForAddress)))
+            self.logger.debug("Doubtful results for Heat Points for address " + str(
+                addressData["address"]) + ". Points Count: " + str(len(heatPointsForAddress)) + "| Found longitude and latitude data? " + str(foundLongitude) + 
+                " | Found window? " + str(foundWindow) + " | turbulent sliding windows: " + str(turbulentSlidingWindows) + " | closest Times: " + str(closestTimes))
+
         else:
             self.logger.debug("Valid results for Heat Points for address " + str(
                 addressData["address"]) + ". Points Count: " + str(len(heatPointsForAddress)))
@@ -288,14 +310,16 @@ class Engine:
         
         if not any(self.plots.values()) : return
         
+        executor = self.__executor()
+        
         plotted = False
         
         if self.plots["occurrence"]:
-            dataPoint__future = self.executor.submit(self.prepareOccurrencesForAddresses)
+            dataPoint__future = executor.submit(self.prepareOccurrencesForAddresses)
             plotted = self.plotDataPointOccurrences(occurrences=dataPoint__future.result())
 
         
-        addresses__future = self.executor.submit(self.prepareOccurrencesForAddresses, "addresses")
+        addresses__future = executor.submit(self.prepareOccurrencesForAddresses, "addresses")
         allAddresses = addresses__future.result()
         mostPointAddresses = allAddresses[:4]
         if self.plotAddresses:
@@ -308,7 +332,7 @@ class Engine:
         if len(addressesToPlot) < 5: self.logger.log("Plotting for following addresses: " + str(addressesToPlot))
         else: self.logger.log("Plotting for " + str(len(addressesToPlot)) + " addresses")
             
-        barAndIvvAndTime__future = self.executor.submit(self.prepareBarAndIvvAndTime, addressesToPlot)
+        barAndIvvAndTime__future = executor.submit(self.prepareBarAndIvvAndTime, addressesToPlot)
         data = barAndIvvAndTime__future.result()
         plotted = []
         if self.plots["bar_ivv"]:
@@ -346,11 +370,13 @@ class Engine:
                 
         if all(plotted): self.logger.success("Successfully plotted")
         else: self.logger.warning("Error while plotting")
+        
+        executor.shutdown()
                
     def prepareOccurrencesForAddresses(self, returnValue="datapoint") -> Union[List[Union[int, str]], List[int]]:
         self.logger.log("Computing Occurrences for Addresses")
         dataPointsCounter = Counter([entry["address"] for entry in self.data])
-        if returnValue != "datapoint": return [mostCommonAddress[0] for mostCommonAddress in (dataPointsCounter.most_common()) if mostCommonAddress[1] > 1]
+        if returnValue != "datapoint": return [mostCommonAddress[0] for mostCommonAddress in dataPointsCounter.most_common() if mostCommonAddress[1] > 1]
 
         dataPoint = list(dataPointsCounter.values())
         dataPoint.sort(reverse=True)
@@ -359,7 +385,8 @@ class Engine:
     def prepareBarAndIvvAndTime(self, addresses:List[int] = []) -> List[Dict[str, Union[str, List[DATA]]]]:
         self.logger.log("Computing bar, ivv and time")
         plotData = []
-        addressData__futures = [self.executor.submit(self.__getDataForAddress, address) for address in addresses]
+        executor = self.__executor()
+        addressData__futures = [executor.submit(self.__getDataForAddress, address) for address in addresses]
 
         for completedThread in concurrent.futures.as_completed(addressData__futures):
             try:
@@ -372,12 +399,14 @@ class Engine:
                     "Error occurred while computing data for addresses\n" + str(type) + "::" + str(value))
             else:
                 plotData.append(addressData)
-                
+        
+        executor.shutdown()
         return plotData
 
     def prepareMedianFilter(self, data: List[Dict[str, Union[str, List[DATA]]]]) -> None:
         self.logger.log("Filtering data with n set to: " + str(self.medianN))
-        filteredAddressData__futures = [self.executor.submit(
+        executor = self.__executor()
+        filteredAddressData__futures = [executor.submit(
             self.__applyMedianFilter, addressData) for addressData in data]
 
         for completedThread in concurrent.futures.as_completed(filteredAddressData__futures):
@@ -390,10 +419,13 @@ class Engine:
                 self.logger.warning(
                     "Error occurred while filtering data for addresses\n" + str(type) + "::" + str(value))
 
+        executor.shutdown()
+
     def prepareSlidingInterval(self, data: List[Dict[str, Union[str, List[DATA]]]]) -> List[Dict[str, Union[str, List[WINDOW_POINT]]]]:
         self.logger.log("Computing sliding intervals")
         slidingIntervals = []
-        slidingInterval__futures = [self.executor.submit(
+        executor = self.__executor()
+        slidingInterval__futures = [executor.submit(
             self.__getSlidingIntervalForAddress, addressData) for addressData in data]
 
         for completedThread in concurrent.futures.as_completed(slidingInterval__futures):
@@ -408,12 +440,14 @@ class Engine:
             else:
                 if slidingIntervalForAddress: slidingIntervals.append(slidingIntervalForAddress)
                 
+        executor.shutdown()
         return slidingIntervals
     
     def prepareSlidingIntervalForStd(self, data: List[Dict[str, Union[str, List[DATA]]]]) -> List[Dict[str, Union[str, List[WINDOW_DATA], float]]]:
         self.logger.log("Computing sliding intervals for std")
         slidingIntervalForStd = []
-        slidingInterval__futures = [self.executor.submit(
+        executor = self.__executor()
+        slidingInterval__futures = [executor.submit(
             self.__getSlidingIntervalForStdPerAddress, addressData) for addressData in data]
 
         for completedThread in concurrent.futures.as_completed(slidingInterval__futures):
@@ -428,6 +462,7 @@ class Engine:
             else:
                 if slidingIntervalForStdPerAddress: slidingIntervalForStd.append(slidingIntervalForStdPerAddress)
 
+        executor.shutdown()
         return slidingIntervalForStd
 
     def prepareLocation(self) -> List[Dict[str, Union[str, List[LOCATION_DATA]]]]:
@@ -460,7 +495,8 @@ class Engine:
     def prepareHeatMap(self, slidingIntervallForStd: List[Dict[str, Union[str, List[WINDOW_DATA], float]]] = []) -> List[Dict[str, Union[str, List[LOCATION_DATA]]]]:
         self.logger.log("Computing heat map")
         heatPoints: List[Dict[str, Union[str, List[LOCATION_DATA]]]] = []
-        heatPoints__future = [self.executor.submit(
+        executor = self.__executor()
+        heatPoints__future = [executor.submit(
             self.__getHeatPointsForAddress, addressData) for addressData in slidingIntervallForStd]
         for completedThread in concurrent.futures.as_completed(heatPoints__future):
             try:
@@ -474,6 +510,7 @@ class Engine:
             else:
                 heatPoints.append(heatPointsPerAddress)
                 
+        executor.shutdown()
         return heatPoints
 
     def plotDataPointOccurrences(self, occurrences: List[Union[str, int]]) -> bool:
@@ -487,10 +524,6 @@ class Engine:
         plt.show()
         
         return True
-    
-    def getLineSeriesDataPointOccurrences(self, occurrences: List[Union[str, int]]) -> List[int]:
-        self.logger.info("Getting lineSeries for  occurrence on addresses")
-        return occurrences 
     
     def plotBarAndIvv(self, plotData: List[Dict[str, Union[str, List[DATA]]]]) -> bool:
         self.logger.info("Plotting bar and ivv on time")
@@ -520,24 +553,6 @@ class Engine:
         plt.show()
         
         return True
-    
-    def getLineSeriesBarAndIvv(self,  plotData: List[Dict[str, Union[str, List[DATA]]]]) -> List[Dict[str, List[int]]]:
-        self.logger.info("Getting lineSeries for raw bar & ivv")
-        lineSeries = []
-        for index in range(len(plotData)):
-            addressSeries = {"address": plotData[index]["address"], "bar":[], "ivv": [], "time": []}
-
-            time = list(map(lambda el: el/60, [point.time for point in plotData[index]["points"]]))
-            bar = [point.bar for point in plotData[index]["points"]]
-            ivv = [point.ivv for point in plotData[index]["points"]]
-
-            addressSeries["bar"] = bar
-            addressSeries["ivv"] = ivv
-            addressSeries["time"] = time
-            
-            lineSeries.append(addressSeries)
-            
-        return lineSeries
     
     def plotFilteredBarAndIvv(self, plotData: List[Dict[str, Union[str, List[DATA]]]]) -> bool:
         self.logger.info("Plotting filtered bar and ivv on time")
@@ -580,47 +595,7 @@ class Engine:
         plt.show()
         
         return True
-    
-    def getLineSeriesFilteredBarAndIvv(self, plotData: List[Dict[str, Union[str, List[DATA]]]]) -> List[Dict[str, List[int]]]:
-        self.logger.info("Getting line series for filtered bar and ivv on time")
         
-        lineSeries = []
-        for index in range(len(plotData)):
-            addressSeries = {
-                "address": plotData[index]["address"],
-                "points": [
-                    {
-                        "dataSet": "BAR",
-                        "raw": [],
-                        "filtered": [],
-                        "time": []
-                    },
-                    {
-                        "dataSet": "IVV",
-                        "raw":[],
-                        "filtered":[],
-                        "time": []
-                    }    
-                ]
-            }
-
-            time = list(map(lambda el: el/60, [point.time for point in plotData[index]["points"]]))
-            bar = [point.bar for point in plotData[index]["points"]]
-            ivv = [point.ivv for point in plotData[index]["points"]]
-            filteredBar = [float(point.bar) for point in plotData[index]["filteredPoints"]]
-            filteredIvv = [float(point.ivv) for point in plotData[index]["filteredPoints"]]
-
-            addressSeries["points"][0]["raw"] = bar
-            addressSeries["points"][0]["filtered"] = filteredBar
-            addressSeries["points"][1]["raw"] = ivv
-            addressSeries["points"][1]["filtered"] = filteredIvv
-            addressSeries["points"][0]["time"] = time
-            addressSeries["points"][1]["time"] = time
-            
-            lineSeries.append(addressSeries)
-            
-        return lineSeries
-    
     def plotSlidingInterval(self, plotData: List[Dict[str, Union[str, List[WINDOW_POINT]]]]) -> bool:
         self.logger.info("Plotting sliding Intervals")
         
@@ -647,26 +622,6 @@ class Engine:
         plt.show()
         
         return True
-
-    def getLineSeriesSlidingInterval(self, plotData: List[Dict[str, Union[str, List[WINDOW_POINT]]]]) -> List[Dict[str, List[int]]]:
-        self.logger.info("Getting lineSeries for sliding interval")
-        lineSeries = []
-        for index in range(len(plotData)):
-            addressSeries = {
-                "address": plotData[index]["address"],
-                "points": [],
-                "windows": []
-            }
-
-            windows = [point.window for point in plotData[index]["points"]]
-            points = [point.point for point in plotData[index]["points"]]
-
-            addressSeries["points"] = points
-            addressSeries["windows"] = windows
-            
-            lineSeries.append(addressSeries)
-            
-        return lineSeries
     
     def plotSlidingIntervalForStd(self, plotData: List[Dict[str, Union[str, List[WINDOW_DATA]]]]) -> bool:
         self.logger.info("Plotting standard deviations")
@@ -709,43 +664,6 @@ class Engine:
         plt.show()
         
         return True
-
-    def getLineSeriesSlidingIntervalForStd(self, plotData: List[Dict[str, Union[str, List[WINDOW_DATA]]]]) -> List[Dict[str, List[int]]]:
-        self.logger.info("Getting lineSeries for sliding interval for Std")
-        lineSeries = []
-        for index in range(len(plotData)):
-            addressSeries = {
-                "address": plotData[index]["address"],
-                "points": [
-                    {
-                        "dataSet": "STD",
-                        "bar": [],
-                        "ivv": [],
-                        "windows": []
-                    },
-                    {
-                        "dataSet": "DIFF",
-                        "diff": [],
-                        "threshold": float(plotData[index]["threshold"]),
-                        "windows": []
-                    }    
-                ]
-            }
-
-            windows = [point.window for point in plotData[index]["points"]]
-            bar = [point.bar for point in plotData[index]["points"]]
-            ivv = [point.ivv for point in plotData[index]["points"]]
-            diff = [bar[i] - ivv[i] for i in range(len(bar))]
-
-            addressSeries["points"][0]["windows"] = windows
-            addressSeries["points"][1]["windows"] = windows
-            addressSeries["points"][0]["bar"] = bar
-            addressSeries["points"][0]["ivv"] = ivv
-            addressSeries["points"][1]["diff"] = diff
-
-            lineSeries.append(addressSeries)
-
-        return lineSeries
 
     def plotFilteredAndStd(self, filteredData: List[Dict[str, Union[str, List[DATA]]]], stdData: List[Dict[str, Union[str, List[WINDOW_DATA]]]]) -> bool:
         self.logger.info("Plotting filtered data and standard deviations")
@@ -887,3 +805,122 @@ class Engine:
         # plt.legend(bbox_to_anchor=(1,1), loc="upper left", title="Addresses (number points)", ncol=3)
         plt.show()        
         return True
+
+    def getLineSeriesDataPointOccurrences(self, occurrences: List[Union[str, int]]) -> List[int]:
+        self.logger.info("Getting lineSeries for  occurrence on addresses")
+        return occurrences 
+
+    def getLineSeriesBarAndIvv(self,  plotData: List[Dict[str, Union[str, List[DATA]]]]) -> List[Dict[str, List[int]]]:
+        self.logger.info("Getting lineSeries for raw bar & ivv")
+        lineSeries = []
+        for index in range(len(plotData)):
+            addressSeries = {"address": plotData[index]["address"], "bar":[], "ivv": [], "time": []}
+
+            time = list(map(lambda el: el/60, [point.time for point in plotData[index]["points"]]))
+            bar = [point.bar for point in plotData[index]["points"]]
+            ivv = [point.ivv for point in plotData[index]["points"]]
+
+            addressSeries["bar"] = bar
+            addressSeries["ivv"] = ivv
+            addressSeries["time"] = time
+            
+            lineSeries.append(addressSeries)
+            
+        return lineSeries
+
+    def getLineSeriesFilteredBarAndIvv(self, plotData: List[Dict[str, Union[str, List[DATA]]]]) -> List[Dict[str, List[int]]]:
+        self.logger.info("Getting line series for filtered bar and ivv on time")
+        
+        lineSeries = []
+        for index in range(len(plotData)):
+            addressSeries = {
+                "address": plotData[index]["address"],
+                "points": [
+                    {
+                        "dataSet": "BAR",
+                        "raw": [],
+                        "filtered": [],
+                        "time": []
+                    },
+                    {
+                        "dataSet": "IVV",
+                        "raw":[],
+                        "filtered":[],
+                        "time": []
+                    }    
+                ]
+            }
+
+            time = list(map(lambda el: el/60, [point.time for point in plotData[index]["points"]]))
+            bar = [point.bar for point in plotData[index]["points"]]
+            ivv = [point.ivv for point in plotData[index]["points"]]
+            filteredBar = [float(point.bar) for point in plotData[index]["filteredPoints"]]
+            filteredIvv = [float(point.ivv) for point in plotData[index]["filteredPoints"]]
+
+            addressSeries["points"][0]["raw"] = bar
+            addressSeries["points"][0]["filtered"] = filteredBar
+            addressSeries["points"][1]["raw"] = ivv
+            addressSeries["points"][1]["filtered"] = filteredIvv
+            addressSeries["points"][0]["time"] = time
+            addressSeries["points"][1]["time"] = time
+            
+            lineSeries.append(addressSeries)
+            
+        return lineSeries
+
+    def getLineSeriesSlidingInterval(self, plotData: List[Dict[str, Union[str, List[WINDOW_POINT]]]]) -> List[Dict[str, List[int]]]:
+        self.logger.info("Getting lineSeries for sliding interval")
+        lineSeries = []
+        for index in range(len(plotData)):
+            addressSeries = {
+                "address": plotData[index]["address"],
+                "points": [],
+                "windows": []
+            }
+
+            windows = [point.window for point in plotData[index]["points"]]
+            points = [point.point for point in plotData[index]["points"]]
+
+            addressSeries["points"] = points
+            addressSeries["windows"] = windows
+
+            lineSeries.append(addressSeries)
+
+        return lineSeries
+
+    def getLineSeriesSlidingIntervalForStd(self, plotData: List[Dict[str, Union[str, List[WINDOW_DATA]]]]) -> List[Dict[str, List[int]]]:
+        self.logger.info("Getting lineSeries for sliding interval for Std")
+        lineSeries = []
+        for index in range(len(plotData)):
+            addressSeries = {
+                "address": plotData[index]["address"],
+                "points": [
+                    {
+                        "dataSet": "STD",
+                        "bar": [],
+                        "ivv": [],
+                        "windows": []
+                    },
+                    {
+                        "dataSet": "DIFF",
+                        "diff": [],
+                        "threshold": float(plotData[index]["threshold"]),
+                        "windows": []
+                    }    
+                ]
+            }
+
+            windows = [point.window for point in plotData[index]["points"]]
+            bar = [point.bar for point in plotData[index]["points"]]
+            ivv = [point.ivv for point in plotData[index]["points"]]
+            diff = [bar[i] - ivv[i] for i in range(len(bar))]
+
+            addressSeries["points"][0]["windows"] = windows
+            addressSeries["points"][1]["windows"] = windows
+            addressSeries["points"][0]["bar"] = bar
+            addressSeries["points"][0]["ivv"] = ivv
+            addressSeries["points"][1]["diff"] = diff
+
+            lineSeries.append(addressSeries)
+
+        return lineSeries
