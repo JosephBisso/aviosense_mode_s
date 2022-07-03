@@ -2,6 +2,8 @@
 import sys
 import statistics
 import numpy as np
+import seaborn as sb
+import geopandas as gpd
 import concurrent.futures
 import matplotlib.pyplot as plt
 from scipy.signal import medfilt
@@ -13,6 +15,7 @@ from PySide6 import QtCharts
 from logger import Logger
 from constants import ENGINE_CONSTANTS
 from constants import DB_CONSTANTS
+from constants import GUI_CONSTANTS
 
 class DATA(NamedTuple):
     time: float # in Seconds
@@ -27,13 +30,22 @@ class WINDOW_DATA(NamedTuple):
     window: float 
     bar: float
     ivv: float
-    
+
+class LOCATION_DATA(NamedTuple):
+    time: float 
+    longitude: float
+    latitude: float
+
+class EngineError(BaseException):
+    pass
+
 class Engine:
-    def __init__(self, logger: Logger, plots: List[str] = [], plotAddresses: List[str] = [], medianN: int = 1, durationLimit:int = None):
+    def __init__(self, logger: Logger, plots: List[str] = [], plotAddresses: List[str] = [], medianN: int = 1, durationLimit:int = None, plotAll = False):
         self.logger = logger
         self.plots: Dict[str, bool] = self.__activatePlot(plots)
         self.plotAddresses = [int(address) for address in plotAddresses]
-        self.medianN = int(medianN)
+        self.plotAll = plotAll
+        self.medianN = int(medianN) if int(medianN) % 2 == 1 else int(medianN) + 1
         self.durationLimit = float(durationLimit) if durationLimit else None
         self.executor = concurrent.futures.ThreadPoolExecutor()
     
@@ -58,22 +70,21 @@ class Engine:
         bars = []
         ivvs = []
         times = []
+
+        startIndex = next((index for index, data in enumerate(self.data) if data["address"] == address and data["bar"] is not None and data["ivv"] is not None), None)
+
+        if not startIndex:
+            raise EngineError("Skipping address " + str(address) + " : Invalid bar or ivv")
+
+        for index in range(startIndex, len(self.data)):
+            if self.data[index]["bar"] is None or self.data[index]["ivv"] is None:
+                continue
+            if not self.data[index]["address"] == address:
+                break
+            bars.append(self.data[index]["bar"])
+            ivvs.append(self.data[index]["ivv"])
+            times.append(self.data[index]["timestamp"])
         
-        alreadyFoundAddress = False
-        for entry in self.data:
-            if not entry["address"] == address: 
-                if alreadyFoundAddress: break 
-                else: continue
-                
-            alreadyFoundAddress = True
-            if not entry["bar"] or not entry["ivv"]: continue
-            
-            bars.append(entry["bar"])
-            ivvs.append(entry["ivv"])
-            times.append(entry["timestamp"])
-
-        if not alreadyFoundAddress : self.logger.critical("Could not find address " + str(address) + ". May be a Typo?", NameError)
-
         startTime = min(times)
         addressData["points"] = [DATA((times[i] - startTime)*10**-9, bars[i], ivvs[i]) for i in range(len(times))]
         addressData["points"].sort(key=lambda el: el.time)
@@ -87,9 +98,10 @@ class Engine:
             if startIndexForOverDuration:
                 self.logger.log("Filtering data for address " + str(address)+ " with max flight duration time = " + str(self.durationLimit))
                 del(addressData["points"][startIndexForOverDuration: len(addressData["points"])])
-
         
-        self.logger.debug("Address " + str(address) + ":: Plotting " + str(len(addressData["points"])) + " points.")
+        self.logger.debug("Valid results for sliding interval for address " + str(
+            address) + ". Points Count: " + str(len(addressData["points"])))
+
         return addressData
 
     def __applyMedianFilter(self, addressData: Dict[str, Union[str, List[DATA]]]) -> None:
@@ -97,14 +109,28 @@ class Engine:
         ivvs = [point.ivv for point in addressData["points"]]
         times = [point.time for point in addressData["points"]]
 
-        filteredBars: np.ndarray = medfilt(bars, self.medianN)
-        filteredIvvs: np.ndarray = medfilt(ivvs, self.medianN)
+        if not bars or not ivvs or not times:
+            raise EngineError("Skipping address " + str(addressData["address"]) + " : Invalid bar or ivv for median filter")
+        
+        maxMedianFilter = len(bars) if len(bars) % 2 == 1 else len(bars) - 1
+        nFilter = min(self.medianN, maxMedianFilter)
+
+        filteredBars: np.ndarray = medfilt(bars, nFilter)
+        filteredIvvs: np.ndarray = medfilt(ivvs, nFilter)
 
         addressData["filteredPoints"] = [
-            DATA(times[i], filteredBars[i], filteredIvvs[i]) for i in range(len(filteredBars))]
+            DATA(times[i], filteredBars[i], filteredIvvs[i]) for i in range(len(filteredBars))
+        ]
+        
+        self.logger.debug("Valid results for apply median filter for address " + str(
+            addressData["address"]) + ". Points Count: " + str(len(addressData["filteredPoints"])))
+
 
     def __getSlidingIntervalForAddress(self, addressData: Dict[str, Union[str, List[DATA]]]) -> Dict[str, Union[str, List[WINDOW_POINT]]]:
         times = [point.time for point in addressData["points"]]
+        if not times: 
+            raise EngineError("Skipping address " + str(addressData["address"]) + " : Invalid time for sliding interval")
+        
         slidingWindows = [duration * 60 for duration in range(int(max(times) / 60))]
         
         slidingIntervals:Dict[str, Union[str, List[WINDOW_POINT]]]  = {"address": addressData["address"], "points":[]}
@@ -119,26 +145,33 @@ class Engine:
             
             slidingIntervals["points"].append(WINDOW_POINT(slidingWindows[windowIndex]/60, dataPoints))
         
+        self.logger.debug("Valid results for sliding interval for address " + str(
+            addressData["address"]) + ". Points Count: " + str(len(slidingIntervals["points"])))
+        
         return slidingIntervals
 
-    def __getSlidingIntervalForStdPerAddress(self, addressData: Dict[str, Union[str, List[DATA]]]) -> Dict[str, Union[str, List[WINDOW_DATA]]]:
-        times = [point.time for point in addressData["points"]]
-        slidingWindows = [duration *
-                          60 for duration in range(int(max(times) / 60))]
-
+    def __getSlidingIntervalForStdPerAddress(self, addressData: Dict[str, Union[str, List[DATA]]]) -> Dict[str, Union[str, List[WINDOW_DATA], float]]:
         slidingIntervalsForStd: Dict[str, Union[str, List[WINDOW_POINT]]] = {
             "address": addressData["address"],
             "points": [],
             "threshold": 0
         }
         
+        times = [point.time for point in addressData["points"]]
+        
+        try:
+            addressData["filteredPoints"]
+        except KeyError:
+            raise EngineError("Skipping address " + str(addressData["address"]) + " : No filtered points for sliding interval per std")
+            
+        slidingWindows = [duration *60 for duration in range(int(max(times) / 60))]
+        
         barStds = []
         ivvStds = []
 
         actualIndex = 0
         for windowIndex in range(len(slidingWindows)):
-            bars = [0, 0]
-            ivvs = [0, 0]
+            bars = ivvs = []
             for dataIndex in range(actualIndex, len(addressData["filteredPoints"])):
                 if addressData["filteredPoints"][dataIndex].time > slidingWindows[windowIndex]:
                     actualIndex = dataIndex
@@ -146,6 +179,13 @@ class Engine:
                 bars.append(addressData["filteredPoints"][dataIndex].bar)
                 ivvs.append(addressData["filteredPoints"][dataIndex].ivv)
 
+            if not bars or not ivvs:
+                bars = ivvs = [0,0]
+            
+            if len(bars) == 1 :
+                bars.append(bars[0])
+                ivvs.append(ivvs[0])
+            
             barStd = statistics.stdev(bars)
             ivvStd = statistics.stdev(ivvs)
             
@@ -154,20 +194,87 @@ class Engine:
 
             barStds.append(barStd)
             ivvStds.append(ivvStd)
-
+            
+        if not barStds or not ivvStds: 
+            barStds = ivvStds = [0, 0]
+            
         arrayBarStds = np.array(barStds)
         arrayIvvStds = np.array(ivvStds)
         diffStds = arrayBarStds - arrayIvvStds
-        threshold = np.average(diffStds) + 1.2 * np.std(diffStds, ddof=1) 
+        
+        ddof = 1 if len(diffStds) > 1 else 0
+        threshold = np.average(diffStds) + 1.2 * np.std(diffStds, ddof=ddof)
         slidingIntervalsForStd["threshold"] = threshold
         
+        self.logger.debug("Valid results for sliding interval for std for address " + str(
+            addressData["address"]) + ". Points Count: " + str(len(slidingIntervalsForStd["points"])))
+
         return slidingIntervalsForStd
+
+    def __getHeatPointsForAddress(self, addressData: Dict[str, Union[str, List[WINDOW_DATA], float]] = {}) -> Dict[str, Union[str,List[LOCATION_DATA]]]:
+        heatPointsForAddress: List[str, List[LOCATION_DATA]] = []
+        
+        turbulentSlidingWindows = [point.window for point in addressData["points"] if point.bar - point.ivv > addressData["threshold"]]
+        turbulentSlidingWindows.sort()
+        
+        self.logger.debug("Heat Points for address " + str(
+            addressData["address"]) + ". Address Data windows Count: " + str(len(addressData["points"])) + 
+            ". Turbulent sliding windows: " + str(len(turbulentSlidingWindows)))
+
+        times = []
+
+        startIndex = next((index for index, data in enumerate(self.data) if data["address"] == addressData["address"]), None)
+        if not startIndex:
+            raise EngineError("Skipping address " + str(addressData["address"]) + " : Invalid bar or ivv stds for heat map")
+
+        for index in range(startIndex, len(self.data)):
+            if not self.data[index]["address"] == addressData["address"]:
+                break
+            times.append(self.data[index]["timestamp"])
+                    
+        startTime = min(times)
+
+        foundLongitude = False
+        for index in range(startIndex, len(self.data)):
+            if self.data[index]["longitude"] is None or self.data[index]["latitude"] is None:
+                continue
+            if not self.data[index]["address"] == addressData["address"]:
+                break
+
+            foundLongitude = True
+
+            rawTime = self.data[index]["timestamp"]
+            time = (rawTime - startTime)*10**-9
+            time /= 60
+            
+            windows = next((window for window in turbulentSlidingWindows if time < window), None)
+            
+            if not windows: break
+            
+            
+            if time < windows - 1: continue
+            
+            longitude = self.data[index]["longitude"]
+            latitude = self.data[index]["latitude"]
+            
+            heatPointsForAddress.append(
+                LOCATION_DATA(rawTime, longitude, latitude)
+            )
+        
+        if len(heatPointsForAddress) < len(turbulentSlidingWindows):
+            self.logger.warning("Doubtful results for Heat Points for address " + str(
+            addressData["address"]) + ". Points Count: " + str(len(heatPointsForAddress)) + ". Found longitude and latitude data? " + str(foundLongitude))
+        else:
+            self.logger.debug("Valid results for Heat Points for address " + str(
+                addressData["address"]) + ". Points Count: " + str(len(heatPointsForAddress)))
+
+        return {"address": addressData["address"], "points": heatPointsForAddress}
 
     def updateParameters(self, plotAddresses: List[str] = [], medianN: int = 1, durationLimit: int = None):
         self.gui = True
         self.plots = self.__activatePlot([""])
         self.plotAddresses = [int(address) for address in plotAddresses]
-        self.medianN = int(medianN)
+        self.medianN = int(medianN) if int(medianN) % 2 == 1 else int(medianN) + 1
         self.durationLimit = float(durationLimit) if durationLimit else None
 
         self.logger.log("Minimum number of threads : " + str(DB_CONSTANTS.MIN_NUMBER_THREADS))
@@ -189,8 +296,17 @@ class Engine:
 
         
         addresses__future = self.executor.submit(self.prepareOccurrencesForAddresses, "addresses")
-        addressesToPlot = addresses__future.result()[:4] if len(self.plotAddresses) == 0 else self.plotAddresses
-        self.logger.log("Plotting for following addresses: " + str(addressesToPlot))
+        allAddresses = addresses__future.result()
+        mostPointAddresses = allAddresses[:4]
+        if self.plotAddresses:
+            addressesToPlot = self.plotAddresses
+        elif self.plotAll:
+            addressesToPlot = allAddresses
+        else:
+            addressesToPlot = mostPointAddresses
+            
+        if len(addressesToPlot) < 5: self.logger.log("Plotting for following addresses: " + str(addressesToPlot))
+        else: self.logger.log("Plotting for " + str(len(addressesToPlot)) + " addresses")
             
         barAndIvvAndTime__future = self.executor.submit(self.prepareBarAndIvvAndTime, addressesToPlot)
         data = barAndIvvAndTime__future.result()
@@ -213,25 +329,43 @@ class Engine:
                 plotted.append(self.plotFilteredAndStd(filteredData=data, stdData=slidingIntervalForStd))
             else:
                 plotted.append(self.plotSlidingIntervalForStd(slidingIntervalForStd))
+        
+        if self.plots["location"]:
+            location = self.prepareLocation()
+            plotted.append(self.plotLocation(location))
 
+        if self.plots["heat_map"]:
+            if not self.plots["filtered"] and not self.plots["std"]:
+                self.prepareMedianFilter(data)
+            if not self.plots["std"]:
+                slidingIntervalForStd = self.prepareSlidingIntervalForStd(data)
+            if not self.plots["location"]:
+                location = self.prepareLocation()
+            heatMap = self.prepareHeatMap(slidingIntervalForStd)
+            plotted.append(self.plotHeatMap(heatMap=heatMap, rawLocation=location))
+                
         if all(plotted): self.logger.success("Successfully plotted")
         else: self.logger.warning("Error while plotting")
                
     def prepareOccurrencesForAddresses(self, returnValue="datapoint") -> Union[List[Union[int, str]], List[int]]:
+        self.logger.log("Computing Occurrences for Addresses")
         dataPointsCounter = Counter([entry["address"] for entry in self.data])
-        if returnValue != "datapoint": return [mostCommonAddress[0] for mostCommonAddress in (dataPointsCounter.most_common())]
+        if returnValue != "datapoint": return [mostCommonAddress[0] for mostCommonAddress in (dataPointsCounter.most_common()) if mostCommonAddress[1] > 1]
 
         dataPoint = list(dataPointsCounter.values())
         dataPoint.sort(reverse=True)
         return dataPoint
 
     def prepareBarAndIvvAndTime(self, addresses:List[int] = []) -> List[Dict[str, Union[str, List[DATA]]]]:
+        self.logger.log("Computing bar, ivv and time")
         plotData = []
         addressData__futures = [self.executor.submit(self.__getDataForAddress, address) for address in addresses]
 
         for completedThread in concurrent.futures.as_completed(addressData__futures):
             try:
                 addressData = completedThread.result()
+            except EngineError as e:
+                self.logger.warning("EngineError :: " + str(e))
             except Exception as esc:
                 type, value, traceback = sys.exc_info()
                 self.logger.warning(
@@ -249,12 +383,15 @@ class Engine:
         for completedThread in concurrent.futures.as_completed(filteredAddressData__futures):
             try:
                 completedThread.result()
+            except EngineError as e:
+                self.logger.warning("EngineError :: " + str(e))
             except Exception as esc:
                 type, value, traceback = sys.exc_info()
                 self.logger.warning(
                     "Error occurred while filtering data for addresses\n" + str(type) + "::" + str(value))
-                
+
     def prepareSlidingInterval(self, data: List[Dict[str, Union[str, List[DATA]]]]) -> List[Dict[str, Union[str, List[WINDOW_POINT]]]]:
+        self.logger.log("Computing sliding intervals")
         slidingIntervals = []
         slidingInterval__futures = [self.executor.submit(
             self.__getSlidingIntervalForAddress, addressData) for addressData in data]
@@ -262,16 +399,19 @@ class Engine:
         for completedThread in concurrent.futures.as_completed(slidingInterval__futures):
             try:
                 slidingIntervalForAddress = completedThread.result()
+            except EngineError as e:
+                self.logger.warning("EngineError :: " + str(e))
             except Exception as esc:
                 type, value, traceback = sys.exc_info()
                 self.logger.warning(
                     "Error occurred while preparing sliding intervals for addresses\n" + str(type) + "::" + str(value))
             else:
-                slidingIntervals.append(slidingIntervalForAddress)
+                if slidingIntervalForAddress: slidingIntervals.append(slidingIntervalForAddress)
                 
         return slidingIntervals
     
-    def prepareSlidingIntervalForStd(self, data: List[Dict[str, Union[str, List[DATA]]]]) -> List[Dict[str, Union[str, List[WINDOW_DATA]]]]:
+    def prepareSlidingIntervalForStd(self, data: List[Dict[str, Union[str, List[DATA]]]]) -> List[Dict[str, Union[str, List[WINDOW_DATA], float]]]:
+        self.logger.log("Computing sliding intervals for std")
         slidingIntervalForStd = []
         slidingInterval__futures = [self.executor.submit(
             self.__getSlidingIntervalForStdPerAddress, addressData) for addressData in data]
@@ -279,14 +419,62 @@ class Engine:
         for completedThread in concurrent.futures.as_completed(slidingInterval__futures):
             try:
                 slidingIntervalForStdPerAddress = completedThread.result()
+            except EngineError as e:
+                self.logger.warning("EngineError :: " + str(e))
             except Exception as esc:
                 type, value, traceback = sys.exc_info()
                 self.logger.warning(
                     "Error occurred while preparing sliding interval for std per addresses\n" + str(type) + "::" + str(value))
             else:
-                slidingIntervalForStd.append(slidingIntervalForStdPerAddress)
+                if slidingIntervalForStdPerAddress: slidingIntervalForStd.append(slidingIntervalForStdPerAddress)
 
         return slidingIntervalForStd
+
+    def prepareLocation(self) -> List[Dict[str, Union[str, List[LOCATION_DATA]]]]:
+        self.logger.log("Computing locations")
+        allLocationData = []
+        
+        addressPoints: List[LOCATION_DATA] = []
+         
+        for index in range(len(self.data)):
+            time = self.data[index]["timestamp"]
+            longitude = self.data[index]["longitude"]
+            latitude = self.data[index]["latitude"]
+            
+            if not longitude or not latitude: continue
+
+            addressPoints.append(LOCATION_DATA(time, longitude, latitude))
+
+            if index == len(self.data) - 1 or self.data[index]["address"] != self.data[index + 1]["address"]:
+                addressPoints.sort(key=lambda el: el.time)
+
+                allLocationData.append({
+                    "address": self.data[index]["address"],
+                    "points": addressPoints
+                })
+                
+                addressPoints = []
+        
+        return allLocationData
+    
+    def prepareHeatMap(self, slidingIntervallForStd: List[Dict[str, Union[str, List[WINDOW_DATA], float]]] = []) -> List[Dict[str, Union[str, List[LOCATION_DATA]]]]:
+        self.logger.log("Computing heat map")
+        heatPoints: List[Dict[str, Union[str, List[LOCATION_DATA]]]] = []
+        heatPoints__future = [self.executor.submit(
+            self.__getHeatPointsForAddress, addressData) for addressData in slidingIntervallForStd]
+        for completedThread in concurrent.futures.as_completed(heatPoints__future):
+            try:
+                heatPointsPerAddress = completedThread.result()
+            except EngineError as e:
+                self.logger.warning("EngineError :: " + str(e))
+            except Exception as esc:
+                type, value, traceback = sys.exc_info()
+                self.logger.warning(
+                    "Error occurred while preparing sliding heatmap per addresses\n" + str(type) + "::" + str(value))
+            else:
+                heatPoints.append(heatPointsPerAddress)
+                
+        return heatPoints
 
     def plotDataPointOccurrences(self, occurrences: List[Union[str, int]]) -> bool:
         self.logger.info("Plotting occurrence on addresses")
@@ -615,3 +803,87 @@ class Engine:
         
         return True
         
+    def plotLocation(self, plotData: List[Dict[str, Union[str, List[LOCATION_DATA]]]]) -> bool:
+        self.logger.info("Plotting location")
+        
+        import gui.scripts.world as w
+        
+        worldMap = gpd.GeoDataFrame.from_features(w.WORLD["features"])
+        fig, ax = plt.subplots(num="MODE-S @ LOCATION")
+        worldMap.boundary.plot(ax=ax, edgecolor="black")
+        ax.set_xlim(GUI_CONSTANTS.DE_MIN_LONGITUDE, GUI_CONSTANTS.DE_MAX_LONGITUDE)
+        ax.set_ylim(GUI_CONSTANTS.DE_MIN_LATITUDE, GUI_CONSTANTS.DE_MAX_LATITUDE)
+        ax.set(aspect=1.78)
+        
+        r = 1
+        g = 0
+        b = 0
+        maxColor= 255 / 255
+        minColor= 0 
+        for index in range(len(plotData)):
+            longitude = [point.longitude for point in plotData[index]["points"]]
+            latitude = [point.latitude for point in plotData[index]["points"]]
+            
+            if index >= 18 and index < 36:
+                maxColor = 250 / 255 
+                minColor = 112 / 255
+            elif index >= 36 and index < 54:
+                maxColor = 240 / 255
+                minColor = 168 / 255
+            else:
+                maxColor = 255 / 255
+                minColor = 0
+                
+            if r < minColor: r = minColor         
+            if g < minColor: g = minColor         
+            if b < minColor: b = minColor
+            if r > maxColor: r = maxColor         
+            if g > maxColor: g = maxColor         
+            if b > maxColor: b = maxColor
+
+            label = str(plotData[index]["address"]) + "(" + str(len(plotData[index]["points"]))+ ")"
+            plt.plot(longitude, latitude, color=(r, g, b), marker=".", ms=1, linestyle="none", label=label)
+
+            colorRatio = 85/255
+            if r == maxColor and b == minColor and g != maxColor: g += colorRatio
+            elif g == maxColor and b == minColor and r != minColor: r -= colorRatio
+            elif g == maxColor and r == minColor and b != maxColor: b += colorRatio
+            elif b == maxColor and r == minColor and g != minColor: g -= colorRatio
+            elif b == maxColor and g == minColor and r != maxColor: r += colorRatio
+            elif r == maxColor and g == minColor and b != minColor: b -= colorRatio
+            
+        fig.tight_layout()
+        
+        plt.suptitle("Data of the addresses with the most points (" + str(len(plotData)) + "), mercator proj" )
+        plt.legend(bbox_to_anchor=(1,1), loc="upper left", title="Addresses (number points)", ncol=3)
+        plt.show()        
+        return True
+
+    def plotHeatMap(self, heatMap: List[Dict[str, Union[str, List[LOCATION_DATA]]]] = [], rawLocation: List[Dict[str, Union[str, List[LOCATION_DATA]]]] = []) -> bool:
+        self.logger.info("Plotting heat map")
+        
+        import gui.scripts.world as w
+        
+        worldMap = gpd.GeoDataFrame.from_features(w.WORLD["features"])
+        fig, ax = plt.subplots(num="MODE-S @ LOCATION")
+        worldMap.boundary.plot(ax=ax, edgecolor="black")
+        ax.set_xlim(GUI_CONSTANTS.DE_MIN_LONGITUDE, GUI_CONSTANTS.DE_MAX_LONGITUDE)
+        ax.set_ylim(GUI_CONSTANTS.DE_MIN_LATITUDE, GUI_CONSTANTS.DE_MAX_LATITUDE)
+        ax.set(aspect=1.78)
+        
+        for location in rawLocation:
+            longitude = [point.longitude for point in location["points"]]
+            latitude = [point.latitude for point in location["points"]]
+            plt.plot(longitude, latitude, color="palegreen", marker=",", ms=3, linestyle="none")
+
+        for turbulentLocation in heatMap:
+            longitude = [point.longitude for point in turbulentLocation["points"]]
+            latitude = [point.latitude for point in turbulentLocation["points"]]
+            plt.plot(longitude, latitude, color="red", marker=".", ms=3, linestyle="none")
+            
+        fig.tight_layout()
+        
+        plt.suptitle("Turbulence Areas, mercator proj")
+        # plt.legend(bbox_to_anchor=(1,1), loc="upper left", title="Addresses (number points)", ncol=3)
+        plt.show()        
+        return True

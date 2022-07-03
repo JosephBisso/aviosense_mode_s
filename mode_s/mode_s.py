@@ -60,6 +60,8 @@ def init_argparse():
                         help="The desired plots. POSSIBLE VALUES: " + str(ENGINE_CONSTANTS.PLOTS), default=[])
     parser.add_argument("-pa", "--plot-addresses", nargs='*',
                         help="The addresses of the desired plots.", default=[])
+    parser.add_argument("--plot-all", action="store_true",
+                        help="Plot all addresses for the desired plots.", default=False)
 
     return parser
 
@@ -245,11 +247,12 @@ if __name__ == "__main__":
     db = Database(logger, terminal=args.terminal)
     
     modeSEngine = ModeSEngine.Engine(
-        logger=logger, plots=args.plots, plotAddresses=args.plot_addresses, medianN=args.median_n, durationLimit=args.duration_limit
+        logger=logger, plots=args.plots, plotAddresses=args.plot_addresses, plotAll=args.plot_all, medianN=args.median_n, durationLimit=args.duration_limit
     )
 
+    qInstallMessageHandler(qt_message_handler)
+    
     if not args.terminal:
-        qInstallMessageHandler(qt_message_handler)
         engine = QQmlApplicationEngine()
         mode_s = Mode_S(db, modeSEngine, logger)
         engine.rootContext().setContextProperty("__mode_s", mode_s)
