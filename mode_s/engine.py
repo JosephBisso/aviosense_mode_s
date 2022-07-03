@@ -248,9 +248,7 @@ class Engine:
         foundLongitude = False
         foundWindow = False
         closestTimes = []
-        closestTimes.append(
-            ((self.data[startIndex]["timestamp"] - startTime)*10**-9) / 60
-        )
+        allTimes = []
         for index in range(startIndex, len(self.data)):
             if self.data[index]["longitude"] is None or self.data[index]["latitude"] is None:
                 continue
@@ -262,7 +260,8 @@ class Engine:
             rawTime = self.data[index]["timestamp"]
             time = (rawTime - startTime)*10**-9
             time /= 60
-            
+            allTimes.append(time)
+
             windows = next((window for window in turbulentSlidingWindows if time <= window), None)
             
             if not windows: break
@@ -278,6 +277,8 @@ class Engine:
             heatPointsForAddress.append(
                 LOCATION_DATA(rawTime, longitude, latitude)
             )
+            
+        if allTimes: closestTimes.insert(0, min(allTimes))
         
         if len(heatPointsForAddress) < len(turbulentSlidingWindows):
             self.logger.warning("Doubtful results for Heat Points for address " + str(
@@ -797,7 +798,8 @@ class Engine:
         for turbulentLocation in heatMap:
             longitude = [point.longitude for point in turbulentLocation["points"]]
             latitude = [point.latitude for point in turbulentLocation["points"]]
-            plt.plot(longitude, latitude, color="red", marker=".", ms=3, linestyle="none")
+            label = str(turbulentLocation["address"]) + "(" + str(len(turbulentLocation["points"]))+ ")"
+            plt.plot(longitude, latitude, color="red", marker=".", ms=3, linestyle="none", label=label)
             
         fig.tight_layout()
         

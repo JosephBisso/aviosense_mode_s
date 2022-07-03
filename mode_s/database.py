@@ -23,11 +23,7 @@ class Database:
         else:
             self.logger.critical("Database not accessible")
         
-        rowCount__future.result()
-        timeStamp__future = executor.submit(self.__getLattestDBTimeStamp)
-
-        if terminal:
-            timeStamp__future.result()
+        rowCount__future.add_done_callback(self.__getLattestDBTimeStamp)
         
         executor.shutdown()
     
@@ -198,7 +194,8 @@ class Database:
         self.logger.log("Updated database filter")
         self.logger.debug("New filter is:" + self.strFilter)
 
-    def __getLattestDBTimeStamp(self):
+    def __getLattestDBTimeStamp(self, future: concurrent.futures.Future):
+        future.result()
         time = self.getFromDB( ["timestamp"], options = {"not_null_values": ["timestamp"], "limit": 1})
         lastDBUpdate = QDateTime.fromMSecsSinceEpoch(int(time[0]["timestamp"]) / 10**6).toString()
         self.logger.info("Lattest database db_airdata update: " + lastDBUpdate)
@@ -270,18 +267,17 @@ class Database:
                                                  "select_distinct": True, "not_null_values": ["identification", "address"]})
             idAndAddress__future.add_done_callback(self.__actualizeKnownAddresses)
 
-            latAndlon__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "latitude", "longitude"], options={
-                                              "not_null_values": ["bds", "altitude"], "limit": int(int(self.limit) / 2)})
-            
-            halfResult = latAndlon__future.result()
-            self.__updatedUsedAddresses(halfResult)
-
             barAndivv__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "bar", "ivv"], options={
                                               "not_null_values": ["bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"], "limit": int(int(self.limit) / 2)})
             
+            halfResult = barAndivv__future.result()
+            self.__updatedUsedAddresses(halfResult)
+
+            latAndlon__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "latitude", "longitude"], options={
+                                              "not_null_values": ["bds", "altitude"], "limit": int(int(self.limit) / 2)})
             
             self.data.extend(halfResult)
-            self.data.extend(barAndivv__future.result())
+            self.data.extend(latAndlon__future.result())
 
             self.logger.info("Data actualized. Size: " + str(len(self.data)))
 
