@@ -1,36 +1,50 @@
 from PySide6 import QtSql
 from PySide6.QtCore import QDateTime
 
+import sys
 import concurrent.futures
 from typing import List, Dict, Union
 
 from logger import Logger
 from constants import DB_CONSTANTS
 
+
+class DatabaseError(BaseException):
+    pass
+
 class Database:
     def __init__(self, logger: Logger, terminal:bool):        
-        db = QtSql.QSqlDatabase.addDatabase("QMYSQL")
-        self.__setUp(db)
         self.filterOn: bool = False 
         self.logger: Logger = logger
         self.data: List[Dict[str, Union[str, int]]] = []  
         self.executors = []
         executor = self.__executor()
+        try:
+            self.__testDBConnection()
+            rowCount__future = executor.submit(self.__getDBRowCount)
+            rowCount__future.add_done_callback(self.__getLattestDBTimeStamp)
+        except DatabaseError as de:
+            self.logger.critical(str(de))
+        finally:
+            QtSql.QSqlDatabase.removeDatabase("testDB")
+
+        executor.shutdown()
+        
+    
+    def __executor(self) -> concurrent.futures.ThreadPoolExecutor: 
+        ex = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="database_workerThread")
+        self.executors.append(ex)
+        return ex
+    
+    def __testDBConnection(self):
+        db = QtSql.QSqlDatabase.addDatabase("QMYSQL", "testDB")
+        self.__setUp(db)
+
         if db.open():
             self.logger.success("Database accessible")
             db.close()
-            rowCount__future = executor.submit(self.__getDBRowCount)
         else:
-            self.logger.critical("Database not accessible")
-        
-        rowCount__future.add_done_callback(self.__getLattestDBTimeStamp)
-        
-        executor.shutdown()
-    
-    def __executor(self) -> concurrent.futures.ThreadPoolExecutor: 
-        ex = concurrent.futures.ThreadPoolExecutor()
-        self.executors.append(ex)
-        return ex
+            raise DatabaseError("Database not accessible")
     
     def __setUp(self, db: QtSql.QSqlDatabase):
         db.setDatabaseName(DB_CONSTANTS.DATABASE_NAME)
@@ -39,46 +53,45 @@ class Database:
         if DB_CONSTANTS.HOSTNAME: db.setHostName(DB_CONSTANTS.HOSTNAME)
 
     def __getDBRowCount(self):
-        q = self.__query("SELECT COUNT(*) FROM tbl_mode_s")
-        while q.next():
-            DB_CONSTANTS.ROW_COUNT = q.value(0)   
-        q.finish()
+        count, dbName = self.__query("SELECT COUNT(*) AS rowCount FROM tbl_mode_s", ["rowCount"])
+        DB_CONSTANTS.ROW_COUNT = count[0]["rowCount"]
+
         if DB_CONSTANTS.ROW_COUNT == 0:
-            self.logger.critical("Row count of Table tbl_mode_s should not be 0 !", AssertionError)
+            raise DatabaseError("Row count of Table tbl_mode_s should not be 0 !")
         self.logger.info("Row Count for table tbl_mode_s: " + str(DB_CONSTANTS.ROW_COUNT))
 
-    def __query(self, query: str) -> QtSql.QSqlQuery:
+        QtSql.QSqlDatabase.removeDatabase(dbName)
+
+    def __query(self, query: str, elements: List[str] = []) -> List[Dict[str, Union[int, str]]]:
         DB_CONSTANTS.CONNECTIONS_TOTAL += 1
         name = "db_thread_" + str(DB_CONSTANTS.CONNECTIONS_TOTAL)
         db = QtSql.QSqlDatabase.addDatabase("QMYSQL", name)
         self.__setUp(db)
         if not db.open():
-            self.logger.critical("Database " + name +
-                                 " not accessible. ERROR:: " + db.lastError().text() , ConnectionError)
+            raise DatabaseError("Database " + name +
+                                " not accessible. ERROR:: " + db.lastError().text())
 
         self.logger.debug("New database connection: " + name)
 
         q = QtSql.QSqlQuery(db)
         q.setForwardOnly(True)
         if not q.exec(query):
-            self.logger.critical(
-                "Could not execute query: " + q.lastQuery() + " on " + name + " ERROR:: " + q.lastError().text(), ConnectionError)
+            raise DatabaseError(
+                "Could not execute query: " + q.lastQuery() + " on " + name + " ERROR:: " + q.lastError().text())
 
-        self.logger.debug("Executed following query: " + q.lastQuery() + " :: on :: " + name)
-        db.close()
-        return q
+        self.logger.debug("Executed query :: on :: " + name)
 
-    def __getAll(self, query: QtSql.QSqlQuery, elements: List[str] = []) -> List[Dict[str, Union[int, str]]]:
         allResults = []
-        
-        absentColumns =  []
+
+        absentColumns = []
         for el in DB_CONSTANTS.USED_COLUMNS:
-            if not el in elements: absentColumns.append(el)
-            
-        while query.next():
+            if not el in elements:
+                absentColumns.append(el)
+
+        while q.next():
             entry = {abs: None for abs in absentColumns}
             for el in elements:
-                value = query.value(el)
+                value = q.value(el)
                 if isinstance(value, str):
                     entry[el] = value.strip()
                 elif isinstance(value, QDateTime):
@@ -88,10 +101,13 @@ class Database:
 
             allResults.append(entry)
 
-        self.logger.debug(str(len(allResults)) + " entries for query " + str(query.lastQuery()))
+        self.logger.debug(str(len(allResults)) +
+                          " entries for query " + str(q.lastQuery()))
+        q.finish()
+        q.clear()
+        db.close()
         
-        query.finish()
-        return allResults
+        return allResults, name
     
     def __generateQueries(self, attributes: List[str], options: Dict[str, str]) -> List[str]:
         selectStr = "SELECT "
@@ -108,8 +124,8 @@ class Database:
                 selectStr += "bds60_inertial_vertical_velocity AS ivv"
             else:
                 if not attrib in DB_CONSTANTS.VALID_DB_COLUMNS:
-                    self.logger.critical(
-                        "Attribute: " + attrib + "not valid", ValueError)
+                    raise DatabaseError(
+                        "Attribute: " + attrib + "not valid")
                 selectStr += attrib
             selectStr += ", " if index < (len(attributes) - 1) else " "
 
@@ -235,59 +251,89 @@ class Database:
         
     def getFromDB(self, attributes: List[str] = [], options: Dict[str, str] = {"default_filter_on": False, "select_distinct": False, "not_null_values": []}) -> List[Dict[str, Union[int, str]]]:
         # option={..., "limit":50000}
-        queries = self.__generateQueries(attributes, options) 
-        executor = self.__executor()
-        threadedQueries = [executor.submit(self.__query, query) for query in queries]
-
         allResults = []
-        for completedQuery in concurrent.futures.as_completed(threadedQueries):
-            try:
-                query = completedQuery.result()
-            except Exception as esc:
-                self.logger.warning("Error occurred while getting attributes " + str(attributes) + "\nERROR: " + str(esc))
-            else:
-                allResults.extend(self.__getAll(query, attributes))
-                
+        executor = self.__executor()
         try:
-            limit = options["limit"]
-        except KeyError:
-            limit = self.limit
-                
-        if len(allResults) < int(limit): self.logger.warning("Query executed. Results lower than expected (" + str(len(allResults)) + " < " + str(limit) + "). Attributes were: " + str(attributes))
-        else: self.logger.success("Query successfully executed. Attributes were: " + str(attributes))
+            queries = self.__generateQueries(attributes, options) 
+            threadedQueries = [executor.submit(self.__query, query, attributes) for query in queries]
 
-        executor.shutdown()
+            for completedQuery in concurrent.futures.as_completed(threadedQueries):
+                try:
+                    results, dbName = completedQuery.result()
+                except DatabaseError as de:
+                    self.logger.critical(str(de))
+                except Exception as esc:
+                    self.logger.warning("Error occurred while getting attributes " + str(attributes) + "\nERROR: " + str(esc))
+                else:
+                    allResults.extend(results)
+                finally:
+                    QtSql.QSqlDatabase.removeDatabase(dbName)
+
+            try:
+                limit = options["limit"]
+            except KeyError:
+                limit = self.limit
+                    
+            if len(allResults) < int(limit): self.logger.warning("Query executed. Results lower than expected (" + str(len(allResults)) + " < " + str(limit) + "). Attributes were: " + str(attributes))
+            else: self.logger.success("Query successfully executed. Attributes were: " + str(attributes))
+
+        except DatabaseError as de:
+            self.logger.critical(str(de))
+            return []
+        finally:
+            executor.shutdown()
+        
         return allResults
     
-    def actualizeData(self) -> bool:
+    def actualizeKnownAddress(self) -> bool:
         executor = self.__executor()
+        valid = True
         try:
-
             idAndAddress__future = executor.submit(self.getFromDB, ["identification", "address"], options={
                                                  "select_distinct": True, "not_null_values": ["identification", "address"]})
             idAndAddress__future.add_done_callback(self.__actualizeKnownAddresses)
+            
+        except DatabaseError as dbe:
+            self.logger.critical(str(dbe))
+            valid =  False
+        except Exception as esc:
+            self.logger.warning(
+                "Error occurred while actualizing known addresses \nERROR: " + str(esc))
+            valid = False
+        finally:
+            executor.shutdown()
 
-            barAndivv__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "bar", "ivv"], options={
+        return valid
+    
+    def actualizeData(self) -> bool:
+        executor = self.__executor()
+        valid = True
+        try:
+            barAndIvv = self.getFromDB(["id", "address", "timestamp", "bds", "altitude", "bar", "ivv"], options={
                                               "not_null_values": ["bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"], "limit": int(int(self.limit) / 2)})
             
-            halfResult = barAndivv__future.result()
-            self.__updatedUsedAddresses(halfResult)
+            self.__updatedUsedAddresses(barAndIvv)
 
             latAndlon__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "latitude", "longitude"], options={
-                                              "not_null_values": ["bds", "altitude"], "limit": int(int(self.limit) / 2)})
+                                              "not_null_values": ["latitude", "longitude"], "limit": int(int(self.limit) / 2)})
             
-            self.data.extend(halfResult)
+            self.data.extend(barAndIvv)
             self.data.extend(latAndlon__future.result())
 
             self.logger.info("Data actualized. Size: " + str(len(self.data)))
 
-        except ConnectionError:
-            self.logger.warning("Could not actualize Addresses")
-            return False
+            # import json 
+            # with open("database.dump.json", "w") as dbd:
+            #     json.dump(self.data, dbd)
+
+        except DatabaseError as dbe:
+            self.logger.critical(str(dbe))
+            valid = False
         except Exception as esc:
             self.logger.warning(
                 "Error occurred while getting results \nERROR: " + str(esc))
+            valid = False
         finally:
             executor.shutdown()
 
-        return True
+        return valid

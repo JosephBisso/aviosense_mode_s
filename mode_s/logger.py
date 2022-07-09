@@ -83,7 +83,7 @@ class Logger(QObject):
         self.logged.emit("<p style='color:Orange;'>WARNING: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + str(msg) + "</p>\n")
         
             
-    def critical(self, msg, exception = Exception):
+    def critical(self, msg):
         time = datetime.now()
         with open(self.outputFile, "a") as output:
             output.write(str(datetime.now()) + ":: CRITICAL::\t" + str(msg) + "\n")
@@ -92,7 +92,4 @@ class Logger(QObject):
             print(colors.RED + "CRITICAL:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + str(msg) + colors.ENDC)
         
         self.logged.emit("<p style='color:Tomato;'>CRITICAL: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + str(msg) + "</p>\n")
-        
-        raise exception(msg)
-                
         

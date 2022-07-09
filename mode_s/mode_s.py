@@ -263,6 +263,9 @@ if __name__ == "__main__":
         sys.exit(app.exec())
     else:
         db.setDefaultFilter(getAllArgs(args))
-        db.actualizeData()
+        if not db.actualizeData():
+            sys.exit(-1)
         modeSEngine.setDataSet(db.getData())
+        for plot in modeSEngine.compute():
+            pass
         sys.exit(0)
