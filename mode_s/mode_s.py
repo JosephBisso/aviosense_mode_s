@@ -44,25 +44,25 @@ def init_argparse():
                         help="The desired minimal longitude. If not set, all available longitudes are evaluated")
     parser.add_argument("-LO", "--longitude-maximal",
                         help="The desired maximal longitude. If not set, all available longitudes are evaluated")
-    parser.add_argument("-bd", "--bds",
+    parser.add_argument("-bd", "--bds", type = int,
                         help="The desired bds. If not set, all available bds are evaluated")
-    parser.add_argument("-id", "--id-minimal", metavar="id_minimal",
+    parser.add_argument("-id", "--id-minimal", metavar="id_minimal", type = int,
                         help="The desired minimal id. If not set, all available ids are evaluated")
-    parser.add_argument("-ID", "--id-maximal",
+    parser.add_argument("-ID", "--id-maximal", type = int,
                         help="The desired maximal id. If not set, all available ids are evaluated")
-    parser.add_argument("-l", "--limit",
-                        help="The desired limit for the mysql commands. (default = 50000)", default=50000)
-    parser.add_argument("-dl", "--duration-limit",
-                        help="The desired flight duration limit in seconds for the analysis. (default = None)", default=None)
-    parser.add_argument("-n", "--median-n",
-                        help="The desired n for the median filtering. MUST BE ODD. (default: n=3)", default=1)
+    parser.add_argument("-l", "--limit", type = int,
+                        help="The desired limit for the mysql commands. (default = 500000)", default=500000)
+    parser.add_argument("-dl", "--duration-limit", type = float,
+                        help="The desired flight duration limit in minutes for the analysis. (default = 10)", default=10)
+    parser.add_argument("-n", "--median-n", type = int,
+                        help="The desired n for the median filtering. MUST BE ODD. (default: n=3)", default=3)
     parser.add_argument("-p", "--plots", nargs='*',
                         help="The desired plots. POSSIBLE VALUES: " + str(ENGINE_CONSTANTS.PLOTS), default=[])
     parser.add_argument("-pa", "--plot-addresses", nargs='*',
                         help="The addresses of the desired plots.", default=[])
     parser.add_argument("--plot-all", action="store_true",
                         help="Plot all addresses for the desired plots.", default=False)
-
+    
     return parser
 
 
@@ -222,7 +222,6 @@ class Mode_S(QObject):
         future.add_done_callback(self.__computingFinished)
         
 
-    
 if __name__ == "__main__":
     args = init_argparse().parse_args()
     if args.interactive:
@@ -241,13 +240,13 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     
     logger = Logger(args.terminal, args.verbose, args.debug)
-    logger.info("Framework for automatic Mode-S data transfer and turbulence prediction.")
+    logger.info("Framework for automatic Mode-S data transfer & turbulence prediction")
     logger.debug(args)
     
     db = Database(logger, terminal=args.terminal)
     
     modeSEngine = ModeSEngine.Engine(
-        logger=logger, plots=args.plots, plotAddresses=args.plot_addresses, plotAll=args.plot_all, medianN=args.median_n, durationLimit=args.duration_limit
+        logger=logger, plots=args.plots, plotAddresses=args.plot_addresses, plotAll=args.plot_all, medianN=args.median_n
     )
 
     qInstallMessageHandler(qt_message_handler)
@@ -262,7 +261,7 @@ if __name__ == "__main__":
             sys.exit(-1)
         sys.exit(app.exec())
     else:
-        db.setDefaultFilter(getAllArgs(args))
+        db.setDefaultFilter(**dict(args._get_kwargs()))
         if not db.actualizeData():
             sys.exit(-1)
         modeSEngine.setDataSet(db.getData())

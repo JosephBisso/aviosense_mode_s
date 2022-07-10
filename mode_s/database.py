@@ -13,6 +13,10 @@ class DatabaseError(BaseException):
     pass
 
 class Database:
+
+    ROW_COUNT:int = 0
+    LAST_DB_UPDATE:QDateTime = 0
+    
     def __init__(self, logger: Logger, terminal:bool):        
         self.filterOn: bool = False 
         self.logger: Logger = logger
@@ -54,11 +58,11 @@ class Database:
 
     def __getDBRowCount(self):
         count, dbName = self.__query("SELECT COUNT(*) AS rowCount FROM tbl_mode_s", ["rowCount"])
-        DB_CONSTANTS.ROW_COUNT = count[0]["rowCount"]
+        self.ROW_COUNT = count[0]["rowCount"]
 
-        if DB_CONSTANTS.ROW_COUNT == 0:
+        if self.ROW_COUNT == 0:
             raise DatabaseError("Row count of Table tbl_mode_s should not be 0 !")
-        self.logger.info("Row Count for table tbl_mode_s: " + str(DB_CONSTANTS.ROW_COUNT))
+        self.logger.info("Row Count for table tbl_mode_s: " + str(self.ROW_COUNT))
 
         QtSql.QSqlDatabase.removeDatabase(dbName)
 
@@ -153,7 +157,7 @@ class Database:
             pass
 
         try:
-            limit = options["limit"] if int(options["limit"]) <= DB_CONSTANTS.ROW_COUNT else DB_CONSTANTS.ROW_COUNT
+            limit = options["limit"] if int(options["limit"]) <= self.ROW_COUNT else self.ROW_COUNT
         except KeyError:
             limit = self.limit
         
@@ -173,9 +177,17 @@ class Database:
             if rest : offsetStr.append(" LIMIT " + str(rest) + " OFFSET " + str(numThread * limitPerThread))
         else:
             offsetStr = [""] 
+            
+        orderStr = ""
+        if not ident_run:
+            orderStr = " ORDER BY timestamp "
+            if len(attributes) == 1 and "timestamp" in attributes:
+                orderStr += "DESC "
+            else:
+                orderStr += "ASC "
 
         self.logger.log(str(len(offsetStr))  + " threads for attributes " + str(attributes))
-        queries = [(selectStr + " FROM tbl_mode_s " + whereStr + (" ORDER BY timestamp DESC " if not ident_run else "") + offset) for offset in offsetStr]
+        queries = [(selectStr + " FROM tbl_mode_s " + whereStr + orderStr + offset) for offset in offsetStr]
         return queries
 
     def __actualizeKnownAddresses(self, future: concurrent.futures.Future):
@@ -213,37 +225,52 @@ class Database:
     def __getLattestDBTimeStamp(self, future: concurrent.futures.Future):
         future.result()
         time = self.getFromDB( ["timestamp"], options = {"not_null_values": ["timestamp"], "limit": 1})
-        lastDBUpdate = QDateTime.fromMSecsSinceEpoch(int(time[0]["timestamp"]) / 10**6).toString()
-        self.logger.info("Lattest database db_airdata update: " + lastDBUpdate)
+        self.LAST_DB_UPDATE = QDateTime.fromMSecsSinceEpoch(int(time[0]["timestamp"]) / 10**6)
+        self.logger.info("Lattest database db_airdata update: " + self.LAST_DB_UPDATE.toString("yyyy-MM-dd hh:mm:ss"))
 
     def getData(self) -> List[Dict[str, Union[str, int]]]:
         return self.data
 
-    def setDefaultFilter(self, params: Dict[str, str] = {}):
+    def setDefaultFilter(self, **params):
         strFilter = " "
-        for index, el in enumerate(params.keys()):
-            if el == "limit":
-                if int(params["limit"]) <= DB_CONSTANTS.ROW_COUNT:
-                    self.limit = params["limit"]
-                    self.logger.log("Setting global query row limit to: " + str(self.limit))
-                else:
-                    self.limit = DB_CONSTANTS.ROW_COUNT
-                    self.logger.warning("Setting global query row limit to: " + str(DB_CONSTANTS.ROW_COUNT) + ". (Total row count of table)")
-                continue
-            elif "minimal" in el:
-                if "latitude" in el: strFilter += "latitude > " + params[el]
-                elif "longitude" in el: strFilter += "longitude > " + params[el]
-                elif "id" in el: strFilter += "id > " + params[el]
-            elif "maximal" in el:
-                if "latitude" in el: strFilter += "latitude < " + params[el]
-                elif "longitude" in el: strFilter += "longitude < " + params[el]
-                elif "id" in el: strFilter += "id < " + params[el]
-            else: strFilter += el + " = " + params[el]
+        if params["limit"] <= self.ROW_COUNT:
+            self.limit = params["limit"]
+            self.logger.log("Setting global query row limit to:", self.limit)
+        else:
+            self.limit = self.ROW_COUNT
+            self.logger.warning("Setting global query row limit to: " + str(
+                self.ROW_COUNT) + ". (Total row count of table)")
             
-            strFilter += " AND " if index < len(params.keys()) - 1 else " "
+        if params["duration_limit"]:
+            self.logger.log("Setting duration limit to", params["duration_limit"] ,"minutes")
+            lastPossibleTimestamp = self.LAST_DB_UPDATE.addSecs(-params["duration_limit"] * 60).toString("yyyy-MM-dd hh:mm:ss")
+            strFilter += "tbl_mode_s.timestamp > '" + lastPossibleTimestamp + "'"
+            self.logger.debug("Last possible timestamp  " + lastPossibleTimestamp)
 
-        self.filterOn = len(params.keys()) > 1
-        self.logger.log("Setting query filter to: " + strFilter)
+        if params["bds"]: 
+            strFilter += "tbl_mode_s.bds = " + params["bds"] + "AND"
+            self.logger.log("Setting bds to", params["bds"])
+        if params["latitude_minimal"]:
+            strFilter += "tbl_mode_s.latitude > " + params["latitude_minimal"] + " AND "
+            self.logger.log("Setting minimal latitude to", params["latitude_minimal"])
+        if params["latitude_maximal"]:
+            strFilter += "tbl_mode_s.latitude < " + params["latitude_maximal"] + " AND "
+            self.logger.log("Setting maximal latitude to", params["latitude_maximal"])
+        if params["longitude_minimal"]:
+            strFilter += "tbl_mode_s.longitude > " + params["longitude_minimal"] + " AND "
+            self.logger.log("Setting minimal longitude to", params["longitude_minimal"])
+        if params["longitude_maximal"]:
+            strFilter += "tbl_mode_s.longitude < " + params["longitude_maximal"] + " AND "
+            self.logger.log("Setting maximal longitude to", params["longitude_maximal"])
+        if params["id_minimal"]:
+            strFilter += "tbl_mode_s.id > " + params["id_minimal"] + " AND "
+            self.logger.log("Setting minimal  to", params["id_minimal"])
+        if params["id_maximal"]:
+            strFilter += "tbl_mode_s.id < " + params["id_maximal"] + " AND "
+            self.logger.log("Setting maximal  to", params["id_maximal"])
+            
+        self.filterOn = strFilter != " "
+        self.logger.debug("Setting query filter to: " + strFilter)
         self.strFilter = strFilter
 
     def resetFilter(self):
@@ -292,7 +319,7 @@ class Database:
             idAndAddress__future = executor.submit(self.getFromDB, ["identification", "address"], options={
                                                  "select_distinct": True, "not_null_values": ["identification", "address"]})
             idAndAddress__future.add_done_callback(self.__actualizeKnownAddresses)
-            
+
         except DatabaseError as dbe:
             self.logger.critical(str(dbe))
             valid =  False
@@ -309,12 +336,12 @@ class Database:
         executor = self.__executor()
         valid = True
         try:
-            barAndIvv = self.getFromDB(["id", "address", "timestamp", "bds", "altitude", "bar", "ivv"], options={
+            barAndIvv = self.getFromDB(["address", "timestamp", "bar", "ivv"], options={
                                               "not_null_values": ["bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"], "limit": int(int(self.limit) / 2)})
             
             self.__updatedUsedAddresses(barAndIvv)
 
-            latAndlon__future = executor.submit(self.getFromDB, ["id", "address", "timestamp", "bds", "altitude", "latitude", "longitude"], options={
+            latAndlon__future = executor.submit(self.getFromDB, ["address", "timestamp", "latitude", "longitude"], options={
                                               "not_null_values": ["latitude", "longitude"], "limit": int(int(self.limit) / 2)})
             
             self.data.extend(barAndIvv)

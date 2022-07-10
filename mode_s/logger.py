@@ -32,64 +32,64 @@ class Logger(QObject):
             output.write(str(datetime.now()) + ":: Starting MODE_S\n")
             
     
-    def debug(self, msg):
+    def debug(self, *args):
         time = datetime.now()
         with open(self.outputFile, "a") as output:
-            output.write(str(datetime.now()) + ":: DEBUG\t::\t" + str(msg) + "\n")
+            output.write(str(datetime.now()) + ":: DEBUG\t::\t" + " ".join([str(msg) for msg in args]) + "\n")
             
         if self.debugging:
-            print(colors.VIOLET + "DEBUG\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + colors.ENDC + str(msg))
-            # self.logged.emit("<p style='color:Violet;'>DEBUG\t: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + str(msg) + "</p>\n")
+            print(colors.VIOLET + "DEBUG\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + colors.ENDC, *args)
+            # self.logged.emit("<p style='color:Violet;'>DEBUG\t: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + " ".join([str(msg) for msg in args]) + "</p>\n")
     
-    def log(self, msg):
+    def log(self, *args):
         time = datetime.now()
         with open(self.outputFile, "a") as output:
-            output.write(str(datetime.now()) + ":: LOG\t::\t" + str(msg) + "\n")
+            output.write(str(datetime.now()) + ":: LOG\t::\t" + " ".join([str(msg) for msg in args]) + "\n")
             
         if self.terminal or self.verbose or self.debugging:
-            print(colors.BLUE + "LOG\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + colors.ENDC + str(msg))
+            print(colors.BLUE + "LOG\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + colors.ENDC, *args)
         
         self.logged.emit("<p style='color:DodgerBlue;'>LOG\t: : " + str(time.hour) + ": " + str(time.minute) + ": " +
-                         str(time.second) + " : : <i style='color:White;'>" + str(msg) + "</i></p>\n")
+                         str(time.second) + " : : <i style='color:White;'>" + " ".join([str(msg) for msg in args]) + "</i></p>\n")
 
-    def success(self, msg):
+    def success(self, *args):
         time = datetime.now()
         with open(self.outputFile, "a") as output:
-            output.write(str(datetime.now()) + ":: SUCCESS::\t" + str(msg) + "\n")
+            output.write(str(datetime.now()) + ":: SUCCESS::\t" + " ".join([str(msg) for msg in args]) + "\n")
             
         if self.terminal or self.verbose:
-            print(colors.GREEN + "SUCCESS\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + str(msg) + colors.ENDC)
+            print(colors.GREEN + "SUCCESS\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: ", *args, colors.ENDC)
         
-        self.logged.emit("<p style='color:MediumSeaGreen;'>SUCCESS: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + str(msg) + "</p>\n")
+        self.logged.emit("<p style='color:MediumSeaGreen;'>SUCCESS: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + " ".join([str(msg) for msg in args]) + "</p>\n")
             
-    def info(self, msg):
+    def info(self, *args):
         time = datetime.now()
         with open(self.outputFile, "a") as output:
-            output.write(str(datetime.now()) + ":: INFO\t::\t" + str(msg) + "\n")
+            output.write(str(datetime.now()) + ":: INFO\t::\t" + " ".join([str(msg) for msg in args]) + "\n")
 
         if self.terminal or self.verbose:
-            print(colors.CYAN + "INFO\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + str(msg) + colors.ENDC)
+            print(colors.CYAN + "INFO\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: ", *args, colors.ENDC)
 
-        self.logged.emit("<p style='color:Cyan;'>INFO\t: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + str(msg) + "</p>\n")
+        self.logged.emit("<p style='color:Cyan;'>INFO\t: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + " ".join([str(msg) for msg in args]) + "</p>\n")
             
-    def warning(self, msg):
+    def warning(self, *args):
         time = datetime.now()
         with open(self.outputFile, "a") as output:
-            output.write(str(datetime.now()) + ":: WARNING::\t" + str(msg) + "\n")
+            output.write(str(datetime.now()) + ":: WARNING::\t" + " ".join([str(msg) for msg in args]) + "\n")
 
         if self.terminal or self.verbose:
-            print(colors.YELLOW + "WARNING\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + str(msg) + colors.ENDC)
+            print(colors.YELLOW + "WARNING\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: ", *args, colors.ENDC)
         
-        self.logged.emit("<p style='color:Orange;'>WARNING: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + str(msg) + "</p>\n")
+        self.logged.emit("<p style='color:Orange;'>WARNING: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + " ".join([str(msg) for msg in args]) + "</p>\n")
         
             
-    def critical(self, msg):
+    def critical(self, *args):
         time = datetime.now()
         with open(self.outputFile, "a") as output:
-            output.write(str(datetime.now()) + ":: CRITICAL::\t" + str(msg) + "\n")
+            output.write(str(datetime.now()) + ":: CRITICAL::\t" + " ".join([str(msg) for msg in args]) + "\n")
 
         if self.terminal or self.verbose:
-            print(colors.RED + "CRITICAL:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + str(msg) + colors.ENDC)
+            print(colors.RED + "CRITICAL:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: ", *args, colors.ENDC)
         
-        self.logged.emit("<p style='color:Tomato;'>CRITICAL: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + str(msg) + "</p>\n")
+        self.logged.emit("<p style='color:Tomato;'>CRITICAL: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + " ".join([str(msg) for msg in args]) + "</p>\n")
         

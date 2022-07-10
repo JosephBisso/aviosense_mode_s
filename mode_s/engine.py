@@ -2,50 +2,27 @@
 import sys
 import statistics
 import numpy as np
-import seaborn as sb
-import geopandas as gpd
 import concurrent.futures
-import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
 from scipy.signal import medfilt
 from collections import Counter, namedtuple
 from typing import List, Dict, NamedTuple, Union
 
 from logger import Logger
+from plotter import Plotter
 from constants import ENGINE_CONSTANTS
 from constants import DB_CONSTANTS
-from constants import GUI_CONSTANTS
-
-class DATA(NamedTuple):
-    time: float # in Seconds
-    bar: float
-    ivv: float
-    
-class WINDOW_POINT(NamedTuple):
-    window: float 
-    point: float
-
-class WINDOW_DATA(NamedTuple):
-    window: float 
-    bar: float
-    ivv: float
-
-class LOCATION_DATA(NamedTuple):
-    time: float 
-    longitude: float
-    latitude: float
+from constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
 
 class EngineError(BaseException):
     pass
 
 class Engine:
-    def __init__(self, logger: Logger, plots: List[str] = [], plotAddresses: List[str] = [], medianN: int = 1, durationLimit:int = None, plotAll = False):
+    def __init__(self, logger: Logger, plots: List[str] = [], plotAddresses: List[str] = [], medianN: int = 1, plotAll = False):
         self.logger = logger
         self.plots: Dict[str, bool] = self.__activatePlot(plots)
         self.plotAddresses = [int(address) for address in plotAddresses]
         self.plotAll = plotAll
-        self.medianN = int(medianN) if int(medianN) % 2 == 1 else int(medianN) + 1
-        self.durationLimit = float(durationLimit) if durationLimit else None
+        self.medianN = medianN if medianN % 2 == 1 else medianN + 1
         self.executors = []
     
     def __executor(self) -> concurrent.futures.ThreadPoolExecutor:
@@ -99,16 +76,6 @@ class Engine:
         startTime = min(times)
         addressData["points"] = [DATA((times[i] - startTime)*10**-9, bars[i], ivvs[i]) for i in range(len(times))]
         addressData["points"].sort(key=lambda el: el.time)
-        
-        if self.durationLimit:  
-            startIndexForOverDuration = None
-            for index, point in enumerate(addressData["points"]):
-                if point.time < self.durationLimit: continue
-                startIndexForOverDuration = index
-                break 
-            if startIndexForOverDuration:
-                self.logger.log("Filtering data for address " + str(address)+ " with max flight duration time = " + str(self.durationLimit))
-                del(addressData["points"][startIndexForOverDuration: len(addressData["points"])])
         
         # self.logger.debug("Valid results for sliding interval for address " + str(
         #     address) + ". Points Count: " + str(len(addressData["points"])))
@@ -303,17 +270,15 @@ class Engine:
 
         return {"address": addressData["address"], "points": heatPointsForAddress}
 
-    def updateParameters(self, plotAddresses: List[str] = [], medianN: int = 1, durationLimit: int = None):
+    def updateParameters(self, plotAddresses: List[str] = [], medianN: int = 1):
         self.gui = True
         self.plots = self.__activatePlot([""])
         self.plotAddresses = [int(address) for address in plotAddresses]
-        self.medianN = int(medianN) if int(medianN) % 2 == 1 else int(medianN) + 1
-        self.durationLimit = float(durationLimit) if durationLimit else None
+        self.medianN = medianN if medianN % 2 == 1 else medianN + 1
 
         self.logger.log("Minimum number of threads : " + str(DB_CONSTANTS.MIN_NUMBER_THREADS))
         self.logger.log("Setting median Filter to : " + str(self.medianN))
         self.logger.log("Watching following address(es) : " + str(self.plotAddresses))
-        self.logger.log("Setting duration limit to : " + str(self.durationLimit))
 
 
     def setDataSet(self, dataset: List[Dict[str, Union[str, int]]]):
@@ -331,7 +296,9 @@ class Engine:
         
         if not usePlotter:
             activePlots = {plot: True for plot in ENGINE_CONSTANTS.PLOTS}
-                
+        else:
+            Plotter.updateUsedMedianFilter(self.medianN)
+
         plotted = []
         
         if activePlots["occurrence"]:
@@ -689,312 +656,3 @@ class Engine:
 
     def getLineSeriesHeatMap(self, heatMap: List[Dict[str, Union[str, List[LOCATION_DATA]]]]) -> List[Dict[str, List[int]]]:
         pass
-
-class Plotter:
-    def plotDataPointOccurrences(occurrences: List[Union[str, int]]) -> bool:
-        plt.subplots(num="MODE-S @ Data Points Occurrence")
-        plt.plot(range(1, len(occurrences) + 1), occurrences, marker='o', color='b', linestyle='None', ms=1.75)
-        plt.xlabel("Number of addresses")
-        plt.ylabel("Number of datapoints")
-        plt.title("Datapoints over addresses")
-        plt.show()
-        
-        return True
-    
-    def plotBarAndIvv(plotData: List[Dict[str, Union[str, List[DATA]]]]) -> bool:
-        nCol = int(round((len(plotData)/4) * 16/9))
-        nRow = int(round(len(plotData) / nCol))
-        
-        plt.subplots(num="MODE-S @ BAR & IVV")
-        for index in range(len(plotData)):
-            address = plotData[index]["address"]
-            time = list(map(lambda el: el/60, [point.time for point in plotData[index]["points"]]))
-            bar = [point.bar for point in plotData[index]["points"]]
-            ivv = [point.ivv for point in plotData[index]["points"]]
-            
-            plt.subplot(nRow, nCol, index + 1)
-            plt.subplots_adjust(wspace=0.5, hspace=0.5)
-            plt.plot(time, bar, marker=',', color='b', linestyle='-', ms=0.25, label="BAR")
-            plt.plot(time, ivv, marker=',', color='r', linestyle='-', ms=0.25, label="IVV")
-            plt.grid()
-
-            plt.xlabel("min")
-            plt.ylabel("v ft/min")
-            plt.legend()
-            plt.title("Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
-                        
-        plt.suptitle("IVV & BAR for addresses", fontsize=20)
-        plt.show()
-        
-        return True
-    
-    def plotFilteredBarAndIvv(plotData: List[Dict[str, Union[str, List[DATA]]]]) -> bool:
-        nCol = len(plotData)
-        nRow = 2
-        
-        plt.subplots(num="MODE-S @ Filtered BAR & IVV")
-
-        for index in range(len(plotData)):
-            address = plotData[index]["address"]
-            time = list(map(lambda el: el/60, [point.time for point in plotData[index]["points"]]))
-            bar = [point.bar for point in plotData[index]["points"]]
-            ivv = [point.ivv for point in plotData[index]["points"]]
-            
-            filteredBar = [point.bar for point in plotData[index]["filteredPoints"]]
-            filteredIvv = [point.ivv for point in plotData[index]["filteredPoints"]]
-            
-            plt.subplot(nRow, nCol, index + 1)
-            plt.subplots_adjust(wspace=0.5, hspace=0.5)
-            plt.plot(time, bar, marker=',', color='r', linestyle='-', ms=0.25, label="Raw BAR")
-            plt.plot(time, filteredBar, marker=',', color='#4287f5', linestyle='-', ms=0.25, label="Filtered BAR")
-            plt.grid()
-            plt.title("BAR :: Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
-            plt.xlabel("min")
-            plt.ylabel("v ft/min")
-            plt.legend()
-
-            plt.subplot(nRow, nCol, index + 1 + nCol)
-            plt.subplots_adjust(wspace=0.5, hspace=0.5)
-            plt.plot(time, ivv, marker=',', color='r', linestyle='-', ms=0.25, label="Raw IVV")
-            plt.plot(time, filteredIvv, marker=',', color='#3ccf9b', linestyle='-', ms=0.25, label="Filtered IVV")
-            plt.grid()
-            plt.title("IVV :: Address " + str(address) + " (" + str(len(plotData[index]["points"]))+ " points)")
-            plt.xlabel("min")
-            plt.ylabel("v ft/min")
-            plt.legend()
-            
-        plt.suptitle("IVV & BAR, Raw and Filtered with n = " + str(self.medianN) + " for addresses", fontsize=20)
-        plt.show()
-        
-        return True
-        
-    def plotSlidingInterval(plotData: List[Dict[str, Union[str, List[WINDOW_POINT]]]]) -> bool:
-        nCol = int(round((len(plotData)/4) * 16/9))
-        nRow = int(round(len(plotData) / nCol))
-        
-        plt.subplots(num="MODE-S @ Sliding Intervals")
-        for index in range(len(plotData)):
-            address = plotData[index]["address"]
-            windows = [point.window for point in plotData[index]["points"]]
-            points = [point.point for point in plotData[index]["points"]]
-
-            plt.subplot(nRow, nCol, index + 1)
-            plt.subplots_adjust(wspace=0.5, hspace=0.5)
-            plt.step(windows, points, where="mid", marker=',', color='b', linestyle='-', linewidth=2)
-            plt.grid()
-
-            plt.xlabel("sliding window [min]")
-            plt.ylabel("number of points [1]")
-            plt.title("Address " + str(address))
-                        
-        plt.autoscale(enable=True, axis="x", tight=True)
-        plt.suptitle("Sliding Intervals for addresses", fontsize=20)
-        plt.show()
-        
-        return True
-    
-    def plotSlidingIntervalForStd(plotData: List[Dict[str, Union[str, List[WINDOW_DATA]]]]) -> bool:
-        nCol = len(plotData)
-        nRow = 2
-        
-        plt.subplots(num="MODE-S @ STD BAR & IVV")
-
-        for index in range(len(plotData)):
-            address = plotData[index]["address"]
-            windows = [point.window for point in plotData[index]["points"]]
-            barsStd = [point.bar for point in plotData[index]["points"]]
-            ivvsStd = [point.ivv for point in plotData[index]["points"]]
-            diffStd = [barsStd[i] - ivvsStd[i] for i in range(len(barsStd))]
-
-            threshold = plotData[index]["threshold"]
-
-            plt.subplot(nRow, nCol, index + 1)
-            plt.subplots_adjust(wspace=0.3, hspace=0.3)
-            plt.plot(windows, barsStd, marker='o', color='b', linestyle='-', ms=3, label="Std BAR")
-            plt.plot(windows, ivvsStd, marker='o', color='m', linestyle='-', ms=3, label="Std IVV")
-            plt.grid()
-            plt.legend()
-            plt.title("BAR & IVV :: Address " + str(address))
-            plt.xlabel("min")
-            plt.ylabel("std v ft/min")
-            
-            plt.subplot(nRow, nCol, index + 1 + nCol)
-            plt.subplots_adjust(wspace=0.3, hspace=0.3)
-            plt.stem(windows, diffStd, linefmt="g-", markerfmt="k.",basefmt="k-")
-            plt.plot([0, len(windows)-1], [threshold, threshold], color="#f20707", linestyle="--", label="Threshold")
-            plt.grid()
-            plt.legend()
-            plt.title("DIFF :: Address " + str(address) + " (T ~ " + str(round(threshold)) + ")")
-            plt.xlabel("min")
-            plt.ylabel("delta std v ft/min")
-            
-        plt.suptitle("Standard deviation (Std) of IVV & BAR. Data filtered with n = " + str(self.medianN) + " for addresses", fontsize=20)
-        plt.show()
-        
-        return True
-
-    def plotFilteredAndStd(filteredData: List[Dict[str, Union[str, List[DATA]]]], stdData: List[Dict[str, Union[str, List[WINDOW_DATA]]]]) -> bool:
-        nCol = len(stdData)
-        nRow = 3
-        
-        plt.subplots(num="MODE-S @ FILTERED & STD -> BAR & IVV")
-
-        for index in range(len(stdData)):
-            address = stdData[index]["address"]
-            windows = [point.window for point in stdData[index]["points"]]
-            barsStd = [point.bar for point in stdData[index]["points"]]
-            ivvsStd = [point.ivv for point in stdData[index]["points"]]
-            diffStd = [barsStd[i] - ivvsStd[i] for i in range(len(barsStd))]
-
-            threshold = stdData[index]["threshold"]
-            
-            time = list(map(lambda el: el/60, [point.time for point in filteredData[index]["filteredPoints"]]))
-            filteredBar = [point.bar for point in filteredData[index]["filteredPoints"]]
-            filteredIvv = [point.ivv for point in filteredData[index]["filteredPoints"]]
-            
-            plt.subplot(nRow, nCol, index + 1)
-            plt.subplots_adjust(wspace=0.5, hspace=0.5)
-            plt.plot(time, filteredBar, marker=',', color='b', linestyle='-', ms=0.25, label="BAR")
-            plt.plot(time, filteredIvv, marker=',', color='m', linestyle='-', ms=0.25, label="IVV")
-            plt.grid()
-            plt.legend()
-            plt.xlabel("min")
-            plt.ylabel("v ft/min")
-            plt.title("Filtered :: Address " + str(address))
-
-            plt.subplot(nRow, nCol, index + 1 + nCol)
-            plt.subplots_adjust(wspace=0.5, hspace=0.5)
-            plt.plot(windows, barsStd, marker='o', color='b', linestyle='-', ms=3, label="BAR")
-            plt.plot(windows, ivvsStd, marker='o', color='m', linestyle='-', ms=3, label="IVV")
-            plt.grid()
-            plt.legend()
-            plt.title("STD :: Address " + str(address))
-            plt.xlabel("min")
-            plt.ylabel("std v ft/min")
-            
-            plt.subplot(nRow, nCol, index + 1 + 2*nCol)
-            plt.subplots_adjust(wspace=0.5, hspace=0.5)
-            plt.stem(windows, diffStd, linefmt="g-", markerfmt="k.",basefmt="k-")
-            plt.plot([0, len(windows)-1], [threshold, threshold], color="#f20707", linestyle="--", label="Threshold")
-            plt.grid()
-            plt.legend()
-            plt.title("DIFF :: Address " + str(address) + " (T ~ " + str(round(threshold)) + ")")
-            plt.xlabel("min")
-            plt.ylabel("delta std v ft/min")
-            
-        plt.suptitle("Filtered Data & Standard deviation (Std) of IVV & BAR. Filtered with n = " + str(self.medianN) + " for addresses", fontsize=20)
-        plt.show()
-        
-        return True
-        
-    def plotLocation(plotData: List[Dict[str, Union[str, List[LOCATION_DATA]]]]) -> bool:
-        import gui.scripts.world as w
-        
-        worldMap = gpd.GeoDataFrame.from_features(w.WORLD["features"])
-        fig, ax = plt.subplots(num="MODE-S @ LOCATION")
-        worldMap.boundary.plot(ax=ax, edgecolor="black")
-        ax.set_xlim(GUI_CONSTANTS.DE_MIN_LONGITUDE, GUI_CONSTANTS.DE_MAX_LONGITUDE)
-        ax.set_ylim(GUI_CONSTANTS.DE_MIN_LATITUDE, GUI_CONSTANTS.DE_MAX_LATITUDE)
-        ax.set(aspect=1.78)
-        
-        r = 1
-        g = 0
-        b = 0
-        maxColor= 255 / 255
-        minColor= 0 
-        for index in range(len(plotData)):
-            longitude = [point.longitude for point in plotData[index]["points"]]
-            latitude = [point.latitude for point in plotData[index]["points"]]
-            
-            if index >= 18 and index < 36:
-                maxColor = 250 / 255 
-                minColor = 112 / 255
-            elif index >= 36 and index < 54:
-                maxColor = 240 / 255
-                minColor = 168 / 255
-            else:
-                maxColor = 255 / 255
-                minColor = 0
-                
-            if r < minColor: r = minColor         
-            if g < minColor: g = minColor         
-            if b < minColor: b = minColor
-            if r > maxColor: r = maxColor         
-            if g > maxColor: g = maxColor         
-            if b > maxColor: b = maxColor
-
-            label = str(plotData[index]["address"]) + "(" + str(len(plotData[index]["points"]))+ ")"
-            plt.plot(longitude, latitude, color=(r, g, b), marker=".", ms=1, linestyle="none", label=label)
-
-            colorRatio = 85/255
-            if r == maxColor and b == minColor and g != maxColor: g += colorRatio
-            elif g == maxColor and b == minColor and r != minColor: r -= colorRatio
-            elif g == maxColor and r == minColor and b != maxColor: b += colorRatio
-            elif b == maxColor and r == minColor and g != minColor: g -= colorRatio
-            elif b == maxColor and g == minColor and r != maxColor: r += colorRatio
-            elif r == maxColor and g == minColor and b != minColor: b -= colorRatio
-            
-        fig.tight_layout()
-        
-        plt.suptitle("Data of the addresses with the most points (" + str(len(plotData)) + "), mercator proj" )
-        plt.legend(bbox_to_anchor=(1,1), loc="upper left", title="Addresses (number points)", ncol=3)
-        plt.show()        
-        return True
-
-    def plotHeatMap(heatMap: List[Dict[str, Union[str, List[LOCATION_DATA]]]] = [], rawLocation: List[Dict[str, Union[str, List[LOCATION_DATA]]]] = []) -> bool:
-        import gui.scripts.world as w
-        
-        fig = plt.figure(num="MODE-S @ HEAT MAP")
-        
-        ax1 = fig.add_subplot(1, 2, 1)
-        
-        worldMap = gpd.GeoDataFrame.from_features(w.WORLD["features"])
-        worldMap.boundary.plot(ax=ax1, edgecolor="black")
-        
-        ax1.set_xlim(GUI_CONSTANTS.DE_MIN_LONGITUDE, GUI_CONSTANTS.DE_MAX_LONGITUDE)
-        ax1.set_ylim(GUI_CONSTANTS.DE_MIN_LATITUDE, GUI_CONSTANTS.DE_MAX_LATITUDE)
-        ax1.set(aspect=1.78)
-        
-        allTurbulentLongitude = []
-        allTurbulentLatitude = []
-        
-        legendHandles = []
-        legendLabels = []
-        
-        for location in rawLocation:
-            longitude = [point.longitude for point in location["points"]]
-            latitude = [point.latitude for point in location["points"]]
-            ax1.plot(longitude, latitude, color=(0.6, 0.6, 0.6, 0.1), marker=",", ms=1, linestyle="none")
-
-        for turbulentLocation in heatMap:
-            longitude = [point.longitude for point in turbulentLocation["points"]]
-            latitude = [point.latitude for point in turbulentLocation["points"]]
-            
-            if len(turbulentLocation["points"]) > 0 :
-                label = str(turbulentLocation["address"]) + "(" + str(len(turbulentLocation["points"]))+ ")"
-                
-                allTurbulentLongitude += longitude
-                allTurbulentLatitude += latitude
-
-                # self.logger.debug("Turbulent address: " + str(turbulentLocation["address"]) + ". Longitudes:" + str(
-                # longitude) + ":: Latitudes:" + str(latitude))
-
-                points = ax1.plot(longitude, latitude, color="red", marker=".", ms=1, linestyle="none", label=label)                
-
-                legendHandles += points
-                legendLabels += label
-        
-        ax2 = fig.add_subplot(1, 2, 2)
-        
-        worldMap.boundary.plot(ax=ax2, edgecolor="black")
-        
-        ax2.set_xlim(GUI_CONSTANTS.DE_MIN_LONGITUDE, GUI_CONSTANTS.DE_MAX_LONGITUDE)
-        ax2.set_ylim(GUI_CONSTANTS.DE_MIN_LATITUDE, GUI_CONSTANTS.DE_MAX_LATITUDE)
-        ax2.set(aspect=1.78)
-
-        sb.histplot(x=allTurbulentLongitude, y=allTurbulentLatitude, ax=ax2, kde=True, cmap=ListedColormap(["orange", "red", "maroon"]))
-
-        # fig.legend(legendHandles, legendLabels, bbox_to_anchor=(0,0), loc="upper left", title="Addresses (number points)", ncol=3)
-        plt.suptitle("Turbulence Areas (from " + str(len(legendLabels)) + " addresses), mercator proj")
-        plt.show()        
-        return True

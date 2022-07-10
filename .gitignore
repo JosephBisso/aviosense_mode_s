@@ -5,3 +5,5 @@
 *.log
 database/*
 **/*~
+**/*.dump*
+**/*.dmp*
