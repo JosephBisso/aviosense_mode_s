@@ -1,8 +1,8 @@
-// import QtQml
-import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
-import QtQml.Models
+// import QtQml 2.15
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
+import QtQml.Models 2.15
 import "qrc:/scripts/Constants.js" as Constants
 import "qrc:/scripts/main.js" as JS
 
@@ -10,7 +10,7 @@ Drawer {
     id: rootSideBar
 
     property int leftMarginTitle: 50
-    property int verticalMarginItems: 20
+    property int verticalMarginItems: 50
     property bool edited: false
     width: {
         if (rootWindow.width > rootWindow.minimumWidth ) {return 0.95 * rootWindow.width}
@@ -43,6 +43,7 @@ Drawer {
 
     onClosed: {
         if (rootSideBar.edited) {
+            console.info("Transmitting data to database und engine")
             __mode_s.updateFilter(rootSideBar.getData())
             rootSideBar.edited = false
         }
@@ -85,6 +86,8 @@ Drawer {
     ScrollView {
         id: scrollOptions
         width: 3/8 * rootSideBar.width
+        clip: true
+
         anchors {
             top: parent.top
             bottom: params.top
@@ -112,7 +115,7 @@ Drawer {
             }
 
             Rectangle {
-                width: 3/4 * rootSideBar.width
+                width: scrollOptions.width
                 height: 3
                 radius: 3
                 color: Constants.FONT_COLOR
@@ -126,14 +129,17 @@ Drawer {
 
                 options: ListModel {
                     ListElement {
-                        option_name: "Threads"
-                        option_value: "Auto"
-                        option_id:"threads"
-                    }
-                    ListElement {
                         option_name: "Filter"
                         option_value: "7"
                         option_id:"median_n"
+                        option_type:"value"
+
+                    }
+                    ListElement {
+                        option_name: "Threads"
+                        option_value: "Auto"
+                        option_id: "enginethreads"
+                        option_type:"value"
                     }
                 }
 

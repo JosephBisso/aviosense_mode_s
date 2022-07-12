@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from PySide6.QtCore import *
+from PySide2.QtCore import *
 
 os.system("color")
 

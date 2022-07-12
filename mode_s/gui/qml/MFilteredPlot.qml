@@ -1,5 +1,5 @@
 
-import QtCharts
+import QtCharts 2.15
 
 ChartView {
     id: chartView
@@ -36,7 +36,6 @@ ChartView {
     }
 
     onTimeChanged: {
-        console.log("Doing for", dataSet, time.length, raw.length, filtered.length)
         for (let index = 0; index < time.length; index++) {
             rawSeries.append(time[index], raw[index])
             filteredSeries.append(time[index], filtered[index])

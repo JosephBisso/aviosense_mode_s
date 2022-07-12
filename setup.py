@@ -6,17 +6,17 @@ from setuptools import setup
 current_path = os.getcwd()
 not_installed = ''
 
-# PySide6 [6.3.0]
+# PySide2 [5.15.2]
 try:
-    import PySide6
-    print('pyside6 is found')
+    import PySide2
+    print('PySide2 is found')
     
     mysql_path = shutil.which("mysql")
     if not mysql_path:  
         print ('MySql must be installed and added to PATH')
     else:
         try:    
-            from PySide6 import QtSql as qtsql
+            from PySide2 import QtSql as qtsql
             qtsql_path = qtsql.__file__
             qtsql_path.replace("\\", "\\") # a\d -> a\\d
             qtpath = os.path.dirname(qtsql_path)
@@ -29,8 +29,8 @@ try:
             print("Error while preparing sqldrivers")
 
 except:
-    print('Error : pyside6 must be installed!')
-    not_installed = 'PySide6 '
+    print('Error : PySide2 must be installed!')
+    not_installed = 'PySide2 '
 
 # Numpy [1.21.6]
 try:

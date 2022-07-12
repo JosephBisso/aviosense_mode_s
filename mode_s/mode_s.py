@@ -8,10 +8,10 @@ from collections import namedtuple
 from typing import Dict, NamedTuple
 
 
-from PySide6.QtQml import QQmlApplicationEngine
-from PySide6.QtCore import *
-from PySide6.QtWidgets import QApplication
-from PySide6 import QtCharts
+from PySide2.QtQml import QQmlApplicationEngine
+from PySide2.QtCore import *
+from PySide2.QtWidgets import QApplication
+from PySide2 import QtCharts
 
 sys.path.append(os.getcwd())
 
@@ -124,29 +124,15 @@ class Mode_S(QObject):
     def updateFilter(self, dataJson: str): 
         data: Dict[str, str] = json.loads(dataJson)
         median = 1
-        addresses = []
         
         for key in data:
-            if data[key].lower() == "none" or data[key].lower() == "all" or data[key].lower() == "auto":
-                if key == "threads": 
-                    DB_CONSTANTS.MIN_NUMBER_THREADS = 4
-                    continue
-                data[key]=False
-            elif key == "threads":
-                DB_CONSTANTS.MIN_NUMBER_THREADS = int(data[key])
-            elif key == "address":
-                addresses = [address.strip() for address in data[key].split(",")]
-            elif key == "median_n":
-                median = data[key]
-                        
-        data.update({
-            "interactive":False,
-            "id_minimal": False,
-            "id_maximal": False,
-        })
-        
+            if data[key].isdigit():
+                data[key] = int(data[key])
+            elif data[key].lower() == "none" or data[key].lower() == "all" or data[key].lower() == "auto":
+                data[key]=None
+                                
         self.db.setDatabaseParameters(**data)
-        self.engine.setEngineParameters(plotAddresses=addresses, medianN=median)
+        self.engine.setEngineParameters(**data)
 
         self.filterUpdated.emit()
     
@@ -230,11 +216,11 @@ if __name__ == "__main__":
         engine = QQmlApplicationEngine()
         mode_s = Mode_S(db, modeSEngine, logger)
         engine.rootContext().setContextProperty("__mode_s", mode_s)
-        engine.load(QUrl("qrc://gui/qml/main.qml"))
+        engine.load(QUrl("qrc:/qml/main.qml"))
         if not engine.rootObjects():
             logger.warning("Could not start application Engine")
             sys.exit(-1)
-        sys.exit(app.exec())
+        sys.exit(app.exec_())
     else:
         dbWorking = db.start()
         db.setDatabaseParameters(**dict(args._get_kwargs()))

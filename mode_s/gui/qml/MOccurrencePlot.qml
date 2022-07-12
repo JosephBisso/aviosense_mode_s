@@ -1,5 +1,5 @@
-import QtQuick
-import QtCharts
+import QtQuick 2.15
+import QtCharts 2.15
 
 ChartView {
     id: chartView

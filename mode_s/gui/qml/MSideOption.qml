@@ -1,9 +1,9 @@
-import QtQml
-import QtQuick
-import QtQuick.Layouts
-import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
-import QtQml.Models
+import QtQml 2.15
+import QtQuick 2.15
+import QtQuick.Layouts 1.15
+import QtQuick.Controls 2.15
+import QtGraphicalEffects 1.15
+import QtQml.Models 2.15
 import "qrc:/scripts/Constants.js" as Constants
 
 
@@ -40,11 +40,19 @@ ColumnLayout {
 
         for(let i = 0; i < allOptions.count; i++) {
             let option = allOptions.itemAt(i)
-            if (option.activated) {
+            let value = option.value
+            if(option.textField.text) {
                 option.value = option.textField.text
-                option.activated = false
-            } 
-            allData[option.identification] = option.value
+            }
+            if (value.indexOf('-') == -1) {
+                allData[option.identification] = option.value
+            } else {
+                let min_max = value.split('-')
+                let min = min_max[0]
+                let max = min_max[1]
+                allData[option.identification + "_min"] = min
+                allData[option.identification + "_max"] = max
+            }
         }
 
         let allDataJson = JSON.stringify(allData)
@@ -123,7 +131,7 @@ ColumnLayout {
         delegate: Rectangle {
             id: rectDelegate
             objectName: "option_element"
-            height: 75
+            height: 100
             width: 4/5 * scrollOptions.width 
             radius: 10
             color: Constants.GLASSY_BACKGROUND
@@ -132,14 +140,13 @@ ColumnLayout {
             property string value: option_value
             property string identification: option_id
             property alias textField: delegateTextField
-            property bool activated: false
             Layout.leftMargin: rootSideOption.leftMarginContent
 
             Label{
                 anchors {
                     left: rectDelegate.left
                     top: rectDelegate.top
-                    margins: 5
+                    margins: 10
                 }
                 text: option_name
                 font: Constants.FONT_MEDIUM
@@ -149,23 +156,24 @@ ColumnLayout {
             TextField {
                 id: delegateTextField
                 property string textBefore
+                property RegularExpressionValidator rangeValidator: RegularExpressionValidator{regularExpression: /^[aA]((ll)|uto)$|^[Nn]one$|^\d+(-\d+)?$/}
+                property RegularExpressionValidator valueValidator: RegularExpressionValidator{regularExpression: /^[aA]((ll)|uto)$|^[Nn]one$|^\d+$/}
                 anchors {
                     horizontalCenter: rectDelegate.horizontalCenter
                     verticalCenter: rectDelegate.verticalCenter
 
-                    verticalCenterOffset: 10
+                    verticalCenterOffset: 20
                 }
                 placeholderText: option_value
                 font: Constants.FONT_SMALL
                 color: Constants.FONT_COLOR
                 readOnly: false
-                validator: RegularExpressionValidator{regularExpression: /^[aA]((ll)|uto)$|^[Nn]one$|^\d+$/}
+                validator:  option_type == "range" ? rangeValidator : valueValidator  
                 onFocusChanged: delegateTextField.accepted()
                 onAccepted: {
                     if(textBefore !== text) {
                         textBefore = text
                         rootSideOption.edited()
-                        rectDelegate.activated = true
                     }
                 }
 

@@ -1,7 +1,7 @@
-import QtQml
-import QtQuick
-import QtQuick.Layouts
-import Qt5Compat.GraphicalEffects
+import QtQml 2.15
+import QtQuick 2.15
+import QtQuick.Layouts 1.15
+import QtGraphicalEffects 1.15
 import "qrc:/scripts/Constants.js" as Constants
 
 Rectangle {

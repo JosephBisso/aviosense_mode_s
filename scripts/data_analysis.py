@@ -1,6 +1,6 @@
-from PySide6 import QtWidgets
+from PySide2 import QtWidgets
 import sys
-from PySide6 import QtSql
+from PySide2 import QtSql
 
 db = QtSql.QSqlDatabase.addDatabase("QMYSQL")
 db.setHostName("airdata.skysquitter.com")

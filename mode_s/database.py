@@ -1,5 +1,5 @@
-from PySide6 import QtSql
-from PySide6.QtCore import QDateTime
+from PySide2 import QtSql
+from PySide2.QtCore import QDateTime
 
 import sys
 import concurrent.futures
@@ -70,27 +70,28 @@ class Database:
         
         self.logger.log("Setting global query row limit to:", self.limit)
 
-        if params.get("dbMinThreads"):
-            self.MIN_NUMBER_THREADS = params["dbMinThreads"]
+        if params.get("dbthreads_min"):
+            self.MIN_NUMBER_THREADS = params["dbthreads_min"]
         else:
             self.MIN_NUMBER_THREADS = 10
-        if params.get("dbMaxThreads"):
-            self.MAX_NUMBER_THREADS = params["dbMaxThreads"]
+        if params.get("dbthreads_max"):
+            self.MAX_NUMBER_THREADS = params["dbthreads_max"]
         else:
             self.MAX_NUMBER_THREADS = 25
-        if params.get("dbPrefThreads"):
-            self.PREFERRED_NUMBER_THREADS = params["dbPrefThreads"]
+        if params.get("dbthreads"):
+            self.PREFERRED_NUMBER_THREADS = params["dbthreads"]
         else:
             self.PREFERRED_NUMBER_THREADS = 20
 
-        self.logger.log("Database number of threads >> Min:", self.MIN_NUMBER_THREADS,
-                        "Max:", self.MAX_NUMBER_THREADS, "Preferred:", self.PREFERRED_NUMBER_THREADS)
+        self.logger.log("Database number of threads || Min:", self.MIN_NUMBER_THREADS,
+                        "| Max:", self.MAX_NUMBER_THREADS, "| Preferred:", self.PREFERRED_NUMBER_THREADS, "||")
 
-        if params.get("duration_limit") and params["duration_limit"]:
+        if params.get("duration_limit"):
             self.logger.log("Setting duration limit to", params["duration_limit"] ,"minutes")
             lastPossibleTimestamp = self.LAST_DB_UPDATE.addSecs(-params["duration_limit"] * 60).toString("yyyy-MM-dd hh:mm:ss")
             strFilter += "tbl_mode_s.timestamp > '" + lastPossibleTimestamp + "'"
             self.logger.debug("Last possible timestamp  " + lastPossibleTimestamp)
+            
 
         if params.get("bds"):
             strFilter += "tbl_mode_s.bds = " + params["bds"] + "AND"
@@ -123,7 +124,7 @@ class Database:
         
     def getFromDB(self, attributes: List[str] = [], options: Dict[str, str] = {"default_filter_on": False, "select_distinct": False, "not_null_values": []}) -> List[Dict[str, Union[int, str]]]:
         # option={..., "limit":50000}
-        self.logger.info("Getting attributes", ",".join(attrib for attrib in attributes), "from Database")
+        self.logger.debug("Getting attributes", ", ".join(attrib for attrib in attributes), "from Database")
         allResults = []
         executor = self.__executor()
         try:
@@ -192,7 +193,7 @@ class Database:
             latAndlon__future = executor.submit(self.getFromDB, ["address", "timestamp", "latitude", "longitude"], options={
                                               "not_null_values": ["latitude", "longitude"], "limit": int(int(self.limit) / 2)})
             
-            self.data.extend(barAndIvv)
+            self.data = barAndIvv
             self.data.extend(latAndlon__future.result())
 
             self.logger.success("Data actualized. Size: " + str(len(self.data)))
@@ -241,7 +242,7 @@ class Database:
 
         if self.ROW_COUNT == 0:
             raise DatabaseError("Row count of Table tbl_mode_s should not be 0 !")
-        self.logger.info("Row Count for table tbl_mode_s: " + str(self.ROW_COUNT))
+        self.logger.log("Row Count for table tbl_mode_s: " + str(self.ROW_COUNT))
 
         QtSql.QSqlDatabase.removeDatabase(dbName)
 
@@ -258,7 +259,7 @@ class Database:
 
         q = QtSql.QSqlQuery(db)
         q.setForwardOnly(True)
-        if not q.exec(query):
+        if not q.exec_(query):
             raise DatabaseError(
                 "Could not execute query: " + q.lastQuery() + " on " + name + " ERROR:: " + q.lastError().text())
 
@@ -365,7 +366,7 @@ class Database:
             else:
                 orderStr += "ASC "
 
-        self.logger.log(str(len(offsetStr))  + " threads for attributes " + str(attributes))
+        self.logger.log(str(len(offsetStr))  + " threads for query for attributes", ", ".join(attrib for attrib in attributes))
         queries = [(selectStr + " FROM tbl_mode_s " + whereStr + orderStr + offset) for offset in offsetStr]
         return queries
 
@@ -405,4 +406,4 @@ class Database:
         future.result()
         time = self.getFromDB( ["timestamp"], options = {"not_null_values": ["timestamp"], "limit": 1})
         self.LAST_DB_UPDATE = QDateTime.fromMSecsSinceEpoch(int(time[0]["timestamp"]) / 10**6)
-        self.logger.info("Lattest database db_airdata update: " + self.LAST_DB_UPDATE.toString("yyyy-MM-dd hh:mm:ss"))
+        self.logger.log("Lattest database db_airdata update: " + self.LAST_DB_UPDATE.toString("yyyy-MM-dd hh:mm:ss"))

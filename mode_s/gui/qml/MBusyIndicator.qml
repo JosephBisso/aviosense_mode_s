@@ -1,16 +1,8 @@
-/*!
-    \qmlclass CustomBusyIndicator
-    \brief The busy indicator shown every time there is an ongoing operation
-
-    \sa MainView, File, AppeareanceSettings
-
-*/
-
-import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
-import QtQml
-import Qt5Compat.GraphicalEffects
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
+import QtQml 2.15
+import QtGraphicalEffects 1.15
 import "qrc:/scripts/Constants.js" as Constants
 
 Popup {

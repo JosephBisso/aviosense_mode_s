@@ -1,7 +1,8 @@
-import QtQuick
-import QtQuick.Controls
-import QtCharts
-import QtPositioning
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtCharts 2.15
+import QtLocation 5.15
+import QtPositioning 5.6
 
 Frame {
     anchors.fill: parent

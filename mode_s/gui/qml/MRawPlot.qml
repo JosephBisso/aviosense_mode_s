@@ -1,4 +1,4 @@
-import QtCharts
+import QtCharts 2.15
 
 ChartView {
     id: chartView

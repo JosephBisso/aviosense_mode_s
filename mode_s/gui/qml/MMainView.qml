@@ -1,7 +1,7 @@
-import QtQuick
-import QtCharts
-import QtQuick.Layouts
-import QtQuick.Controls
+import QtQuick 2.15
+import QtCharts 2.15
+import QtQuick.Layouts 1.15
+import QtQuick.Controls 2.15
 import "qrc:/scripts/Constants.js" as Constants
 
 SwipeView {

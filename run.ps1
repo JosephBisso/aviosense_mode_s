@@ -4,17 +4,18 @@ $ErrorActionPreference = 'Stop'
 
 
 if ("-t" -notin $args -and "-i" -notin $args) {
-    $qmlFiles = (Get-ChildItem .\mode_s\gui\qml\*.qml).FullName
-    $ressourcesFile = "$(Get-ChildItem .\mode_s\gui\gui.qrc)"
+    $qmlFiles = Get-ChildItem .\mode_s\gui\* -Recurse -Include *.qml, *.js | Select-Object -ExpandProperty FullName
+    $ressourcesFile = "$(Get-Item .\mode_s\gui\gui.qrc)"
     
-    # if ("-nl" -notin $args) {
-    #     Write-Host ("# Linting QML...") -ForegroundColor Cyan -NoNewline
-    #     . D:\Programs\Qt\Qt\6.3.0\msvc2019_64\bin\qmllint.exe $qmlFiles --resource $ressourcesFile --unqualified disable --property disable --unqualified disable
-    #     $? ? (Write-Host ("`t`t`tDone.") -ForegroundColor Green) : (Write-Error ("App finished unnormay.. Last exit code: $LASTEXITCODE"))
-    # } 
+    if ("-nl" -notin $args) {
+        Write-Host ("# Linting QML...") -ForegroundColor Cyan -NoNewline
+        . D:\Programs\Qt\Qt\5.15.2\msvc2019_64\bin\qmllint.exe $qmlFiles --check-unqualified 
+        $? ? (Write-Host ("`t`t`tDone.") -ForegroundColor Green) : (Write-Host ("Warnings... Last exit code: $LASTEXITCODE") -ForegroundColor DarkYellow)
+
+    } 
 
     Write-Host ("# Building Ressources...") -ForegroundColor Cyan -NoNewline
-    . pyside6-rcc  $ressourcesFile -o "$(Get-Location)\mode_s\gui\qrc_gui.py" 
+    . pyside2-rcc  $ressourcesFile -o "$(Get-Location)\mode_s\gui\qrc_gui.py" 
     $? ? (Write-Host ("`tDone.") -ForegroundColor Green) : (Write-Error ("App finished unnormay.. Last exit code: $LASTEXITCODE"))
 }
 

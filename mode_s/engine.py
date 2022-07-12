@@ -36,21 +36,27 @@ class Engine:
 
     def setEngineParameters(self, **params):
         self.logger.info("Setting Engine Parameters")
-        self.gui = params.get["gui"] or False
+        self.gui = params.get("gui") or False
         self.plotAll = params.get("plotAll") or False
 
         if params.get("plotAddresses"):
             self.plotAddresses = [int(address) for address in params["plotAddresses"]]
+        else:
+            self.plotAddresses = []
         if params.get("medianN"):
             self.medianN = params["medianN"] if params["medianN"] % 2 == 1 else params["medianN"] + 1
-        if params.get("engineThreads"):
-            self.MAX_NUMBER_THREADS_ENGINE = params["engineThreads"]
+        else:
+            self.medianN = 1
+        if params.get("enginethreads"):
+            self.MAX_NUMBER_THREADS_ENGINE = params["enginethreads"]
+        else:
+            self.MAX_NUMBER_THREADS_ENGINE = 200
 
         self.logger.log("Max number of threads for engine : " + str(self.MAX_NUMBER_THREADS_ENGINE))
         self.logger.log("Setting median Filter to : " + str(self.medianN))
         if self.plotAll:
             self.logger.log("Watching all Addresses")
-        else:
+        elif self.plotAddresses:
             self.logger.log("Watching following address(es) : " + str(self.plotAddresses))
 
     def activatePlot(self, plots:List[str]):
@@ -76,7 +82,7 @@ class Engine:
         #     json.dump(self.data, dbd)
 
     def compute(self, usePlotter=True) -> None:
-        self.logger.info("Starting engine computing")
+        self.logger.info("Starting Engine")
         if usePlotter and not any(self.plots.values()):
             return
 
@@ -107,8 +113,8 @@ class Engine:
         else:
             addressesToPlot = mostPointAddresses
 
-        if len(addressesToPlot) < 5: self.logger.info("Computing for following addresses: " + str(addressesToPlot))
-        else: self.logger.info("Computing for " + str(len(addressesToPlot)) + " addresses")
+        if len(addressesToPlot) < 5: self.logger.info("Working with following addresses: " + str(addressesToPlot))
+        else: self.logger.info("Working with " + str(len(addressesToPlot)) + " addresses")
 
         data = self.prepareBarAndIvvAndTime(addressesToPlot)
 
@@ -177,7 +183,9 @@ class Engine:
                 lineSeriesHeatMap = self.getLineSeriesHeatMap(heatMap)
                 yield lineSeriesHeatMap
 
-        if all(plotted):
+        if not usePlotter:
+            self.logger.success("Successfully computed")
+        elif all(plotted):
             self.logger.success("Successfully plotted")
         else:
             self.logger.warning("Error while plotting")
