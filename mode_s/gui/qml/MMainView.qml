@@ -192,4 +192,15 @@ SwipeView {
             }
         }
     }
+
+    // MLocationPlot {
+    //     title: "Location Plot"
+    //     titleFont: Constants.FONT_MEDIUM
+    //     titleColor: Constants.FONT_COLOR
+    //     theme: ChartView.ChartThemeBlueIcy
+    // }
+
+    // MHeatMapPlot {
+
+    // }
 }

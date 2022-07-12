@@ -4,303 +4,91 @@ import statistics
 import numpy as np
 import concurrent.futures
 from scipy.signal import medfilt
-from collections import Counter, namedtuple
-from typing import List, Dict, NamedTuple, Union
+from collections import Counter
+from typing import List, Dict, Union
 
 from logger import Logger
 from plotter import Plotter
 from constants import ENGINE_CONSTANTS
-from constants import DB_CONSTANTS
 from constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
+
 
 class EngineError(BaseException):
     pass
 
-class Engine:
-    def __init__(self, logger: Logger, plots: List[str] = [], plotAddresses: List[str] = [], medianN: int = 1, plotAll = False):
-        self.logger = logger
-        self.plots: Dict[str, bool] = self.__activatePlot(plots)
-        self.plotAddresses = [int(address) for address in plotAddresses]
-        self.plotAll = plotAll
-        self.medianN = medianN if medianN % 2 == 1 else medianN + 1
-        self.executors = []
-    
-    def __executor(self) -> concurrent.futures.ThreadPoolExecutor:
-        ex = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="engine_workerThread", max_workers=ENGINE_CONSTANTS.MAX_NUMBER_THREADS_ENGINE)
-        self.executors.append(ex)
-        return ex
 
-    def __activatePlot(self, plots:List[str]):
+class Engine:
+
+    MAX_NUMBER_THREADS_ENGINE: int = 200
+
+    data: List[Dict[str, Union[str, int]]] = []
+    plots: Dict[str, bool] = {}
+
+    executors: List[concurrent.futures.Executor] = []
+
+    gui = False
+    plotAddresses: List[int] = []
+    medianN: int = 1
+    plotAll: bool = False
+
+    def __init__(self, logger: Logger):
+        self.logger: Logger = logger
+
+    def setEngineParameters(self, **params):
+        self.logger.info("Setting Engine Parameters")
+        self.gui = params.get["gui"] or False
+        self.plotAll = params.get("plotAll") or False
+
+        if params.get("plotAddresses"):
+            self.plotAddresses = [int(address) for address in params["plotAddresses"]]
+        if params.get("medianN"):
+            self.medianN = params["medianN"] if params["medianN"] % 2 == 1 else params["medianN"] + 1
+        if params.get("engineThreads"):
+            self.MAX_NUMBER_THREADS_ENGINE = params["engineThreads"]
+
+        self.logger.log("Max number of threads for engine : " + str(self.MAX_NUMBER_THREADS_ENGINE))
+        self.logger.log("Setting median Filter to : " + str(self.medianN))
+        if self.plotAll:
+            self.logger.log("Watching all Addresses")
+        else:
+            self.logger.log("Watching following address(es) : " + str(self.plotAddresses))
+
+    def activatePlot(self, plots:List[str]):
+        self.logger.info("Activating Engine Plots.")
         plotsInsensitive = [plot.lower() for plot in plots]
         plots = {plot: plot in plotsInsensitive for plot in ENGINE_CONSTANTS.PLOTS}
 
         abs = []
         for plot in plotsInsensitive:
-            if not plot in ENGINE_CONSTANTS.PLOTS: abs.append(plot)
+            if plot not in ENGINE_CONSTANTS.PLOTS:
+                abs.append(plot)
         if len(abs) > 0 : self.logger.warning("Following Plots are unknown. May be a Typo? : " + str(abs))
-        
+
         self.logger.log("Engine plot status : " + str(plots))
-        return plots
 
-    def __getDataForAddress(self, address: int) -> Dict[str, Union[str, List[DATA]]]:
-        addressData: Dict[str, Union[str, List[int]]] = {
-            "address": address,
-            "points": []
-        }
-
-        bars = []
-        ivvs = []
-        times = []
-
-        startIndex = None
-        for index, data in enumerate(self.data):
-            if data["address"] != address: continue
-            startIndex = index
-            break
-
-        if not startIndex:
-            raise EngineError("Skipping address " + str(address) + " : Cannot be found")
-
-        for index in range(startIndex, len(self.data)):
-            if self.data[index]["bar"] is None or self.data[index]["ivv"] is None:
-                continue
-            if self.data[index]["address"] != address:
-                break
-            bars.append(self.data[index]["bar"])
-            ivvs.append(self.data[index]["ivv"])
-            times.append(self.data[index]["timestamp"])
-        
-        if not times:
-            raise EngineError("Skipping address " + str(address) + " : No valid entry")
-
-        startTime = min(times)
-        addressData["points"] = [DATA((times[i] - startTime)*10**-9, bars[i], ivvs[i]) for i in range(len(times))]
-        addressData["points"].sort(key=lambda el: el.time)
-        
-        # self.logger.debug("Valid results for sliding interval for address " + str(
-        #     address) + ". Points Count: " + str(len(addressData["points"])))
-
-        return addressData
-
-    def __applyMedianFilter(self, addressData: Dict[str, Union[str, List[DATA]]]) -> None:
-        bars = [point.bar for point in addressData["points"]]
-        ivvs = [point.ivv for point in addressData["points"]]
-        times = [point.time for point in addressData["points"]]
-
-        if not bars or not ivvs or not times:
-            raise EngineError("Skipping address " + str(addressData["address"]) + " : Invalid bar or ivv for median filter")
-        
-        maxMedianFilter = len(bars) if len(bars) % 2 == 1 else len(bars) - 1
-        nFilter = min(self.medianN, maxMedianFilter)
-
-        filteredBars: np.ndarray = medfilt(bars, nFilter)
-        filteredIvvs: np.ndarray = medfilt(ivvs, nFilter)
-
-        addressData["filteredPoints"] = [
-            DATA(times[i], filteredBars[i], filteredIvvs[i]) for i in range(len(filteredBars))
-        ]
-        
-        # self.logger.debug("Valid results for apply median filter for address " + str(
-        #     addressData["address"]) + ". Points Count: " + str(len(addressData["filteredPoints"])))
-
-
-    def __getSlidingIntervalForAddress(self, addressData: Dict[str, Union[str, List[DATA]]]) -> Dict[str, Union[str, List[WINDOW_POINT]]]:
-        times = [point.time for point in addressData["points"]]
-        if not times: 
-            raise EngineError("Skipping address " + str(addressData["address"]) + " : Invalid time for sliding interval")
-        
-        slidingWindows = [duration * 60 for duration in range(int(max(times) / 60))]
-        
-        slidingIntervals:Dict[str, Union[str, List[WINDOW_POINT]]]  = {"address": addressData["address"], "points":[]}
-        actualIndex = 0
-        for windowIndex in range(len(slidingWindows)):
-            dataPoints = 0
-            for dataIndex in range(actualIndex, len(addressData["points"])):
-                if addressData["points"][dataIndex].time > slidingWindows[windowIndex]: 
-                    actualIndex = dataIndex
-                    break
-                dataPoints += 1
-            
-            slidingIntervals["points"].append(WINDOW_POINT(slidingWindows[windowIndex]/60, dataPoints))
-        
-        # self.logger.debug("Valid results for sliding interval for address " + str(
-        #     addressData["address"]) + ". Points Count: " + str(len(slidingIntervals["points"])))
-        
-        return slidingIntervals
-
-    def __getSlidingIntervalForStdPerAddress(self, addressData: Dict[str, Union[str, List[DATA]]]) -> Dict[str, Union[str, List[WINDOW_DATA], float]]:
-        slidingIntervalsForStd: Dict[str, Union[str, List[WINDOW_POINT]]] = {
-            "address": addressData["address"],
-            "points": [],
-            "threshold": 0
-        }
-        
-        times = [point.time for point in addressData["points"]]
-        
-        try:
-            addressData["filteredPoints"]
-        except KeyError:
-            raise EngineError("Skipping address " + str(addressData["address"]) + " : No filtered points for sliding interval per std")
-            
-        slidingWindows = [duration *60 for duration in range(int(max(times) / 60))]
-        
-        barStds = []
-        ivvStds = []
-
-        actualIndex = 0
-        for windowIndex in range(len(slidingWindows)):
-            bars = []
-            ivvs = []
-            for dataIndex in range(actualIndex, len(addressData["filteredPoints"])):
-                if addressData["filteredPoints"][dataIndex].time > slidingWindows[windowIndex]:
-                    actualIndex = dataIndex
-                    break
-                bars.append(addressData["filteredPoints"][dataIndex].bar)
-                ivvs.append(addressData["filteredPoints"][dataIndex].ivv)
-
-            if not bars or not ivvs:
-                bars = [0,0]
-                ivvs = [0,0]
-            
-            if len(bars) == 1 :
-                bars.append(bars[0])
-                ivvs.append(ivvs[0])
-            
-            barStd = statistics.stdev(bars)
-            ivvStd = statistics.stdev(ivvs)
-            
-            slidingIntervalsForStd["points"].append(WINDOW_DATA(
-                slidingWindows[windowIndex]/60, barStd, ivvStd))
-
-            barStds.append(barStd)
-            ivvStds.append(ivvStd)
-            
-        if not barStds or not ivvStds: 
-            barStds = [0, 0]
-            ivvStds = [0, 0]
-            
-        arrayBarStds = np.array(barStds)
-        arrayIvvStds = np.array(ivvStds)
-        diffStds = arrayBarStds - arrayIvvStds
-        
-        ddof = 1 if len(diffStds) > 1 else 0
-        threshold = np.average(diffStds) + 1.2 * np.std(diffStds, ddof=ddof)
-        slidingIntervalsForStd["threshold"] = threshold
-        
-        # self.logger.debug("Valid results for sliding interval for std for address " + str(
-        #     addressData["address"]) + ". Points Count: " + str(len(slidingIntervalsForStd["points"])))
-
-        return slidingIntervalsForStd
-
-    def __getHeatPointsForAddress(self, addressData: Dict[str, Union[str, List[WINDOW_DATA], float]] = {}) -> Dict[str, Union[str,List[LOCATION_DATA]]]:
-        heatPointsForAddress: List[str, List[LOCATION_DATA]] = []
-        
-        turbulentSlidingWindows = [point.window for point in addressData["points"] if point.bar - point.ivv > addressData["threshold"]]
-        turbulentSlidingWindows.sort()
-        
-        # self.logger.debug("Heat Points for address " + str(
-        #     addressData["address"]) + ". Address Data windows Count: " + str(len(addressData["points"])) + 
-        #     ". Turbulent sliding windows: " + str(len(turbulentSlidingWindows)))
-
-        times = []
-
-        startIndex = None
-        for index, data in enumerate(self.data):
-            if data["address"] != addressData["address"]: continue
-            startIndex = index
-            break
-
-        if not startIndex:
-            raise EngineError("Skipping address " + str(addressData["address"]) + " : Invalid bar or ivv stds for heat map")
-
-        for index in range(startIndex, len(self.data)):
-            if self.data[index]["address"] != addressData["address"]:
-                break
-            times.append(self.data[index]["timestamp"])
-                    
-        startTime = min(times)
-
-        foundLongitude = False
-        foundWindow = False
-        closestTimes = []
-        allTimes = []
-        for index in range(startIndex, len(self.data)):
-            if self.data[index]["longitude"] is None or self.data[index]["latitude"] is None:
-                continue
-            if self.data[index]["address"] != addressData["address"]:
-                break
-
-            foundLongitude = True
-
-            rawTime = self.data[index]["timestamp"]
-            time = (rawTime - startTime)*10**-9
-            time /= 60
-            allTimes.append(time)
-
-            windows = None
-            for window in turbulentSlidingWindows:
-                if time > window: continue
-                windows = window
-                break
-            
-            if not windows: break
-            
-            foundWindow = True
-            if time < windows - 1: 
-                closestTimes.append(time)
-                continue
-            
-            longitude = self.data[index]["longitude"]
-            latitude = self.data[index]["latitude"]
-            
-            heatPointsForAddress.append(
-                LOCATION_DATA(rawTime, longitude, latitude)
-            )
-            
-        if allTimes: closestTimes.insert(0, min(allTimes))
-        
-        if len(heatPointsForAddress) < len(turbulentSlidingWindows):
-            self.logger.debug("Doubtful results for Heat Points for address " + str(
-                addressData["address"]) + ". Points Count: " + str(len(heatPointsForAddress)) + "| Found longitude and latitude data? " + str(foundLongitude) + 
-                " | Found window? " + str(foundWindow) + " | turbulent sliding windows: " + str(turbulentSlidingWindows) + " | closest Times: " + str(closestTimes))
-
-        # else:
-        #     self.logger.debug("Valid results for Heat Points for address " + str(
-        #         addressData["address"]) + ". Points Count: " + str(len(heatPointsForAddress)))
-
-        return {"address": addressData["address"], "points": heatPointsForAddress}
-
-    def updateParameters(self, plotAddresses: List[str] = [], medianN: int = 1):
-        self.gui = True
-        self.plots = self.__activatePlot([""])
-        self.plotAddresses = [int(address) for address in plotAddresses]
-        self.medianN = medianN if medianN % 2 == 1 else medianN + 1
-
-        self.logger.log("Minimum number of threads : " + str(DB_CONSTANTS.MIN_NUMBER_THREADS))
-        self.logger.log("Setting median Filter to : " + str(self.medianN))
-        self.logger.log("Watching following address(es) : " + str(self.plotAddresses))
-
+        self.plots = plots
 
     def setDataSet(self, dataset: List[Dict[str, Union[str, int]]]):
         self.data = sorted(dataset, key=lambda el: el["address"])
-        
+
         # import json
         # with open("engine.dump.json", "w") as dbd:
         #     json.dump(self.data, dbd)
 
-                      
     def compute(self, usePlotter=True) -> None:
-        if usePlotter and not any(self.plots.values()) : return
-        
+        self.logger.info("Starting engine computing")
+        if usePlotter and not any(self.plots.values()):
+            return
+
         activePlots = self.plots
-        
+
         if not usePlotter:
             activePlots = {plot: True for plot in ENGINE_CONSTANTS.PLOTS}
         else:
             Plotter.updateUsedMedianFilter(self.medianN)
 
         plotted = []
-        
+
         if activePlots["occurrence"]:
             dataPoints = self.prepareOccurrencesForAddresses()
             if usePlotter:
@@ -318,12 +106,12 @@ class Engine:
             addressesToPlot = allAddresses
         else:
             addressesToPlot = mostPointAddresses
-            
-        if len(addressesToPlot) < 5: self.logger.log("Computing for following addresses: " + str(addressesToPlot))
-        else: self.logger.log("Computing for " + str(len(addressesToPlot)) + " addresses")
-            
+
+        if len(addressesToPlot) < 5: self.logger.info("Computing for following addresses: " + str(addressesToPlot))
+        else: self.logger.info("Computing for " + str(len(addressesToPlot)) + " addresses")
+
         data = self.prepareBarAndIvvAndTime(addressesToPlot)
-        
+
         if activePlots["bar_ivv"]:
             if usePlotter:
                 self.logger.info("Plotting bar and ivv on time")
@@ -331,15 +119,12 @@ class Engine:
             else:
                 lineSeriesBarIvv = self.getLineSeriesBarAndIvv(data)
                 yield lineSeriesBarIvv
-            
-        if activePlots["filtered"] and not activePlots["std"]:
-            self.prepareMedianFilter(data)
-            if usePlotter:
+
+        if usePlotter:
+            if activePlots["filtered"] and not activePlots["std"]:
+                self.prepareMedianFilter(data)
                 self.logger.info("Plotting filtered bar and ivv on time")
                 plotted.append(Plotter.plotFilteredBarAndIvv(data))
-            else:
-                lineSeriesFiltered = self.getLineSeriesFilteredBarAndIvv(data)
-                yield lineSeriesFiltered
 
         if activePlots["interval"]:
             slidingIntervals = self.prepareSlidingInterval(data)
@@ -349,12 +134,16 @@ class Engine:
             else:
                 lineSeriesInterval = self.getLineSeriesSlidingInterval(slidingIntervals)
                 yield lineSeriesInterval
-        
-        if activePlots["std"]: 
+
+        if activePlots["std"]:
             self.prepareMedianFilter(data)
+
+            if not usePlotter:
+                yield self.getLineSeriesFilteredBarAndIvv(data)
+
             slidingIntervalForStd = self.prepareSlidingIntervalForStd(data) 
             if usePlotter:
-                if activePlots["filtered"]: 
+                if activePlots["filtered"]:
                     self.logger.info("Plotting filtered data and standard deviations")
                     plotted.append(Plotter.plotFilteredAndStd(filteredData=data, stdData=slidingIntervalForStd))
                 else:
@@ -363,7 +152,7 @@ class Engine:
             else:
                 lineSeriesStd = self.getLineSeriesSlidingIntervalForStd(slidingIntervalForStd)
                 yield lineSeriesStd
-        
+
         if activePlots["location"]:
             location = self.prepareLocation()
             if usePlotter:
@@ -387,10 +176,12 @@ class Engine:
             else:
                 lineSeriesHeatMap = self.getLineSeriesHeatMap(heatMap)
                 yield lineSeriesHeatMap
-                
-        if all(plotted): self.logger.success("Successfully plotted")
-        else: self.logger.warning("Error while plotting")
-        
+
+        if all(plotted):
+            self.logger.success("Successfully plotted")
+        else:
+            self.logger.warning("Error while plotting")
+
     def prepareOccurrencesForAddresses(self, returnValue="datapoint") -> Union[List[Union[int, str]], List[int]]:
         self.logger.log("Computing Occurrences for Addresses")
         dataPointsCounter = Counter([entry["address"] for entry in self.data])
@@ -656,3 +447,238 @@ class Engine:
 
     def getLineSeriesHeatMap(self, heatMap: List[Dict[str, Union[str, List[LOCATION_DATA]]]]) -> List[Dict[str, List[int]]]:
         pass
+
+    def __executor(self) -> concurrent.futures.ThreadPoolExecutor:
+        ex = concurrent.futures.ThreadPoolExecutor(
+            thread_name_prefix="engine_workerThread", max_workers=self.MAX_NUMBER_THREADS_ENGINE)
+        self.executors.append(ex)
+        return ex
+
+
+    def __getDataForAddress(self, address: int) -> Dict[str, Union[str, List[DATA]]]:
+        addressData: Dict[str, Union[str, List[int]]] = {
+            "address": address,
+            "points": []
+        }
+
+        bars = []
+        ivvs = []
+        times = []
+
+        startIndex = None
+        for index in range(len(self.data)):
+            if self.data[index]["address"] != address: continue
+            startIndex = index
+            break
+
+        if not startIndex:
+            raise EngineError("Skipping address " + str(address) + " : Cannot be found")
+
+        for index in range(startIndex, len(self.data)):
+            if self.data[index]["bar"] is None or self.data[index]["ivv"] is None:
+                continue
+            if self.data[index]["address"] != address:
+                break
+            bars.append(self.data[index]["bar"])
+            ivvs.append(self.data[index]["ivv"])
+            times.append(self.data[index]["timestamp"])
+        
+        if not times:
+            raise EngineError("Skipping address " + str(address) + " : No valid entry")
+
+        startTime = min(times)
+        addressData["points"] = [DATA((times[i] - startTime)*10**-9, bars[i], ivvs[i]) for i in range(len(times))]
+        addressData["points"].sort(key=lambda el: el.time)
+        
+        # self.logger.debug("Valid results for sliding interval for address " + str(
+        #     address) + ". Points Count: " + str(len(addressData["points"])))
+
+        return addressData
+
+    def __applyMedianFilter(self, addressData: Dict[str, Union[str, List[DATA]]]) -> None:
+        bars = [point.bar for point in addressData["points"]]
+        ivvs = [point.ivv for point in addressData["points"]]
+        times = [point.time for point in addressData["points"]]
+
+        if not bars or not ivvs or not times:
+            raise EngineError("Skipping address " + str(addressData["address"]) + " : Invalid bar or ivv for median filter")
+        
+        maxMedianFilter = len(bars) if len(bars) % 2 == 1 else len(bars) - 1
+        nFilter = min(self.medianN, maxMedianFilter)
+
+        filteredBars: np.ndarray = medfilt(bars, nFilter)
+        filteredIvvs: np.ndarray = medfilt(ivvs, nFilter)
+
+        addressData["filteredPoints"] = [
+            DATA(times[i], filteredBars[i], filteredIvvs[i]) for i in range(len(filteredBars))
+        ]
+        
+        # self.logger.debug("Valid results for apply median filter for address " + str(
+        #     addressData["address"]) + ". Points Count: " + str(len(addressData["filteredPoints"])))
+
+
+    def __getSlidingIntervalForAddress(self, addressData: Dict[str, Union[str, List[DATA]]]) -> Dict[str, Union[str, List[WINDOW_POINT]]]:
+        times = [point.time for point in addressData["points"]]
+        if not times: 
+            raise EngineError("Skipping address " + str(addressData["address"]) + " : Invalid time for sliding interval")
+        
+        slidingWindows = [duration * 60 for duration in range(int(max(times) / 60))]
+        
+        slidingIntervals:Dict[str, Union[str, List[WINDOW_POINT]]]  = {"address": addressData["address"], "points":[]}
+        actualIndex = 0
+        for windowIndex in range(len(slidingWindows)):
+            dataPoints = 0
+            for dataIndex in range(actualIndex, len(addressData["points"])):
+                if addressData["points"][dataIndex].time > slidingWindows[windowIndex]: 
+                    actualIndex = dataIndex
+                    break
+                dataPoints += 1
+            
+            slidingIntervals["points"].append(WINDOW_POINT(slidingWindows[windowIndex]/60, dataPoints))
+        
+        # self.logger.debug("Valid results for sliding interval for address " + str(
+        #     addressData["address"]) + ". Points Count: " + str(len(slidingIntervals["points"])))
+        
+        return slidingIntervals
+
+    def __getSlidingIntervalForStdPerAddress(self, addressData: Dict[str, Union[str, List[DATA]]]) -> Dict[str, Union[str, List[WINDOW_DATA], float]]:
+        slidingIntervalsForStd: Dict[str, Union[str, List[WINDOW_POINT]]] = {
+            "address": addressData["address"],
+            "points": [],
+            "threshold": 0
+        }
+        
+        times = [point.time for point in addressData["points"]]
+        
+        try:
+            addressData["filteredPoints"]
+        except KeyError:
+            raise EngineError("Skipping address " + str(addressData["address"]) + " : No filtered points for sliding interval per std")
+            
+        slidingWindows = [duration *60 for duration in range(int(max(times) / 60))]
+        
+        barStds = []
+        ivvStds = []
+
+        actualIndex = 0
+        for windowIndex in range(len(slidingWindows)):
+            bars = []
+            ivvs = []
+            for dataIndex in range(actualIndex, len(addressData["filteredPoints"])):
+                if addressData["filteredPoints"][dataIndex].time > slidingWindows[windowIndex]:
+                    actualIndex = dataIndex
+                    break
+                bars.append(addressData["filteredPoints"][dataIndex].bar)
+                ivvs.append(addressData["filteredPoints"][dataIndex].ivv)
+
+            if not bars or not ivvs:
+                bars = [0,0]
+                ivvs = [0,0]
+            
+            if len(bars) == 1 :
+                bars.append(bars[0])
+                ivvs.append(ivvs[0])
+            
+            barStd = statistics.stdev(bars)
+            ivvStd = statistics.stdev(ivvs)
+            
+            slidingIntervalsForStd["points"].append(WINDOW_DATA(
+                slidingWindows[windowIndex]/60, barStd, ivvStd))
+
+            barStds.append(barStd)
+            ivvStds.append(ivvStd)
+            
+        if not barStds or not ivvStds: 
+            barStds = [0, 0]
+            ivvStds = [0, 0]
+            
+        arrayBarStds = np.array(barStds)
+        arrayIvvStds = np.array(ivvStds)
+        diffStds = arrayBarStds - arrayIvvStds
+        
+        ddof = 1 if len(diffStds) > 1 else 0
+        threshold = np.average(diffStds) + 1.2 * np.std(diffStds, ddof=ddof)
+        slidingIntervalsForStd["threshold"] = threshold
+        
+        # self.logger.debug("Valid results for sliding interval for std for address " + str(
+        #     addressData["address"]) + ". Points Count: " + str(len(slidingIntervalsForStd["points"])))
+
+        return slidingIntervalsForStd
+
+    def __getHeatPointsForAddress(self, addressData: Dict[str, Union[str, List[WINDOW_DATA], float]] = {}) -> Dict[str, Union[str,List[LOCATION_DATA]]]:
+        heatPointsForAddress: List[str, List[LOCATION_DATA]] = []
+        
+        turbulentSlidingWindows = [point.window for point in addressData["points"] if point.bar - point.ivv > addressData["threshold"]]
+        turbulentSlidingWindows.sort()
+        
+        # self.logger.debug("Heat Points for address " + str(
+        #     addressData["address"]) + ". Address Data windows Count: " + str(len(addressData["points"])) + 
+        #     ". Turbulent sliding windows: " + str(len(turbulentSlidingWindows)))
+
+        times = []
+
+        startIndex = None
+        for index, data in enumerate(self.data):
+            if data["address"] != addressData["address"]: continue
+            startIndex = index
+            break
+
+        if not startIndex:
+            raise EngineError("Skipping address " + str(addressData["address"]) + " : Invalid bar or ivv stds for heat map")
+
+        for index in range(startIndex, len(self.data)):
+            if self.data[index]["address"] != addressData["address"]:
+                break
+            times.append(self.data[index]["timestamp"])
+                    
+        startTime = min(times)
+
+        foundLongitude = False
+        foundWindow = False
+        closestTimes = []
+        allTimes = []
+        for index in range(startIndex, len(self.data)):
+            if self.data[index]["longitude"] is None or self.data[index]["latitude"] is None:
+                continue
+            if self.data[index]["address"] != addressData["address"]:
+                break
+
+            foundLongitude = True
+
+            rawTime = self.data[index]["timestamp"]
+            time = (rawTime - startTime)*10**-9
+            time /= 60
+            allTimes.append(time)
+
+            windows = None
+            for window in turbulentSlidingWindows:
+                if time > window: continue
+                windows = window
+                break
+            
+            if not windows: break
+            
+            foundWindow = True
+            if time < windows - 1: 
+                closestTimes.append(time)
+                continue
+            
+            longitude = self.data[index]["longitude"]
+            latitude = self.data[index]["latitude"]
+            
+            heatPointsForAddress.append(
+                LOCATION_DATA(rawTime, longitude, latitude)
+            )
+            
+        if allTimes: closestTimes.insert(0, min(allTimes))
+        
+        if len(heatPointsForAddress) < len(turbulentSlidingWindows):
+            self.logger.debug("Doubtful results for Heat Points for address " + str(
+                addressData["address"]) + ". Points Count: " + str(len(heatPointsForAddress)) + "| Found longitude and latitude data? " + str(foundLongitude) + 
+                " | Found window? " + str(foundWindow) + " | turbulent sliding windows: " + str(turbulentSlidingWindows) + " | closest Times: " + str(closestTimes))
+
+        # else:
+        #     self.logger.debug("Valid results for Heat Points for address " + str(
+        #         addressData["address"]) + ". Points Count: " + str(len(heatPointsForAddress)))
+
+        return {"address": addressData["address"], "points": heatPointsForAddress}

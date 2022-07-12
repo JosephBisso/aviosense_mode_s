@@ -95,18 +95,20 @@ def qt_message_handler(mode, context, message):
 
 class Mode_S(QObject):
     
-    logged = Signal(str, arguments=['log'])
+    logged              = Signal(str, arguments=['log'])
 
-    filterUpdated = Signal()
-    computingStarted = Signal()
-    computingFinished = Signal()
+    filterUpdated       = Signal()
+    computingStarted    = Signal()
+    computingFinished   = Signal()
 
-    readyToPlot = Signal()
-    plotStdReady = Signal(list, arguments=["pointLists"])
-    plotRawReady = Signal(list, arguments=["pointLists"])
-    plotIntervalReady = Signal(list, arguments=["pointLists"])
-    plotFilteredReady = Signal(list, arguments=["pointLists"])
+    readyToPlot         = Signal()
     plotOccurrenceReady = Signal(list, arguments=["pointList"])
+    plotRawReady        = Signal(list, arguments=["pointList"])
+    plotStdReady        = Signal(list, arguments=["pointList"])
+    plotFilteredReady   = Signal(list, arguments=["pointList"])
+    plotIntervalReady   = Signal(list, arguments=["pointList"])
+    plotLocationReady   = Signal(list, arguments=["pointList"])
+    plotHeatMapReady    = Signal(list, arguments=["pointList"])
 
     def __init__(self, db: Database, msEngine: ModeSEngine.Engine, logger: Logger):
         super(Mode_S, self).__init__(None)
@@ -116,31 +118,13 @@ class Mode_S(QObject):
         logger.logged.connect(self.__log)
         self.filterUpdated.connect(self.compute)
         self.readyToPlot.connect(self.plot)
-        self.plotted = 0
-        self.executor = concurrent.futures.ThreadPoolExecutor()
-
-    @Slot(str)
-    def __log(self, log: str):
-        self.logged.emit(log)
-    
-    def __computingFinished(self, future: concurrent.futures.Future):
-        future.result()
-        self.computingFinished.emit()
-
-    def __readyToPlot(self, future: concurrent.futures.Future):
-        future.result()
-        self.readyToPlot.emit()
-
-    def __computing(self):
-        self.db.actualizeData()
-        self.engine.setDataSet(self.db.getData())
+        self.executor = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="modeS_workerThread")
     
     @Slot(str, result=None)
     def updateFilter(self, dataJson: str): 
         data: Dict[str, str] = json.loads(dataJson)
         median = 1
         addresses = []
-        durationLimit = None
         
         for key in data:
             if data[key].lower() == "none" or data[key].lower() == "all" or data[key].lower() == "auto":
@@ -154,20 +138,15 @@ class Mode_S(QObject):
                 addresses = [address.strip() for address in data[key].split(",")]
             elif key == "median_n":
                 median = data[key]
-            elif key == "duration_limit":
-                durationLimit = data[key]
                         
         data.update({
             "interactive":False,
             "id_minimal": False,
             "id_maximal": False,
         })
-        tupledData = namedtuple("ArgsLike", data.keys()) (*data.values())
-        dbFilter = getAllArgs(tupledData)
         
-        self.db.setDefaultFilter(dbFilter)
-        self.engine.updateParameters(plotAddresses=addresses, 
-                medianN=median, durationLimit=durationLimit)
+        self.db.setDatabaseParameters(**data)
+        self.engine.setEngineParameters(plotAddresses=addresses, medianN=median)
 
         self.filterUpdated.emit()
     
@@ -176,51 +155,50 @@ class Mode_S(QObject):
         self.computingStarted.emit()
         future = self.executor.submit(self.__computing)
         future.add_done_callback(self.__readyToPlot)
-
-    def __plotting(self):
-        self.logger.debug("Getting data for Occurrence")
-        dataPoint = self.engine.prepareOccurrencesForAddresses()
-        pointList = self.engine.getLineSeriesDataPointOccurrences(dataPoint)
-        self.plotOccurrenceReady.emit(pointList)
-    
-        addressesToPlot = self.engine.prepareOccurrencesForAddresses("address")[:4]
-        data = self.engine.prepareBarAndIvvAndTime(addressesToPlot)
-
-        self.logger.debug("Getting data for raw")
-        pointLists = self.engine.getLineSeriesBarAndIvv(data)
-        self.plotRawReady.emit(pointLists)
-
-        self.logger.debug("Getting data for filtered")
-        self.engine.prepareMedianFilter(data)
-        pointLists = self.engine.getLineSeriesFilteredBarAndIvv(data)
-        self.plotFilteredReady.emit(pointLists)
-
-        self.logger.debug("Getting data for interval")
-        slidingIntervals = self.engine.prepareSlidingInterval(data)
-        pointLists = self.engine.getLineSeriesSlidingInterval(slidingIntervals)
-        self.plotIntervalReady.emit(pointLists)
-
-        self.logger.debug("Getting data for std")
-        self.engine.prepareMedianFilter(data)
-        slidingIntervalForStd = self.engine.prepareSlidingIntervalForStd(data) 
-        pointLists = self.engine.getLineSeriesSlidingIntervalForStd(slidingIntervalForStd)
-        self.plotStdReady.emit(pointLists)
-        return
-        if plot.lower() == "location":
-            dataPoint = self.engine.prepareOccurrencesForAddresses()
-            chart = self.engine.getChartDataPointOccurrences(dataPoint)
-
-        self.plotted += 1
-        if self.plotted >= 6:
-            self.computingFinished.emit()
         
-        return chart
-        
+    @Slot()
+    def startDatabase(self):
+        self.executor.submit(self.db.start)
+                
     @Slot()
     def plot(self): 
         future = self.executor.submit(self.__plotting)
         future.add_done_callback(self.__computingFinished)
-        
+    
+    @Slot(str)
+    def __log(self, log: str):
+        self.logged.emit(log)
+
+    def __computingFinished(self, future: concurrent.futures.Future):
+        future.result()
+        self.computingFinished.emit()
+
+    def __readyToPlot(self, future: concurrent.futures.Future):
+        future.result()
+        self.readyToPlot.emit()
+
+    def __computing(self):
+        self.db.actualizeData()
+        self.engine.setDataSet(self.db.getData())
+
+    def __plotting(self):
+        results = self.engine.compute(usePlotter=False)
+
+        occurrenceSeries = next(results)
+        rawSeries = next(results)
+        intervalSeries = next(results)
+        filteredSeries = next(results)
+        stdSeries = next(results)
+        locationSeries = next(results)
+        heatMapSeries = next(results)
+
+        self.plotOccurrenceReady.emit(occurrenceSeries)
+        self.plotRawReady.emit(rawSeries)
+        self.plotIntervalReady.emit(intervalSeries)
+        self.plotFilteredReady.emit(filteredSeries)
+        self.plotStdReady.emit(stdSeries)
+        self.plotLocationReady.emit(locationSeries)
+        self.plotHeatMapReady.emit(heatMapSeries)
 
 if __name__ == "__main__":
     args = init_argparse().parse_args()
@@ -243,11 +221,8 @@ if __name__ == "__main__":
     logger.info("Framework for automatic Mode-S data transfer & turbulence prediction")
     logger.debug(args)
     
-    db = Database(logger, terminal=args.terminal)
-    
-    modeSEngine = ModeSEngine.Engine(
-        logger=logger, plots=args.plots, plotAddresses=args.plot_addresses, plotAll=args.plot_all, medianN=args.median_n
-    )
+    db = Database(logger=logger)
+    modeSEngine = ModeSEngine.Engine(logger=logger)
 
     qInstallMessageHandler(qt_message_handler)
     
@@ -261,10 +236,14 @@ if __name__ == "__main__":
             sys.exit(-1)
         sys.exit(app.exec())
     else:
-        db.setDefaultFilter(**dict(args._get_kwargs()))
-        if not db.actualizeData():
+        dbWorking = db.start()
+        db.setDatabaseParameters(**dict(args._get_kwargs()))
+        if dbWorking : dbWorking = db.actualizeData()
+        if not dbWorking:
             sys.exit(-1)
         modeSEngine.setDataSet(db.getData())
+        modeSEngine.activatePlot(plots=args.plots)
+        modeSEngine.setEngineParameters(plotAddresses=args.plot_addresses, plotAll=args.plot_all, medianN=args.median_n)
         for plot in modeSEngine.compute():
             pass
         sys.exit(0)

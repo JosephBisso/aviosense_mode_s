@@ -4,6 +4,7 @@
         "D:/BA/ba_mode-s_analysis/mode_s/database.py",
         "D:/BA/ba_mode-s_analysis/mode_s/engine.py",
         "D:/BA/ba_mode-s_analysis/mode_s/logger.py",
+        "D:/BA/ba_mode-s_analysis/mode_s/plotter.py",
         "D:/BA/ba_mode-s_analysis/mode_s/constants.py",
         "D:/BA/ba_mode-s_analysis/mode_s/gui/gui.qrc"
     ]

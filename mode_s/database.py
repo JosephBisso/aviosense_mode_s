@@ -14,14 +14,31 @@ class DatabaseError(BaseException):
 
 class Database:
 
-    ROW_COUNT:int = 0
-    LAST_DB_UPDATE:QDateTime = 0
+    ROW_COUNT: int = 0
+    LAST_DB_UPDATE: QDateTime = 0
+
+    PREFERRED_NUMBER_THREADS = 20
+    MAX_NUMBER_THREADS = 25
+    MIN_NUMBER_THREADS = 10
     
-    def __init__(self, logger: Logger, terminal:bool):        
-        self.filterOn: bool = False 
+    limit: int = ROW_COUNT
+    
+    filterOn: bool = False 
+    data: List[Dict[str, Union[str, int]]] = []  
+    executors: List[concurrent.futures.Executor] = []
+    
+    addresses: List[int] = []
+    usedAddresses: List[int] = []
+    knownIdents: Dict[str, int] = {}
+
+    strFilter: str = " "
+    
+    def __init__(self, logger: Logger):        
         self.logger: Logger = logger
-        self.data: List[Dict[str, Union[str, int]]] = []  
-        self.executors = []
+    
+    def start(self) -> bool:
+        self.logger.info("Starting database")
+        started = True
         executor = self.__executor()
         try:
             self.__testDBConnection()
@@ -29,12 +46,174 @@ class Database:
             rowCount__future.add_done_callback(self.__getLattestDBTimeStamp)
         except DatabaseError as de:
             self.logger.critical(str(de))
+            started = False
         finally:
             QtSql.QSqlDatabase.removeDatabase("testDB")
 
         executor.shutdown()
+        return started
         
+    def getData(self) -> List[Dict[str, Union[str, int]]]:
+        return self.data
+
+    def setDatabaseParameters(self, **params):
+        self.logger.info("Setting Database Parameters")
+        strFilter = " "
+        if params.get("limit"):
+            if params["limit"] <= self.ROW_COUNT:
+                self.limit = params["limit"]
+            else:
+                self.limit = self.ROW_COUNT
+                self.logger.warning("Query limit bigger than row count of table")
+        else:
+            self.limit = 500000
+        
+        self.logger.log("Setting global query row limit to:", self.limit)
+
+        if params.get("dbMinThreads"):
+            self.MIN_NUMBER_THREADS = params["dbMinThreads"]
+        else:
+            self.MIN_NUMBER_THREADS = 10
+        if params.get("dbMaxThreads"):
+            self.MAX_NUMBER_THREADS = params["dbMaxThreads"]
+        else:
+            self.MAX_NUMBER_THREADS = 25
+        if params.get("dbPrefThreads"):
+            self.PREFERRED_NUMBER_THREADS = params["dbPrefThreads"]
+        else:
+            self.PREFERRED_NUMBER_THREADS = 20
+
+        self.logger.log("Database number of threads >> Min:", self.MIN_NUMBER_THREADS,
+                        "Max:", self.MAX_NUMBER_THREADS, "Preferred:", self.PREFERRED_NUMBER_THREADS)
+
+        if params.get("duration_limit") and params["duration_limit"]:
+            self.logger.log("Setting duration limit to", params["duration_limit"] ,"minutes")
+            lastPossibleTimestamp = self.LAST_DB_UPDATE.addSecs(-params["duration_limit"] * 60).toString("yyyy-MM-dd hh:mm:ss")
+            strFilter += "tbl_mode_s.timestamp > '" + lastPossibleTimestamp + "'"
+            self.logger.debug("Last possible timestamp  " + lastPossibleTimestamp)
+
+        if params.get("bds"):
+            strFilter += "tbl_mode_s.bds = " + params["bds"] + "AND"
+            self.logger.log("Setting bds to", params["bds"])
+        if params.get("latitude_minimal"):
+            strFilter += "tbl_mode_s.latitude > " + params["latitude_minimal"] + " AND "
+            self.logger.log("Setting minimal latitude to", params["latitude_minimal"])
+        if params.get("latitude_maximal"):
+            strFilter += "tbl_mode_s.latitude < " + params["latitude_maximal"] + " AND "
+            self.logger.log("Setting maximal latitude to", params["latitude_maximal"])
+        if params.get("longitude_minimal"):
+            strFilter += "tbl_mode_s.longitude > " + params["longitude_minimal"] + " AND "
+            self.logger.log("Setting minimal longitude to", params["longitude_minimal"])
+        if params.get("longitude_maximal"):
+            strFilter += "tbl_mode_s.longitude < " + params["longitude_maximal"] + " AND "
+            self.logger.log("Setting maximal longitude to", params["longitude_maximal"])
+        if params.get("id_minimal"):
+            strFilter += "tbl_mode_s.id > " + params["id_minimal"] + " AND "
+            self.logger.log("Setting minimal  to", params["id_minimal"])
+        if params.get("id_maximal"):
+            strFilter += "tbl_mode_s.id < " + params["id_maximal"] + " AND "
+            self.logger.log("Setting maximal  to", params["id_maximal"])
+            
+        self.filterOn = strFilter != " "
+        self.logger.debug("Setting query filter to: " + strFilter)
+        self.strFilter = strFilter
+
+    def resetFilter(self):
+        self.filterOn = False
+        
+    def getFromDB(self, attributes: List[str] = [], options: Dict[str, str] = {"default_filter_on": False, "select_distinct": False, "not_null_values": []}) -> List[Dict[str, Union[int, str]]]:
+        # option={..., "limit":50000}
+        self.logger.info("Getting attributes", ",".join(attrib for attrib in attributes), "from Database")
+        allResults = []
+        executor = self.__executor()
+        try:
+            queries = self.__generateQueries(attributes, options) 
+            threadedQueries = [executor.submit(self.__query, query, attributes) for query in queries]
+
+            for completedQuery in concurrent.futures.as_completed(threadedQueries):
+                try:
+                    results, dbName = completedQuery.result()
+                except DatabaseError as de:
+                    self.logger.critical(str(de))
+                except Exception as esc:
+                    self.logger.warning("Error occurred while getting attributes " + str(attributes) + "\nERROR: " + str(esc))
+                else:
+                    allResults.extend(results)
+                finally:
+                    QtSql.QSqlDatabase.removeDatabase(dbName)
+
+            try:
+                limit = options["limit"]
+            except KeyError:
+                limit = self.limit
+                    
+            if len(allResults) < int(limit): self.logger.warning("Query executed. Results lower than expected (" + str(len(allResults)) + " < " + str(limit) + ")")
+            else: self.logger.success("Query successfully executed.")
+
+        except DatabaseError as de:
+            self.logger.critical(str(de))
+            return []
+        finally:
+            executor.shutdown()
+        
+        return allResults
     
+    def actualizeKnownAddress(self) -> bool:
+        self.logger.info("Actualizing known addresses")
+        executor = self.__executor()
+        valid = True
+        try:
+            idAndAddress__future = executor.submit(self.getFromDB, ["identification", "address"], options={
+                                                 "select_distinct": True, "not_null_values": ["identification", "address"]})
+            idAndAddress__future.add_done_callback(self.__actualizeKnownAddresses)
+
+        except DatabaseError as dbe:
+            self.logger.critical(str(dbe))
+            valid =  False
+        except Exception as esc:
+            self.logger.warning(
+                "Error occurred while actualizing known addresses \nERROR: " + str(esc))
+            valid = False
+        finally:
+            executor.shutdown()
+
+        return valid
+    
+    def actualizeData(self) -> bool:
+        self.logger.info("Actualizing database")
+        executor = self.__executor()
+        valid = True
+        try:
+            barAndIvv = self.getFromDB(["address", "timestamp", "bar", "ivv"], options={
+                                              "not_null_values": ["bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"], "limit": int(int(self.limit) / 2)})
+            
+            self.__updatedUsedAddresses(barAndIvv)
+
+            latAndlon__future = executor.submit(self.getFromDB, ["address", "timestamp", "latitude", "longitude"], options={
+                                              "not_null_values": ["latitude", "longitude"], "limit": int(int(self.limit) / 2)})
+            
+            self.data.extend(barAndIvv)
+            self.data.extend(latAndlon__future.result())
+
+            self.logger.success("Data actualized. Size: " + str(len(self.data)))
+
+            # import json 
+            # with open("database.dump.json", "w") as dbd:
+            #     json.dump(self.data, dbd)
+
+        except DatabaseError as dbe:
+            self.logger.critical(str(dbe))
+            valid = False
+        except Exception as esc:
+            self.logger.warning(
+                "Error occurred while getting results \nERROR: " + str(esc))
+            valid = False
+        finally:
+            executor.shutdown()
+
+        return valid
+
+
     def __executor(self) -> concurrent.futures.ThreadPoolExecutor: 
         ex = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="database_workerThread")
         self.executors.append(ex)
@@ -162,8 +341,8 @@ class Database:
             limit = self.limit
         
         dividing = int(limit) > DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION
-        numThread = max(int(int(limit) / DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION), DB_CONSTANTS.MIN_NUMBER_THREADS_LONG_DURATION) if dividing else DB_CONSTANTS.MIN_NUMBER_THREADS
-        numThread = min(numThread, DB_CONSTANTS.MAX_NUMBER_THREADS_LONG_DURATION)
+        numThread = max(int(int(limit) / DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION), self.PREFERRED_NUMBER_THREADS) if dividing else self.MIN_NUMBER_THREADS
+        numThread = min(numThread, self.MAX_NUMBER_THREADS)
 
         limitPerThread = int(int(limit)/numThread)
         if limitPerThread == 0: 
@@ -227,140 +406,3 @@ class Database:
         time = self.getFromDB( ["timestamp"], options = {"not_null_values": ["timestamp"], "limit": 1})
         self.LAST_DB_UPDATE = QDateTime.fromMSecsSinceEpoch(int(time[0]["timestamp"]) / 10**6)
         self.logger.info("Lattest database db_airdata update: " + self.LAST_DB_UPDATE.toString("yyyy-MM-dd hh:mm:ss"))
-
-    def getData(self) -> List[Dict[str, Union[str, int]]]:
-        return self.data
-
-    def setDefaultFilter(self, **params):
-        strFilter = " "
-        if params["limit"] <= self.ROW_COUNT:
-            self.limit = params["limit"]
-            self.logger.log("Setting global query row limit to:", self.limit)
-        else:
-            self.limit = self.ROW_COUNT
-            self.logger.warning("Setting global query row limit to: " + str(
-                self.ROW_COUNT) + ". (Total row count of table)")
-            
-        if params["duration_limit"]:
-            self.logger.log("Setting duration limit to", params["duration_limit"] ,"minutes")
-            lastPossibleTimestamp = self.LAST_DB_UPDATE.addSecs(-params["duration_limit"] * 60).toString("yyyy-MM-dd hh:mm:ss")
-            strFilter += "tbl_mode_s.timestamp > '" + lastPossibleTimestamp + "'"
-            self.logger.debug("Last possible timestamp  " + lastPossibleTimestamp)
-
-        if params["bds"]: 
-            strFilter += "tbl_mode_s.bds = " + params["bds"] + "AND"
-            self.logger.log("Setting bds to", params["bds"])
-        if params["latitude_minimal"]:
-            strFilter += "tbl_mode_s.latitude > " + params["latitude_minimal"] + " AND "
-            self.logger.log("Setting minimal latitude to", params["latitude_minimal"])
-        if params["latitude_maximal"]:
-            strFilter += "tbl_mode_s.latitude < " + params["latitude_maximal"] + " AND "
-            self.logger.log("Setting maximal latitude to", params["latitude_maximal"])
-        if params["longitude_minimal"]:
-            strFilter += "tbl_mode_s.longitude > " + params["longitude_minimal"] + " AND "
-            self.logger.log("Setting minimal longitude to", params["longitude_minimal"])
-        if params["longitude_maximal"]:
-            strFilter += "tbl_mode_s.longitude < " + params["longitude_maximal"] + " AND "
-            self.logger.log("Setting maximal longitude to", params["longitude_maximal"])
-        if params["id_minimal"]:
-            strFilter += "tbl_mode_s.id > " + params["id_minimal"] + " AND "
-            self.logger.log("Setting minimal  to", params["id_minimal"])
-        if params["id_maximal"]:
-            strFilter += "tbl_mode_s.id < " + params["id_maximal"] + " AND "
-            self.logger.log("Setting maximal  to", params["id_maximal"])
-            
-        self.filterOn = strFilter != " "
-        self.logger.debug("Setting query filter to: " + strFilter)
-        self.strFilter = strFilter
-
-    def resetFilter(self):
-        self.filterOn = False
-        
-    def getFromDB(self, attributes: List[str] = [], options: Dict[str, str] = {"default_filter_on": False, "select_distinct": False, "not_null_values": []}) -> List[Dict[str, Union[int, str]]]:
-        # option={..., "limit":50000}
-        allResults = []
-        executor = self.__executor()
-        try:
-            queries = self.__generateQueries(attributes, options) 
-            threadedQueries = [executor.submit(self.__query, query, attributes) for query in queries]
-
-            for completedQuery in concurrent.futures.as_completed(threadedQueries):
-                try:
-                    results, dbName = completedQuery.result()
-                except DatabaseError as de:
-                    self.logger.critical(str(de))
-                except Exception as esc:
-                    self.logger.warning("Error occurred while getting attributes " + str(attributes) + "\nERROR: " + str(esc))
-                else:
-                    allResults.extend(results)
-                finally:
-                    QtSql.QSqlDatabase.removeDatabase(dbName)
-
-            try:
-                limit = options["limit"]
-            except KeyError:
-                limit = self.limit
-                    
-            if len(allResults) < int(limit): self.logger.warning("Query executed. Results lower than expected (" + str(len(allResults)) + " < " + str(limit) + "). Attributes were: " + str(attributes))
-            else: self.logger.success("Query successfully executed. Attributes were: " + str(attributes))
-
-        except DatabaseError as de:
-            self.logger.critical(str(de))
-            return []
-        finally:
-            executor.shutdown()
-        
-        return allResults
-    
-    def actualizeKnownAddress(self) -> bool:
-        executor = self.__executor()
-        valid = True
-        try:
-            idAndAddress__future = executor.submit(self.getFromDB, ["identification", "address"], options={
-                                                 "select_distinct": True, "not_null_values": ["identification", "address"]})
-            idAndAddress__future.add_done_callback(self.__actualizeKnownAddresses)
-
-        except DatabaseError as dbe:
-            self.logger.critical(str(dbe))
-            valid =  False
-        except Exception as esc:
-            self.logger.warning(
-                "Error occurred while actualizing known addresses \nERROR: " + str(esc))
-            valid = False
-        finally:
-            executor.shutdown()
-
-        return valid
-    
-    def actualizeData(self) -> bool:
-        executor = self.__executor()
-        valid = True
-        try:
-            barAndIvv = self.getFromDB(["address", "timestamp", "bar", "ivv"], options={
-                                              "not_null_values": ["bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"], "limit": int(int(self.limit) / 2)})
-            
-            self.__updatedUsedAddresses(barAndIvv)
-
-            latAndlon__future = executor.submit(self.getFromDB, ["address", "timestamp", "latitude", "longitude"], options={
-                                              "not_null_values": ["latitude", "longitude"], "limit": int(int(self.limit) / 2)})
-            
-            self.data.extend(barAndIvv)
-            self.data.extend(latAndlon__future.result())
-
-            self.logger.info("Data actualized. Size: " + str(len(self.data)))
-
-            # import json 
-            # with open("database.dump.json", "w") as dbd:
-            #     json.dump(self.data, dbd)
-
-        except DatabaseError as dbe:
-            self.logger.critical(str(dbe))
-            valid = False
-        except Exception as esc:
-            self.logger.warning(
-                "Error occurred while getting results \nERROR: " + str(esc))
-            valid = False
-        finally:
-            executor.shutdown()
-
-        return valid
