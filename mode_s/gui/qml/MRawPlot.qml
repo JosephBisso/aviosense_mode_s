@@ -36,6 +36,7 @@ ChartView {
     }
 
     onTimeChanged: {
+        console.info("Displaying line series for raw data")
         for (let index = 0; index < time.length; index++) {
             barSeries.append(time[index], bar[index])
             ivvSeries.append(time[index], ivv[index])

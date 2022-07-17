@@ -6,7 +6,7 @@ import "qrc:/scripts/Constants.js" as Constants
 
 SwipeView {
     id: rootSwipe
-    currentIndex: 1
+    currentIndex: 5
     property int currentAddressIndex: 0
 
     function updateView(name) {
@@ -193,12 +193,20 @@ SwipeView {
         }
     }
 
-    // MLocationPlot {
-    //     title: "Location Plot"
-    //     titleFont: Constants.FONT_MEDIUM
-    //     titleColor: Constants.FONT_COLOR
-    //     theme: ChartView.ChartThemeBlueIcy
-    // }
+    MLocationPlot {
+        id: locationPlot
+        // title: "Location Plot"
+        // titleFont: Constants.FONT_MEDIUM
+        // titleColor: Constants.FONT_COLOR
+        // theme: ChartView.ChartThemeBlueIcy
+        Connections {
+            target: __mode_s
+
+            function onPlotLocationReady(pointList) {
+                locationPlot.showRoutes(pointList)
+            }
+        }
+    }
 
     // MHeatMapPlot {
 

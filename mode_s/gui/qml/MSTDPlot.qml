@@ -43,6 +43,7 @@ ChartView {
     }
 
     onThresholdChanged: {
+        console.info("Displaying line series for std")
         if (std) {
             for (let index = 0; index < windows.length; index++) {
                 series.append(windows[index], bar[index])

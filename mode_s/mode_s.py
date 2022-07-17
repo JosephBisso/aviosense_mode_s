@@ -8,7 +8,7 @@ from collections import namedtuple
 from typing import Dict, NamedTuple
 
 
-from PySide2.QtQml import QQmlApplicationEngine
+from PySide2.QtQml import QQmlApplicationEngine, QQmlDebuggingEnabler
 from PySide2.QtCore import *
 from PySide2.QtWidgets import QApplication
 from PySide2 import QtCharts
@@ -178,6 +178,8 @@ class Mode_S(QObject):
         locationSeries = next(results)
         heatMapSeries = next(results)
 
+        self.logger.success("Done computing")
+        
         self.plotOccurrenceReady.emit(occurrenceSeries)
         self.plotRawReady.emit(rawSeries)
         self.plotIntervalReady.emit(intervalSeries)
@@ -185,6 +187,7 @@ class Mode_S(QObject):
         self.plotStdReady.emit(stdSeries)
         self.plotLocationReady.emit(locationSeries)
         self.plotHeatMapReady.emit(heatMapSeries)
+        
 
 if __name__ == "__main__":
     args = init_argparse().parse_args()
@@ -201,6 +204,8 @@ if __name__ == "__main__":
         DB_CONSTANTS.PASSWORD = "BisbiDb2022?"
     
     sys.argv += ['--style', 'Fusion']
+    if args.debug:
+        debugger = QQmlDebuggingEnabler()
     app = QApplication(sys.argv)
     
     logger = Logger(args.terminal, args.verbose, args.debug)

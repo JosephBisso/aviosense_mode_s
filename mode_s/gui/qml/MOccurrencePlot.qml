@@ -22,6 +22,7 @@ ChartView {
         target: __mode_s
 
         function onPlotOccurrenceReady(pointList) {
+            console.info("Displaying line series for occurrences")
             chartView.removeAllSeries()
             var series = chartView.createSeries(ChartView.SeriesTypeLine, "Datapoints over addresses", xAxis, yAxis)
             series.pointsVisible = true

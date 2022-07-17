@@ -19,6 +19,7 @@
     <file>scripts/Constants.js</file>
     <file>scripts/main.js</file>
     <file>scripts/world.geojson</file>
+    <file>scripts/guiWorker.mjs</file>
     <file>img/database.png</file>
     <file>img/settings.png</file>
     <file>img/params.png</file>

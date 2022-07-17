@@ -28,6 +28,7 @@ ChartView {
     }
 
     onWindowsChanged: {
+        console.info("Displaying line series for interval windows")
         for (let index = 0; index < windows.length; index++) {
             if (index > 0) {
                 slidingSeries.append(windows[index], points[index-1])

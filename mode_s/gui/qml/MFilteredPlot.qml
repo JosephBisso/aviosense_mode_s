@@ -36,6 +36,7 @@ ChartView {
     }
 
     onTimeChanged: {
+        console.info("Displaying line series for filtered data")
         for (let index = 0; index < time.length; index++) {
             rawSeries.append(time[index], raw[index])
             filteredSeries.append(time[index], filtered[index])

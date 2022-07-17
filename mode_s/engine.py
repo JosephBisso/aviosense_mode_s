@@ -450,8 +450,25 @@ class Engine:
 
         return lineSeries
 
-    def getLineSeriesLocation(self, location: List[Dict[str, Union[str, List[LOCATION_DATA]]]]) -> List[Dict[str, List[int]]]:
-        pass
+    def getLineSeriesLocation(self, location: List[Dict[str, Union[str, List[LOCATION_DATA]]]]) -> List[Dict[str, Union[int, List[Dict[float, float]]]]]:
+        self.logger.info("Getting lineSeries for location")
+        lineSeries = []
+        for index in range(len(location)):
+            addressSeries: Dict[str, Union[int, List[Dict[float, float]]]] = {
+                "address": location[index]["address"],
+                "points": []
+            }
+            
+            for point in location[index]["points"]:
+                addressSeries["points"].append({
+                    "latitude": point.latitude,
+                    "longitude": point.longitude
+                })
+
+            addressSeries["points"].sort(key=lambda el: el["latitude"]**2 + el["longitude"]**2)
+            lineSeries.append(addressSeries)
+
+        return lineSeries
 
     def getLineSeriesHeatMap(self, heatMap: List[Dict[str, Union[str, List[LOCATION_DATA]]]]) -> List[Dict[str, List[int]]]:
         pass
