@@ -193,22 +193,15 @@ SwipeView {
         }
     }
 
-    MLocationPlot {
+    MMap {
         id: locationPlot
-        // title: "Location Plot"
-        // titleFont: Constants.FONT_MEDIUM
-        // titleColor: Constants.FONT_COLOR
-        // theme: ChartView.ChartThemeBlueIcy
         Connections {
             target: __mode_s
 
             function onPlotLocationReady(pointList) {
-                locationPlot.showRoutes(pointList)
+                locationPlot.location = pointList
+                locationPlot.showLocation()
             }
         }
     }
-
-    // MHeatMapPlot {
-
-    // }
 }

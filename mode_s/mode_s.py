@@ -206,6 +206,7 @@ if __name__ == "__main__":
     sys.argv += ['--style', 'Fusion']
     if args.debug:
         debugger = QQmlDebuggingEnabler()
+        # debugger.startTcpDebugServer(6969)
     app = QApplication(sys.argv)
     
     logger = Logger(args.terminal, args.verbose, args.debug)
