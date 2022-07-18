@@ -4,6 +4,7 @@ import QtLocation 5.15
 import QtPositioning 5.15
 import Qt.labs.location 1.0
 import QtQml.Models 2.15
+import "qrc:/scripts/Constants.js" as Constants
 
 Frame {
     id: rootFrame
@@ -15,6 +16,27 @@ Frame {
     property var locationGroup: []
     property var turbulentGroup: []
     property var kdeGroup: []
+
+    background: Rectangle {
+        color: "transparent"
+        border.color: Constants.BACKGROUND_COLOR2
+        radius: 10
+    }
+
+    MMenuBar {
+        id: menubar
+        z: 1
+        width: 225
+        models: ["LOC", "TUR", "KDE"]
+        anchors{
+            bottom: parent.bottom
+            horizontalCenter: parent.horizontalCenter
+
+            topMargin: 10
+        }
+
+        onClicked: (element) => {updateView(element)}
+    }
 
     Map {
         id: map
@@ -38,6 +60,17 @@ Frame {
     MapItemGroup {
         id: group
     }
+
+    function updateView(name) {
+        switch(name) {
+            case "LOC":
+                break;
+            case "TRB":
+                break;
+            case "KDE":
+                break;
+        }
+    }   
     
     function addPolyline(segment, r, g, b, target) {
         let allPoints = []

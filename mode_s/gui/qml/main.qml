@@ -60,31 +60,6 @@ ApplicationWindow {
             }
         }
     }
-
-    MMenuBar {
-        id: menubar
-        anchors{
-            top: parent.top
-            horizontalCenter: parent.horizontalCenter
-
-            topMargin: 10
-        }
-    }
-
-    MIMGButton {
-        id: saveButton
-        img_src:"qrc:/img/download.png"
-        mText: ""
-        z: 1
-
-        anchors {
-            right: parent.right
-            bottom: parent.bottom
-
-            margins: 20
-        }
-
-    }
     
     MBusyIndicator{
         id: busyIndicator

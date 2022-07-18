@@ -1,4 +1,5 @@
 import QtCharts 2.15
+import QtQml 2.15
 
 ChartView {
     id: chartView
@@ -42,8 +43,8 @@ ChartView {
         width: 2
     }
 
-    onThresholdChanged: {
-        console.info("Displaying line series for std")
+    function update() {
+        console.info("Displaying", title)
         if (std) {
             for (let index = 0; index < windows.length; index++) {
                 series.append(windows[index], bar[index])
@@ -76,4 +77,6 @@ ChartView {
         xAxis.applyNiceNumbers()
         yAxis.applyNiceNumbers()
     }
+
+    onThresholdChanged: update()
 }

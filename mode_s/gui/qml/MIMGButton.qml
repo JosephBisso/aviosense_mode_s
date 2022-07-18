@@ -10,6 +10,7 @@ MButton {
     width: 50
     height: width
     radius: width/2
+    mText: ""
 
     Image {
         id: img

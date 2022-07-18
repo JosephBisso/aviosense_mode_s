@@ -1,4 +1,5 @@
 import QtCharts 2.15
+import QtQml 2.15
 
 ChartView {
     id: chartView
@@ -35,8 +36,8 @@ ChartView {
         width: 1
     }
 
-    onTimeChanged: {
-        console.info("Displaying line series for raw data")
+    function update() {
+        console.info("Displaying", title)
         for (let index = 0; index < time.length; index++) {
             barSeries.append(time[index], bar[index])
             ivvSeries.append(time[index], ivv[index])
@@ -52,4 +53,6 @@ ChartView {
         xAxis.applyNiceNumbers()
         yAxis.applyNiceNumbers()
     }
+
+    onTimeChanged: update()
 }

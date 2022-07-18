@@ -1,4 +1,5 @@
 import QtCharts 2.15
+import QtQml 2.15
 
 ChartView {
     id: chartView
@@ -27,8 +28,8 @@ ChartView {
         width: 4
     }
 
-    onWindowsChanged: {
-        console.info("Displaying line series for interval windows")
+    function update() {
+        console.info("Displaying", title)
         for (let index = 0; index < windows.length; index++) {
             if (index > 0) {
                 slidingSeries.append(windows[index], points[index-1])
@@ -40,4 +41,6 @@ ChartView {
         xAxis.applyNiceNumbers()
         yAxis.applyNiceNumbers()
     }
+
+    onWindowsChanged: update()
 }

@@ -6,6 +6,7 @@
     <file>qml/MSideOption.qml</file>
     <file>qml/MMainView.qml</file>
     <file>qml/MMenuBar.qml</file>
+    <file>qml/MVerticalMenuBar.qml</file>
     <file>qml/MIMGButton.qml</file>
     <file>qml/MSideOptionList.qml</file>
     <file>qml/MBusyIndicator.qml</file>
@@ -15,6 +16,7 @@
     <file>qml/MIntervalPlot.qml</file>
     <file>qml/MSTDPlot.qml</file>
     <file>qml/MMap.qml</file>
+    <file>qml/MPlots.qml</file>
     <file>qml/MMapPolyline.qml</file>
     <file>scripts/Constants.js</file>
     <file>scripts/main.js</file>
@@ -25,6 +27,9 @@
     <file>img/params.png</file>
     <file>img/download.png</file>
     <file>img/play.png</file>
+    <file>img/home.png</file>
+    <file>img/noise.png</file>
+    <file>img/world.png</file>
     <file>img/background.jpg</file>
     <file>img/busy_background.jpg</file>
 </qresource>

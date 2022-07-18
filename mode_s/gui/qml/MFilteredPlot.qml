@@ -1,5 +1,6 @@
 
 import QtCharts 2.15
+import QtQml 2.15
 
 ChartView {
     id: chartView
@@ -35,8 +36,8 @@ ChartView {
         color: chartView.dataSet === "BAR" ? "blue" : "darkturquoise"
     }
 
-    onTimeChanged: {
-        console.info("Displaying line series for filtered data")
+    function update() {
+        console.info("Displaying", title)
         for (let index = 0; index < time.length; index++) {
             rawSeries.append(time[index], raw[index])
             filteredSeries.append(time[index], filtered[index])
@@ -52,4 +53,6 @@ ChartView {
         xAxis.applyNiceNumbers()
         yAxis.applyNiceNumbers()
     }
+
+    onTimeChanged: update()
 }

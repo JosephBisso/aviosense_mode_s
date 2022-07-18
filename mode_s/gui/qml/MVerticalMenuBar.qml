@@ -6,11 +6,11 @@ import "qrc:/scripts/Constants.js" as Constants
 
 Rectangle {
     id: rootMenuBar
-    property int buttonWidth: 55
-    property var models: ["OCC", "RAW", "FIL", "INT", "STD"]
-    width: 375
-    height: 70
-    radius: 50
+    property int buttonWidth: 50
+    property var models: ["world", "noise"]
+    width: 70
+    height: 150
+    radius: width
     color: Qt.rgba(255, 255, 255, 0.2)
     opacity: 0.4
     layer.enabled: true
@@ -34,9 +34,9 @@ Rectangle {
             }
         }
     }
-
-    Behavior on opacity {NumberAnimation {duration: 150}}
     
+    Behavior on opacity {NumberAnimation {duration: 150}}
+
     Timer {
         id: fadeTimer
         interval: 500
@@ -46,19 +46,17 @@ Rectangle {
         }
     }
 
-    RowLayout {
+    ColumnLayout {
         spacing: 20
         anchors.centerIn: parent
         Repeater {
             id: menuRepeater
             model: rootMenuBar.models
-            MButton {
+            MIMGButton {
                 id: buttonDelegate
                 property string menuName: modelData
                 width:buttonWidth
-                height:width
-                radius: width/2
-                mText: modelData 
+                img_src: `qrc:/img/${modelData}.png`
                 mFont: Constants.FONT_SMALL
                 mDefaultColor: Qt.rgba(Constants.FONT_COLOR.r, Constants.FONT_COLOR.g, Constants.FONT_COLOR.b, 0.5)
                 mHoverColor: Constants.FOREGROUND_COLOR
@@ -67,6 +65,7 @@ Rectangle {
                 opacity: rootMenuBar.opacity
                 mCheckable: true
                 mManualUncheckable: false
+
                 onClicked: {
                     rootMenuBar.selectMenu(modelData)
                     rootMenuBar.clicked(modelData)

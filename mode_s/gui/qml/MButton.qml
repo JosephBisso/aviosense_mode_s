@@ -13,6 +13,9 @@ Rectangle {
     property color mClickColor: Constants.BACKGROUND_COLOR1
     property color mTextColor: Constants.FONT_COLOR
     property font mFont : Constants.FONT_BIG
+    property bool mChecked: false
+    property bool mCheckable: false
+    property bool mManualUncheckable: false
 
     property alias area: mouseArea
 
@@ -20,11 +23,27 @@ Rectangle {
     signal mouseEnter()
     signal mouseOut()
 
+    onMCheckedChanged: {
+        if (!mChecked) {
+            root.color = mDefaultColor
+        } else {
+            root.color = Constants.ACCENT_COLOR1
+        }
+    }
+
     width: 150
     height: 45
     radius: 10
-    color: mEnabled ? mDefaultColor : "darkgrey"
-
+    color: {
+        if (mEnabled) {
+            if (mCheckable && mChecked) {
+                return Constants.ACCENT_COLOR1
+            }
+            return mDefaultColor
+        } else {
+            return "darkgrey"
+        }
+    }
     border {
         width: 1
         color: mEnabled ? mBorderColor : Qt.lighter("darkgrey", 1.2)
@@ -35,15 +54,34 @@ Rectangle {
         anchors.fill: parent
         enabled: mEnabled
         hoverEnabled: mEnabled
+        cursorShape: Qt.PointingHandCursor
 
-
-        onEntered: {root.color = mHoverColor; cursorShape = Qt.PointingHandCursor; root.mouseEnter()}
-        onExited: {root.color = mDefaultColor;root.border.color = mBorderColor; cursorShape = Qt.ArrowCursor; root.mouseOut()}
+        onEntered: {
+            if (!mCheckable || (mCheckable && !mChecked)) {
+                root.color = mHoverColor
+            }
+            root.mouseEnter()
+        }
+        onExited: {
+            if (!mCheckable || (mCheckable && !mChecked)) {
+                root.color = mDefaultColor
+                root.border.color = mBorderColor
+            }
+            root.mouseOut()
+        }
         onPressed: root.border.color = Qt.lighter(mClickColor, 1.2)
         onReleased: root.border.color = mBorderColor
         onClicked:
             (event) => {
                 if (event.button === Qt.LeftButton) {
+                    if (mCheckable) {
+                        if (mChecked){
+                            if (mManualUncheckable) {mChecked = false}
+                            root.color = Constants.ACCENT_COLOR1
+                        } else {
+                            mChecked = true
+                        }
+                    }
                     mouseArea.focus = true
                     root.clicked()
                 }
