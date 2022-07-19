@@ -68,7 +68,7 @@ Rectangle {
                 width:buttonWidth
                 img_src: `qrc:/img/${name}.png`
                 mFont: Constants.FONT_SMALL
-                mDefaultColor: Qt.rgba(Constants.FONT_COLOR.r, Constants.FONT_COLOR.g, Constants.FONT_COLOR.b, 0.5)
+                mDefaultColor: Constants.GLASSY_BLACK_BACKGROUND
                 mHoverColor: Constants.FOREGROUND_COLOR
                 mClickColor:Qt.rgba(Constants.ACCENT_COLOR1.r, Constants.ACCENT_COLOR1.g, Constants.ACCENT_COLOR1.b, 0.5)
                 mTextColor: "white"

@@ -46,7 +46,7 @@ Rectangle {
         }
     }
     border {
-        width: 2
+        width: Constants.BORDER_WIDTH
         color: mEnabled ? mBorderColor : Qt.lighter("darkgrey", 1.2)
     }
 
@@ -116,10 +116,10 @@ Rectangle {
         }
 
         background: Rectangle {
-            color:  Qt.rgba(Constants.FONT_COLOR.r, Constants.FONT_COLOR.g, Constants.FONT_COLOR.b, 0.5)
+            color:  Constants.GLASSY_BLACK_BACKGROUND
             radius: 5
             border {
-                width: 1
+                width: Constants.BORDER_WIDTH
                 color: mTextColor
             }
         }

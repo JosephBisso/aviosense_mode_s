@@ -21,7 +21,7 @@ Drawer {
         color: Constants.BACKGROUND_COLOR2
 
         border {
-            width: 1
+            width: Constants.BORDER_WIDTH
             color: "black"
         }
     }
@@ -104,8 +104,9 @@ Drawer {
         width: 75
         img_src: "qrc:/img/sync_db.png"
         mFont: Constants.FONT_SMALL
-        mDefaultColor: Constants.ACCENT_COLOR2
-        mHoverColor: Qt.lighter(mDefaultColor, 1.3)
+        property color leColor: Constants.ACCENT_COLOR2
+        mDefaultColor: Constants.transparentBy(leColor, 0.5)
+        mHoverColor: Qt.darker(mDefaultColor, 1.3)
         mClickColor:Qt.rgba(Constants.ACCENT_COLOR1.r, Constants.ACCENT_COLOR1.g, Constants.ACCENT_COLOR1.b, 0.5)
         mTextColor: "white"
         mToolTipText: "Actualize DB"
@@ -125,8 +126,9 @@ Drawer {
         width: 75
         img_src: "qrc:/img/power_button.png"
         mFont: Constants.FONT_SMALL
-        mDefaultColor: "green"
-        mHoverColor: Qt.lighter(mDefaultColor, 1.3)
+        property color leColor: "green"
+        mDefaultColor: Constants.transparentBy(leColor, 0.5)
+        mHoverColor: Qt.darker(mDefaultColor, 1.3)
         mClickColor:Qt.rgba(Constants.ACCENT_COLOR1.r, Constants.ACCENT_COLOR1.g, Constants.ACCENT_COLOR1.b, 0.5)
         mTextColor: "white"
         mToolTipText: "Start Engine"

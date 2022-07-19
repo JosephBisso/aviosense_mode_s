@@ -123,6 +123,9 @@ class Engine:
         if len(addressesToPlot) < 5: self.logger.info("Working with following addresses: " + str(addressesToPlot))
         else: self.logger.info("Working with " + str(len(addressesToPlot)) + " addresses")
 
+        if not usePlotter:
+            yield addressesToPlot
+            
         data = self.prepareBarAndIvvAndTime(addressesToPlot)
 
         if activePlots["bar_ivv"]:

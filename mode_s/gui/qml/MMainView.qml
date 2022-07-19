@@ -6,8 +6,8 @@ import "qrc:/scripts/Constants.js" as Constants
 
 Frame {
     id: rootMainView
+    property var identMap: null
     anchors.fill: parent
-
     background: Rectangle {
         color: "transparent"
         border.color: "transparent"
@@ -24,6 +24,72 @@ Frame {
                 break;
         }
     } 
+
+    function loadPlotsForFilteredAddress(filteredAddress) {
+
+    }
+
+    Connections {
+        target: __mode_s
+
+        function onIdentificationMapped(identMapping)  {
+            console.log("Receive identMapping. Length:", Object.keys(identMapping).length)
+            rootMainView.identMap = identMapping
+        }
+    }
+
+
+    MSearchBar {
+        id: searchBar
+        property var suggestionsList: []
+        z: 1
+        anchors {
+            top: parent.top
+            right: verticalMenuBar.left
+
+            margins: 20
+        }
+        width: Math.min(500, 1/6 * rootMainView.width)
+
+        onFilter: (filterText) => {
+            suggestionPopup.suggestions.clear()
+            if (!filterText) {return}
+            searchElement(filterText, suggestionPopup.suggestions)
+            if (!suggestionPopup.opened) {suggestionPopup.open()}
+            
+        }
+
+         MSuggestions {
+            id: suggestionPopup
+
+            onItemSelected: (item) => {
+                console.log("Selected", item)
+            }
+        }
+    }
+
+    function searchElement(text, target) {
+        if (!rootMainView.identMap) {return }
+        let addresses = Object.keys(rootMainView.identMap)
+        let identifications = Object.values(rootMainView.identMap)
+
+        for (let i = 0; i < addresses.length; i++) {
+            if (addresses[i].toString().match(text)) {target.append({
+                    "address"       : addresses[i],
+                    "identification": identMap[addresses[i]]
+                })
+            }
+        }    
+
+        if(addresses.length !== identifications.length) {console.warn("Search Result may not be valid")}
+        for (let i = 0; i < identifications.length; i++) {
+            if (identifications[i].toLowerCase().match(text.toLowerCase())) {target.append({
+                    "address"       : addresses[i],
+                    "identification": identifications[i]
+                })
+            }
+        }    
+    }
 
     MVerticalMenuBar {
         id: verticalMenuBar

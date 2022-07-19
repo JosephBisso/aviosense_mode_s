@@ -72,7 +72,7 @@ ColumnLayout {
         color: "transparent"
 
         border {
-            width: 2
+            width: Constants.BORDER_WIDTH
             color: "transparent"
         }
 

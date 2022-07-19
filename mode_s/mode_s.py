@@ -102,6 +102,7 @@ class Mode_S(QObject):
     computingFinished   = Signal()
 
     readyToPlot         = Signal()
+    identificationMapped = Signal("QVariantMap", arguments=["identMap"])
     plotOccurrenceReady = Signal(list, arguments=["pointList"])
     plotRawReady        = Signal(list, arguments=["pointList"])
     plotStdReady        = Signal(list, arguments=["pointList"])
@@ -206,6 +207,7 @@ class Mode_S(QObject):
             results = self.engine.compute(usePlotter=False)
 
             occurrenceSeries = next(results)
+            computedAddresses = next(results)
             rawSeries = next(results)
             intervalSeries = next(results)
             filteredSeries = next(results)
@@ -215,6 +217,9 @@ class Mode_S(QObject):
 
             self.logger.success("Done computing")
             
+            identMap = self.db.getMapping(computedAddresses)
+            
+            self.identificationMapped.emit(identMap)
             self.plotOccurrenceReady.emit(occurrenceSeries)
             self.plotRawReady.emit(rawSeries)
             self.plotIntervalReady.emit(intervalSeries)

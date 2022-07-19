@@ -18,6 +18,8 @@
     <file>qml/MMap.qml</file>
     <file>qml/MPlots.qml</file>
     <file>qml/MMapPolyline.qml</file>
+    <file>qml/MSearchBar.qml</file>
+    <file>qml/MSuggestions.qml</file>
     <file>scripts/Constants.js</file>
     <file>scripts/main.js</file>
     <file>scripts/world.geojson</file>
@@ -32,6 +34,7 @@
     <file>img/sync_db.png</file>
     <file>img/home.png</file>
     <file>img/noise.png</file>
+    <file>img/loupe.png</file>
     <file>img/world.png</file>
     <file>img/background.jpg</file>
     <file>img/busy_background.jpg</file>

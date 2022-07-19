@@ -56,7 +56,7 @@ Popup {
         radius: 10
         color: Constants.BACKGROUND_COLOR2
         border {
-            width: 1
+            width: Constants.BORDER_WIDTH
             color: rootPane.mBorderColor
         }
     }
@@ -161,12 +161,13 @@ Popup {
 
         MButton {
             mText: "Cancel"
-            mDefaultColor: "red"
-            mHoverColor: Qt.lighter(mDefaultColor, 1.2)
+            property color leColor: "red"
+            mDefaultColor: Constants.transparentBy(leColor, 0.5)
+            mHoverColor: Qt.darker(mDefaultColor, 1.2)
             mTextColor: "white"
             Layout.alignment: Qt.AlignRight
             mFont: Constants.FONT_SMALL
-
+            mToolTipText: "Cancel"
             onClicked: __mode_s.cancel()
         }
 

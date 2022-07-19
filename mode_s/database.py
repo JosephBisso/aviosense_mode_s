@@ -59,6 +59,15 @@ class Database:
     def getData(self) -> List[Dict[str, Union[str, int]]]:
         return self.data
     
+    def getMapping(self, addresses:List[int]) -> Dict[int, str]:
+        mapping = {}
+        for address in addresses:
+            if self.knownIdents.get(address):
+                mapping[str(address)] = self.knownIdents[address]
+            else:
+                self.logger.warning("No identification found for", address)
+        return mapping 
+    
     def cancel(self) -> True:
         for ex in self.executors:
             ex.shutdown(wait=False)
