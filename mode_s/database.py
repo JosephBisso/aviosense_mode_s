@@ -15,7 +15,7 @@ class DatabaseError(BaseException):
 class Database:
 
     ROW_COUNT: int = 0
-    LAST_DB_UPDATE: QDateTime = 0
+    LAST_DB_UPDATE: QDateTime = QDateTime.currentDateTime()
 
     PREFERRED_NUMBER_THREADS = 20
     MAX_NUMBER_THREADS = 25
@@ -33,6 +33,8 @@ class Database:
 
     strFilter: str = " "
     
+    backgroundFutures: List[concurrent.futures.Future] = []
+    
     def __init__(self, logger: Logger):        
         self.logger: Logger = logger
     
@@ -42,8 +44,9 @@ class Database:
         executor = self.__executor()
         try:
             self.__testDBConnection()
-            rowCount__future = executor.submit(self.__getDBRowCount)
-            rowCount__future.add_done_callback(self.__getLattestDBTimeStamp)
+            rowCount__future = executor.submit(self.__getDBInformation)
+            self.backgroundFutures.append(rowCount__future)
+            self.mapAddressIndent()
         except DatabaseError as de:
             self.logger.critical(str(de))
             started = False
@@ -55,8 +58,18 @@ class Database:
         
     def getData(self) -> List[Dict[str, Union[str, int]]]:
         return self.data
+    
+    def cancel(self) -> True:
+        for ex in self.executors:
+            ex.shutdown(wait=False)
+        return True
+    
+    def waitUntilReady(self) -> bool:
+        concurrent.futures.wait(self.backgroundFutures)
+        return True
 
     def setDatabaseParameters(self, **params):
+        self.waitUntilReady()
         self.logger.info("Setting Database Parameters")
         strFilter = " "
         if params.get("limit"):
@@ -159,7 +172,7 @@ class Database:
         
         return allResults
     
-    def actualizeKnownAddress(self) -> bool:
+    def mapAddressIndent(self) -> bool:
         self.logger.info("Actualizing known addresses")
         executor = self.__executor()
         valid = True
@@ -168,6 +181,7 @@ class Database:
                                                  "select_distinct": True, "not_null_values": ["identification", "address"]})
             idAndAddress__future.add_done_callback(self.__actualizeKnownAddresses)
 
+            self.backgroundFutures.append(idAndAddress__future)
         except DatabaseError as dbe:
             self.logger.critical(str(dbe))
             valid =  False
@@ -282,11 +296,12 @@ class Database:
                     entry[el] = value.toMSecsSinceEpoch() * 10**6
                 else:
                     entry[el] = value
-
+            if self.knownIdents:
+                if self.knownIdents.get(entry["address"]):
+                    entry["identification"] = self.knownIdents[entry["address"]]
             allResults.append(entry)
 
-        self.logger.debug(str(len(allResults)) +
-                          " entries for query " + str(q.lastQuery()))
+        self.logger.debug(len(allResults),"entries for query", str(q.lastQuery()))
         q.finish()
         q.clear()
         db.close()
@@ -402,8 +417,11 @@ class Database:
         self.logger.log("Updated database filter")
         self.logger.debug("New filter is:" + self.strFilter)
 
-    def __getLattestDBTimeStamp(self, future: concurrent.futures.Future):
-        future.result()
+    def __getLattestDBTimeStamp(self):
         time = self.getFromDB( ["timestamp"], options = {"not_null_values": ["timestamp"], "limit": 1})
         self.LAST_DB_UPDATE = QDateTime.fromMSecsSinceEpoch(int(time[0]["timestamp"]) / 10**6)
         self.logger.log("Lattest database db_airdata update: " + self.LAST_DB_UPDATE.toString("yyyy-MM-dd hh:mm:ss"))
+
+    def __getDBInformation(self):
+        self.__getDBRowCount()
+        self.__getLattestDBTimeStamp()

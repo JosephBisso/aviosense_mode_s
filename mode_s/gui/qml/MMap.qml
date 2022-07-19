@@ -79,9 +79,10 @@ Frame {
         }
         var component = Qt.createComponent("MMapPolyline.qml")
         var polyLine = component.createObject(group, {
-            address     : segment[0].address,
-            lineColor   : Qt.rgba(r, g, b, 1),
-            path        : allPoints
+            address         : segment[0].address,
+            identification  :segment[0].identification,
+            lineColor       : Qt.rgba(r, g, b, 1),
+            path            : allPoints
         })
         if (target === "location") {
             locationGroup.push(polyLine)
@@ -111,9 +112,10 @@ Frame {
             var segment = []
 
             let address = rootFrame.location[i].address
+            let identification = rootFrame.location[i].identification
             let lat0 = rootFrame.location[i].points[0].latitude
             let long0 = rootFrame.location[i].points[0].longitude
-            segment.push({"longitude": long0, "latitude": lat0, "address": address})
+            segment.push({"longitude": long0, "latitude": lat0, "address": address, "identification":identification})
 
             for (let j = 1; j < rootFrame.location[i].points.length; j++) {
                 let latitude = rootFrame.location[i].points[j].latitude
@@ -123,14 +125,14 @@ Frame {
                 let lastSegmentIndex = segment.length - 1
                 let lastSegmetPoint = QtPositioning.coordinate(segment[lastSegmentIndex].latitude, segment[lastSegmentIndex].longitude)
                 if (lastSegmetPoint.distanceTo(point) < rootFrame.radius) {
-                    segment.push({"longitude": point.longitude, "latitude": point.latitude, "address": address})
+                    segment.push({"longitude": point.longitude, "latitude": point.latitude, "address": address, "identification":identification})
                     if (j == rootFrame.location[i].points.length - 1) {
                         rootFrame.addPolyline(segment, r, g, b, "location")
                     }
                 } else {
                     rootFrame.addPolyline(segment, r, g, b, "location")
                     segment = []
-                    segment.push({"longitude": point.longitude, "latitude": point.latitude, "address": address})
+                    segment.push({"longitude": point.longitude, "latitude": point.latitude, "address": address, "identification":identification})
                 }
             }
         }

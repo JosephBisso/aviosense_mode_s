@@ -5,6 +5,8 @@ ChartView {
     id: chartView
     property var points: []
     property var windows: []
+    property string address: ""
+    property string identification: ""
 
     axes: [
         ValueAxis{

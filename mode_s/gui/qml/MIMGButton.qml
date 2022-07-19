@@ -4,6 +4,7 @@ import QtGraphicalEffects 1.15
 import "qrc:/scripts/Constants.js" as Constants
 
 MButton {
+    id: rootButton
     property url img_src: "qrc:/img/play.png"
     mFont: Constants.FONT_MEDIUM
     mTextColor: "white"
@@ -15,8 +16,8 @@ MButton {
     Image {
         id: img
         source: img_src
-        sourceSize.width: 25
-        sourceSize.height: 25
+        sourceSize.width: rootButton.width / 2
+        sourceSize.height: rootButton.width / 2
         anchors.centerIn: parent
 
         ColorOverlay {

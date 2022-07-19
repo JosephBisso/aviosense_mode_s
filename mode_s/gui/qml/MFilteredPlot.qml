@@ -8,6 +8,8 @@ ChartView {
     property var raw: []
     property var filtered: []
     property var time: []
+    property string address: ""
+    property string identification: ""
 
     axes: [
         ValueAxis{

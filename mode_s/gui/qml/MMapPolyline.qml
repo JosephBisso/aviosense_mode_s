@@ -4,6 +4,7 @@ import QtQuick 2.15
 MapPolyline {
     id: polyLine
     property var address: "None"
+    property var identification: "None"
     property color lineColor: "red"
     property real defaultOpacity: 0.4
     property real defaultLineWidth: 5
@@ -19,7 +20,7 @@ MapPolyline {
         onEntered: show()
         onExited: reset()
         onClicked: {
-            console.log("Clicked", address)
+            console.log("Clicked:", address, "::", identification)
         }
     }
 

@@ -5,7 +5,7 @@ import argparse
 import json
 import concurrent.futures
 from collections import namedtuple
-from typing import Dict, NamedTuple
+from typing import Dict, NamedTuple, List
 
 
 from PySide2.QtQml import QQmlApplicationEngine, QQmlDebuggingEnabler
@@ -97,7 +97,8 @@ class Mode_S(QObject):
     
     logged              = Signal(str, arguments=['log'])
 
-    filterUpdated       = Signal()
+    dbFilterUpdated     = Signal()
+    engineFilterUpdated = Signal()
     computingStarted    = Signal()
     computingFinished   = Signal()
 
@@ -109,6 +110,8 @@ class Mode_S(QObject):
     plotIntervalReady   = Signal(list, arguments=["pointList"])
     plotLocationReady   = Signal(list, arguments=["pointList"])
     plotHeatMapReady    = Signal(list, arguments=["pointList"])
+    
+    backgroundFutures: List[concurrent.futures.Future] = []
 
     def __init__(self, db: Database, msEngine: ModeSEngine.Engine, logger: Logger):
         super(Mode_S, self).__init__(None)
@@ -116,29 +119,38 @@ class Mode_S(QObject):
         self.engine = msEngine
         self.logger = logger
         logger.logged.connect(self.__log)
-        self.filterUpdated.connect(self.compute)
+        self.dbFilterUpdated.connect(self.actualizeDB)
+        self.engineFilterUpdated.connect(self.compute)
         self.readyToPlot.connect(self.plot)
         self.executor = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="modeS_workerThread")
     
     @Slot(str, result=None)
-    def updateFilter(self, dataJson: str): 
-        data: Dict[str, str] = json.loads(dataJson)
-        median = 1
+    def updateDBFilter(self, dbJson: str): 
+        self.computingStarted.emit()
+        data: Dict[str, str] = self.__checkParam(dbJson)
         
-        for key in data:
-            if data[key].isdigit():
-                data[key] = int(data[key])
-            elif data[key].lower() == "none" or data[key].lower() == "all" or data[key].lower() == "auto":
-                data[key]=None
-                                
+        future = self.executor.submit(self.__setDbParameters, data)
+        self.backgroundFutures.append(future)
+    
+    def __setDbParameters(self, data):
         self.db.setDatabaseParameters(**data)
-        self.engine.setEngineParameters(**data)
+        self.dbFilterUpdated.emit()
 
-        self.filterUpdated.emit()
+    @Slot(str, result=None)
+    def updateEngineFilter(self, engineJson: str): 
+        self.computingStarted.emit()
+        data: Dict[str, str] = self.__checkParam(engineJson)
+                                
+        self.engine.setEngineParameters(**data)
+        self.engineFilterUpdated.emit()
     
     @Slot()
+    def actualizeDB(self):
+        future = self.executor.submit(self.__actualizeDB)
+        future.add_done_callback(self.__computingFinished)
+        
+    @Slot()
     def compute(self):
-        self.computingStarted.emit()
         future = self.executor.submit(self.__computing)
         future.add_done_callback(self.__readyToPlot)
         
@@ -150,10 +162,29 @@ class Mode_S(QObject):
     def plot(self): 
         future = self.executor.submit(self.__plotting)
         future.add_done_callback(self.__computingFinished)
-    
+
+    @Slot()
+    def cancel(self): 
+        self.db.cancel()
+        self.engine.cancel()
+        self.executor.shutdown(wait=False)
+        self.executor = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="modeS_workerThread")
+        self.computingFinished.emit()
+
     @Slot(str)
     def __log(self, log: str):
         self.logged.emit(log)
+        
+    def __checkParam(self, strJson):
+        data: Dict[str, str] = json.loads(strJson)
+
+        for key in data:
+            if data[key].isdigit():
+                data[key] = int(data[key])
+            elif data[key].lower() == "none" or data[key].lower() == "all" or data[key].lower() == "auto":
+                data[key] = None
+
+        return data
 
     def __computingFinished(self, future: concurrent.futures.Future):
         future.result()
@@ -164,8 +195,15 @@ class Mode_S(QObject):
         self.readyToPlot.emit()
 
     def __computing(self):
-        self.db.actualizeData()
+        self.waitUntilReady()
         self.engine.setDataSet(self.db.getData())
+
+    def __actualizeDB(self):
+        self.db.actualizeData()
+
+    def waitUntilReady(self) -> bool:
+        concurrent.futures.wait(self.backgroundFutures)
+        return True
 
     def __plotting(self):
         results = self.engine.compute(usePlotter=False)

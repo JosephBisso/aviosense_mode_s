@@ -82,7 +82,8 @@ Frame {
                             bar: modelData["bar"]
                             ivv: modelData["ivv"]
                             time: modelData["time"]
-
+                            address: modelData["address"]
+                            identification: modelData["identification"]
                             titleFont: Constants.FONT_MEDIUM
                             titleColor: Constants.FONT_COLOR
                             theme: ChartView.ChartThemeBlueIcy
@@ -116,7 +117,8 @@ Frame {
                             Repeater {
                                 id: nestedRepeater
                                 model: modelData["points"]
-                                property string address
+                                property string address: modelData["address"]
+                                property string identification: modelData["identification"]
                                 delegate: MFilteredPlot {
                                     id: filteredPlot
                                     width: filteredColumn.width
@@ -126,13 +128,13 @@ Frame {
                                     raw: modelData["raw"]
                                     filtered: modelData["filtered"]
                                     time: modelData["time"]
+                                    address: nestedRepeater.address
+                                    identification: nestedRepeater.identification
 
                                     titleFont: Constants.FONT_MEDIUM
                                     titleColor: Constants.FONT_COLOR
                                     theme: ChartView.ChartThemeBlueIcy
                                 }
-
-                                Component.onCompleted: nestedRepeater.address = Qt.binding(()=>{return modelData["address"]})
                             }
                         }
                     }
@@ -162,6 +164,8 @@ Frame {
                             title: "Sliding Intervall for Address " + modelData["address"]
                             points: modelData["points"]
                             windows: modelData["windows"]
+                            address: modelData["address"]
+                            identification: modelData["identification"]
 
                             titleFont: Constants.FONT_MEDIUM
                             titleColor: Constants.FONT_COLOR
@@ -196,11 +200,13 @@ Frame {
                                 id: stdNestedRepeater
                                 model: modelData["points"]
                                 property string address: modelData["address"]
+                                property string identification: modelData["identification"]
                                 delegate: MSTDPlot {
                                     id: stdPlot
                                     width: stdRows.width / 2
                                     height: stdRows.height 
-
+                                    address: stdNestedRepeater.address
+                                    identification: stdNestedRepeater.identification
                                     std: modelData["dataSet"] == "STD"
                                     title: {
                                         let root = "Std Bar & Ivv for Address " + stdNestedRepeater.address

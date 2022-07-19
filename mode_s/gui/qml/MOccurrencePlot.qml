@@ -3,6 +3,7 @@ import QtCharts 2.15
 
 ChartView {
     id: chartView
+
     axes: [
         ValueAxis{
             id: xAxis

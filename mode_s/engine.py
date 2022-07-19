@@ -34,6 +34,11 @@ class Engine:
     def __init__(self, logger: Logger):
         self.logger: Logger = logger
 
+    def cancel(self) -> True:
+        for ex in self.executors:
+            ex.shutdown(wait=False)
+        return True
+
     def setEngineParameters(self, **params):
         self.logger.info("Setting Engine Parameters")
         self.gui = params.get("gui") or False
@@ -302,6 +307,7 @@ class Engine:
 
                 allLocationData.append({
                     "address": self.data[index]["address"],
+                    "identification": self.data[index].get("identification"),
                     "points": addressPoints
                 })
                 
@@ -339,7 +345,11 @@ class Engine:
         self.logger.info("Getting lineSeries for raw bar & ivv")
         lineSeries = []
         for index in range(len(plotData)):
-            addressSeries = {"address": plotData[index]["address"], "bar":[], "ivv": [], "time": []}
+            addressSeries = {
+                "address": plotData[index]["address"],
+                "identification": plotData[index].get("identification"),
+                "bar":[], "ivv": [], "time": []
+            }
 
             time = list(map(lambda el: el/60, [point.time for point in plotData[index]["points"]]))
             bar = [point.bar for point in plotData[index]["points"]]
@@ -360,6 +370,7 @@ class Engine:
         for index in range(len(plotData)):
             addressSeries = {
                 "address": plotData[index]["address"],
+                "identification": plotData[index].get("identification"),
                 "points": [
                     {
                         "dataSet": "BAR",
@@ -399,6 +410,7 @@ class Engine:
         for index in range(len(plotData)):
             addressSeries = {
                 "address": plotData[index]["address"],
+                "identification": plotData[index].get("identification"),
                 "points": [],
                 "windows": []
             }
@@ -419,6 +431,7 @@ class Engine:
         for index in range(len(plotData)):
             addressSeries = {
                 "address": plotData[index]["address"],
+                "identification": plotData[index].get("identification"),
                 "points": [
                     {
                         "dataSet": "STD",
@@ -456,6 +469,7 @@ class Engine:
         for index in range(len(location)):
             addressSeries: Dict[str, Union[int, List[Dict[float, float]]]] = {
                 "address": location[index]["address"],
+                "identification": location[index].get("identification"),
                 "points": []
             }
             
@@ -486,6 +500,7 @@ class Engine:
             "points": []
         }
 
+        identification = None
         bars = []
         ivvs = []
         times = []
@@ -493,6 +508,7 @@ class Engine:
         startIndex = None
         for index in range(len(self.data)):
             if self.data[index]["address"] != address: continue
+            identification = self.data[index].get("identification")
             startIndex = index
             break
 
@@ -514,7 +530,7 @@ class Engine:
         startTime = min(times)
         addressData["points"] = [DATA((times[i] - startTime)*10**-9, bars[i], ivvs[i]) for i in range(len(times))]
         addressData["points"].sort(key=lambda el: el.time)
-        
+        addressData["identification"] = identification
         # self.logger.debug("Valid results for sliding interval for address " + str(
         #     address) + ". Points Count: " + str(len(addressData["points"])))
 
@@ -549,7 +565,11 @@ class Engine:
         
         slidingWindows = [duration * 60 for duration in range(int(max(times) / 60))]
         
-        slidingIntervals:Dict[str, Union[str, List[WINDOW_POINT]]]  = {"address": addressData["address"], "points":[]}
+        slidingIntervals:Dict[str, Union[str, List[WINDOW_POINT]]]  = {
+            "address": addressData["address"], 
+            "identification": addressData.get("identification"),
+            "points":[]
+        }
         actualIndex = 0
         for windowIndex in range(len(slidingWindows)):
             dataPoints = 0
@@ -569,6 +589,7 @@ class Engine:
     def __getSlidingIntervalForStdPerAddress(self, addressData: Dict[str, Union[str, List[DATA]]]) -> Dict[str, Union[str, List[WINDOW_DATA], float]]:
         slidingIntervalsForStd: Dict[str, Union[str, List[WINDOW_POINT]]] = {
             "address": addressData["address"],
+            "identification": addressData.get("identification"),
             "points": [],
             "threshold": 0
         }
@@ -706,4 +727,4 @@ class Engine:
         #     self.logger.debug("Valid results for Heat Points for address " + str(
         #         addressData["address"]) + ". Points Count: " + str(len(heatPointsForAddress)))
 
-        return {"address": addressData["address"], "points": heatPointsForAddress}
+        return {"address": addressData["address"], "identification": addressData.get("identification"),  "points": heatPointsForAddress}

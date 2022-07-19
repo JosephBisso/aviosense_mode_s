@@ -29,24 +29,36 @@ Drawer {
         }
     }
 
-    function getData() {
-        let allData = {}
+    onClosed: rootSideBar.edited = false 
 
-        for (let sideOption of [database, settings]) {
-            Object.assign(allData, sideOption.getData())
-        }
-
-        let allDataJson = JSON.stringify(allData)
-        console.log("All Params", allDataJson)
-        return allDataJson
+    function getDBData() {
+        let databaseDataJson = JSON.stringify(database.getData())
+        return databaseDataJson
     }
 
-    onClosed: {
-        if (rootSideBar.edited) {
-            console.info("Transmitting data to database und engine")
-            __mode_s.updateFilter(rootSideBar.getData())
-            rootSideBar.edited = false
-        }
+    function getEngineData() {
+        let engineDataJson = JSON.stringify(settings.getData())
+        return engineDataJson
+    }
+
+    function sendDbParams() {
+        console.info("Transmitting data to database")
+        let allData = rootSideBar.getDBData()
+        __mode_s.updateDBFilter(allData)
+    }
+
+    function sendEngineParams() {
+        console.info("Transmitting data to engine")
+        let allData = rootSideBar.getEngineData()
+        __mode_s.updateEngineFilter(allData)
+    }
+
+    function sendAllParams() {
+        console.info("Transmitting data to engine and database")
+        let dbData = rootSideBar.getDBData()
+        let engineData = rootSideBar.getEngineData()
+        __mode_s.updateDBFilter(dbData)
+        __mode_s.updateEngineFilter(engineData)
     }
 
     Image {
@@ -82,6 +94,66 @@ Drawer {
         font: Constants.FONT_SMALL
         color: "white"
     }
+
+    MIMGButton {
+        id: dbButton
+        anchors {
+            right: parent.right
+            verticalCenter: parent.verticalCenter
+
+            rightMargin: 100
+            verticalCenterOffset: -width
+        }
+        width: 75
+        img_src: "qrc:/img/sync_db.png"
+        mFont: Constants.FONT_SMALL
+        mDefaultColor: Qt.rgba(Constants.FONT_COLOR.r, Constants.FONT_COLOR.g, Constants.FONT_COLOR.b, 0.5)
+        mHoverColor: Constants.FOREGROUND_COLOR
+        mClickColor:Qt.rgba(Constants.ACCENT_COLOR1.r, Constants.ACCENT_COLOR1.g, Constants.ACCENT_COLOR1.b, 0.5)
+        mTextColor: "white"
+        onClicked: {
+            sendDbParams()
+        }
+    }
+    MIMGButton {
+        id: engineButton
+        anchors {
+            right: parent.right
+            verticalCenter: parent.verticalCenter
+
+            rightMargin: 100
+            verticalCenterOffset: width
+        }
+        width: 75
+        img_src: "qrc:/img/power_button.png"
+        mFont: Constants.FONT_SMALL
+        mDefaultColor: Qt.rgba(Constants.FONT_COLOR.r, Constants.FONT_COLOR.g, Constants.FONT_COLOR.b, 0.5)
+        mHoverColor: Constants.FOREGROUND_COLOR
+        mClickColor:Qt.rgba(Constants.ACCENT_COLOR1.r, Constants.ACCENT_COLOR1.g, Constants.ACCENT_COLOR1.b, 0.5)
+        mTextColor: "white"
+        onClicked: {
+            sendEngineParams()
+        }
+    }
+    // MIMGButton {
+    //     id: startButton
+    //     anchors {
+    //         right: parent.right
+    //         verticalCenter: parent.verticalCenter
+
+    //         rightMargin: 100
+    //     }
+    //     width: 75
+    //     img_src: "qrc:/img/play.png"
+    //     mFont: Constants.FONT_SMALL
+    //     mDefaultColor: "green"
+    //     mHoverColor: Qt.lighter(mDefaultColor, 1.2)
+    //     mClickColor:Qt.rgba(Constants.ACCENT_COLOR1.r, Constants.ACCENT_COLOR1.g, Constants.ACCENT_COLOR1.b, 0.5)
+    //     mTextColor: "white"
+    //     onClicked: {
+    //         sendAllParams()
+    //     }
+    // }
 
     ScrollView {
         id: scrollOptions

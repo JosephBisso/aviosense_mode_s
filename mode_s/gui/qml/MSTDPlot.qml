@@ -11,6 +11,9 @@ ChartView {
     property var diff
     property real threshold
 
+    property string address: ""
+    property string identification: ""
+
     axes: [
         ValueAxis{
             id: xAxis

@@ -13,6 +13,7 @@ ColumnLayout {
     property string title: "Title"
     property int leftMarginContent: 15
     property bool folded: false
+    property string code: "code"
     property ListModel foldedItems
     property ListModel options: ListModel{}
     property ListModel emptyListModel: ListModel{}

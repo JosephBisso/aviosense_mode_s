@@ -159,6 +159,17 @@ Popup {
             }
         }
 
+        MButton {
+            mText: "Cancel"
+            mDefaultColor: "red"
+            mHoverColor: Qt.lighter(mDefaultColor, 1.2)
+            mTextColor: "white"
+            Layout.alignment: Qt.AlignRight
+            mFont: Constants.FONT_SMALL
+
+            onClicked: __mode_s.cancel()
+        }
+
     }
 
 }

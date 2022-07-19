@@ -6,6 +6,8 @@ ChartView {
     property var bar: []
     property var ivv: []
     property var time: []
+    property string address: ""
+    property string identification: ""
 
     axes: [
         ValueAxis{
