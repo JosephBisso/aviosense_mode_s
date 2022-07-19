@@ -38,10 +38,32 @@ Frame {
         onClicked: (element) => {rootMainView.updateView(element)}
     }
 
+
+    MIMGButton {
+        id: sideButton
+        img_src: "qrc:/img/hamburger.png"
+        z: 1
+        anchors {
+            top: parent.top
+            left: parent.left
+
+            margins: 20
+        }
+        mDefaultColor: Qt.rgba(0,0,0,0.8)
+        mHoverColor: Constants.FOREGROUND_COLOR
+        mClickColor:Qt.rgba(Constants.ACCENT_COLOR1.r, Constants.ACCENT_COLOR1.g, Constants.ACCENT_COLOR1.b, 0.5)
+        mToolTipText: "Menu"
+        onClicked: {
+            if (sideBar.opened) {sideBar.close();return}
+            sideBar.open()
+        }
+    }
+    
     MIMGButton {
         id: saveButton
         img_src:"qrc:/img/download.png"
         z: 1
+        mToolTipText: "Export"
 
         anchors {
             bottom: parent.bottom

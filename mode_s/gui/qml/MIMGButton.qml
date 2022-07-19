@@ -12,6 +12,7 @@ MButton {
     height: width
     radius: width/2
     mText: ""
+    mToolTipText: "Play"
 
     Image {
         id: img

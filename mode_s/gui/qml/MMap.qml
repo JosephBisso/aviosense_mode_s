@@ -27,12 +27,25 @@ Frame {
         id: menubar
         z: 1
         width: 225
-        models: ["LOC", "TUR", "KDE"]
         anchors{
             bottom: parent.bottom
             horizontalCenter: parent.horizontalCenter
 
             topMargin: 10
+        }
+        models: ListModel  {
+            ListElement {
+                name: "LOC"
+                fullName: "Location"
+            }
+            ListElement {
+                name: "TUR"
+                fullName: "Turbulent Location"
+            }
+            ListElement {
+                name: "KDE"
+                fullName: "Kernel Density Estimation"
+            }
         }
 
         onClicked: (element) => {updateView(element)}

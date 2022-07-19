@@ -6,6 +6,7 @@ Rectangle {
     id: root
 
     property string mText: "Button"
+    property string mToolTipText: "Action"
     property bool mEnabled: true
     property color mDefaultColor: Qt.darker(Constants.BACKGROUND_COLOR2, 1.5)
     property color mBorderColor: Constants.FONT_COLOR
@@ -45,7 +46,7 @@ Rectangle {
         }
     }
     border {
-        width: 1
+        width: 2
         color: mEnabled ? mBorderColor : Qt.lighter("darkgrey", 1.2)
     }
 
@@ -60,6 +61,7 @@ Rectangle {
             if (!mCheckable || (mCheckable && !mChecked)) {
                 root.color = mHoverColor
             }
+            tooTip.visible = true
             root.mouseEnter()
         }
         onExited: {
@@ -67,6 +69,7 @@ Rectangle {
                 root.color = mDefaultColor
                 root.border.color = mBorderColor
             }
+            tooTip.visible = false
             root.mouseOut()
         }
         onPressed: root.border.color = Qt.lighter(mClickColor, 1.2)
@@ -100,4 +103,25 @@ Rectangle {
     Behavior on color {ColorAnimation {duration: 150}}
     Behavior on scale {NumberAnimation{duration: 150}}
 
+    ToolTip {
+        id: tooTip
+        delay: 750
+        parent: root
+        text: mToolTipText
+
+        contentItem: Text {
+            text: tooTip.text
+            font: Constants.FONT_SMALL
+            color: mTextColor
+        }
+
+        background: Rectangle {
+            color:  Qt.rgba(Constants.FONT_COLOR.r, Constants.FONT_COLOR.g, Constants.FONT_COLOR.b, 0.5)
+            radius: 5
+            border {
+                width: 1
+                color: mTextColor
+            }
+        }
+    }
 }

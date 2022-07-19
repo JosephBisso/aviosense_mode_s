@@ -11,7 +11,6 @@ from typing import Dict, NamedTuple, List
 from PySide2.QtQml import QQmlApplicationEngine, QQmlDebuggingEnabler
 from PySide2.QtCore import *
 from PySide2.QtWidgets import QApplication
-from PySide2 import QtCharts
 
 sys.path.append(os.getcwd())
 
@@ -151,8 +150,7 @@ class Mode_S(QObject):
         
     @Slot()
     def compute(self):
-        future = self.executor.submit(self.__computing)
-        future.add_done_callback(self.__readyToPlot)
+        self.executor.submit(self.__prepareEngine)
         
     @Slot()
     def startDatabase(self):
@@ -190,14 +188,12 @@ class Mode_S(QObject):
         future.result()
         self.computingFinished.emit()
 
-    def __readyToPlot(self, future: concurrent.futures.Future):
-        future.result()
-        self.readyToPlot.emit()
-
-    def __computing(self):
+    def __prepareEngine(self):
         self.waitUntilReady()
         self.engine.setDataSet(self.db.getData())
+        self.readyToPlot.emit()
 
+        
     def __actualizeDB(self):
         self.db.actualizeData()
 
@@ -206,25 +202,29 @@ class Mode_S(QObject):
         return True
 
     def __plotting(self):
-        results = self.engine.compute(usePlotter=False)
+        try: 
+            results = self.engine.compute(usePlotter=False)
 
-        occurrenceSeries = next(results)
-        rawSeries = next(results)
-        intervalSeries = next(results)
-        filteredSeries = next(results)
-        stdSeries = next(results)
-        locationSeries = next(results)
-        heatMapSeries = next(results)
+            occurrenceSeries = next(results)
+            rawSeries = next(results)
+            intervalSeries = next(results)
+            filteredSeries = next(results)
+            stdSeries = next(results)
+            locationSeries = next(results)
+            heatMapSeries = next(results)
 
-        self.logger.success("Done computing")
-        
-        self.plotOccurrenceReady.emit(occurrenceSeries)
-        self.plotRawReady.emit(rawSeries)
-        self.plotIntervalReady.emit(intervalSeries)
-        self.plotFilteredReady.emit(filteredSeries)
-        self.plotStdReady.emit(stdSeries)
-        self.plotLocationReady.emit(locationSeries)
-        self.plotHeatMapReady.emit(heatMapSeries)
+            self.logger.success("Done computing")
+            
+            self.plotOccurrenceReady.emit(occurrenceSeries)
+            self.plotRawReady.emit(rawSeries)
+            self.plotIntervalReady.emit(intervalSeries)
+            self.plotFilteredReady.emit(filteredSeries)
+            self.plotStdReady.emit(stdSeries)
+            self.plotLocationReady.emit(locationSeries)
+            self.plotHeatMapReady.emit(heatMapSeries)
+
+        except ModeSEngine.EngineError as err:
+            self.logger.warning("Error Occurred:", str(err))
         
 
 if __name__ == "__main__":

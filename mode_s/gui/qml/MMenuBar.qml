@@ -2,12 +2,12 @@ import QtQml 2.15
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 import QtGraphicalEffects 1.15
+import QtQml.Models 2.15
 import "qrc:/scripts/Constants.js" as Constants
 
 Rectangle {
     id: rootMenuBar
     property int buttonWidth: 55
-    property var models: ["OCC", "RAW", "FIL", "INT", "STD"]
     width: 375
     height: 70
     radius: 50
@@ -20,10 +20,32 @@ Rectangle {
         verticalOffset: 3
         radius: 3
     }
+    property ListModel models: ListModel{
+        ListElement {
+            name: "OCC"
+            fullName: "Occurrence"
+        }
+        ListElement {
+            name: "RAW"
+            fullName: "Raw bar & ivv"
+        }
+        ListElement {
+            name: "FIL"
+            fullName: "Filtered bar & ivv"
+        }
+        ListElement {
+            name: "INT"
+            fullName: "Sliding Intervall"
+        }
+        ListElement {
+            name: "STD"
+            fullName: "Standard deviation"
+        }
+    }
 
     signal clicked(string element)
 
-    Component.onCompleted: selectMenu(models[0])
+    Component.onCompleted: selectMenu(models.get(0).name)
 
     function selectMenu(menu) {
         for (let i = 0; i < menuRepeater.count; i++) {
@@ -36,7 +58,8 @@ Rectangle {
     }
 
     Behavior on opacity {NumberAnimation {duration: 150}}
-    
+
+
     Timer {
         id: fadeTimer
         interval: 500
@@ -51,14 +74,15 @@ Rectangle {
         anchors.centerIn: parent
         Repeater {
             id: menuRepeater
-            model: rootMenuBar.models
-            MButton {
+            model: models
+            delegate: MButton {
                 id: buttonDelegate
-                property string menuName: modelData
+                property string menuName: name
                 width:buttonWidth
                 height:width
                 radius: width/2
-                mText: modelData 
+                mText: name 
+                mToolTipText: fullName
                 mFont: Constants.FONT_SMALL
                 mDefaultColor: Qt.rgba(Constants.FONT_COLOR.r, Constants.FONT_COLOR.g, Constants.FONT_COLOR.b, 0.5)
                 mHoverColor: Constants.FOREGROUND_COLOR
@@ -68,8 +92,8 @@ Rectangle {
                 mCheckable: true
                 mManualUncheckable: false
                 onClicked: {
-                    rootMenuBar.selectMenu(modelData)
-                    rootMenuBar.clicked(modelData)
+                    rootMenuBar.selectMenu(menuName)
+                    rootMenuBar.clicked(name)
                 }
 
                 onMouseEnter: {

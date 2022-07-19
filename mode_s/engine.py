@@ -88,6 +88,8 @@ class Engine:
 
     def compute(self, usePlotter=True) -> None:
         self.logger.info("Starting Engine")
+        if not self.data:
+            raise EngineError("Engine has no data to compute")
         if usePlotter and not any(self.plots.values()):
             return
 

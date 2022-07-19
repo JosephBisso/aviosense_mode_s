@@ -12,10 +12,7 @@ Drawer {
     property int leftMarginTitle: 50
     property int verticalMarginItems: 50
     property bool edited: false
-    width: {
-        if (rootWindow.width > rootWindow.minimumWidth ) {return 0.95 * rootWindow.width}
-        else {return 0.95 * rootWindow.minimumWidth}
-    }
+    width: 0.95 * rootWindow.width
     height: rootWindow.height 
 
 
@@ -107,10 +104,11 @@ Drawer {
         width: 75
         img_src: "qrc:/img/sync_db.png"
         mFont: Constants.FONT_SMALL
-        mDefaultColor: Qt.rgba(Constants.FONT_COLOR.r, Constants.FONT_COLOR.g, Constants.FONT_COLOR.b, 0.5)
-        mHoverColor: Constants.FOREGROUND_COLOR
+        mDefaultColor: Constants.ACCENT_COLOR2
+        mHoverColor: Qt.lighter(mDefaultColor, 1.3)
         mClickColor:Qt.rgba(Constants.ACCENT_COLOR1.r, Constants.ACCENT_COLOR1.g, Constants.ACCENT_COLOR1.b, 0.5)
         mTextColor: "white"
+        mToolTipText: "Actualize DB"
         onClicked: {
             sendDbParams()
         }
@@ -127,10 +125,11 @@ Drawer {
         width: 75
         img_src: "qrc:/img/power_button.png"
         mFont: Constants.FONT_SMALL
-        mDefaultColor: Qt.rgba(Constants.FONT_COLOR.r, Constants.FONT_COLOR.g, Constants.FONT_COLOR.b, 0.5)
-        mHoverColor: Constants.FOREGROUND_COLOR
+        mDefaultColor: "green"
+        mHoverColor: Qt.lighter(mDefaultColor, 1.3)
         mClickColor:Qt.rgba(Constants.ACCENT_COLOR1.r, Constants.ACCENT_COLOR1.g, Constants.ACCENT_COLOR1.b, 0.5)
         mTextColor: "white"
+        mToolTipText: "Start Engine"
         onClicked: {
             sendEngineParams()
         }

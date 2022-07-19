@@ -2,12 +2,12 @@ import QtQml 2.15
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
 import QtGraphicalEffects 1.15
+import QtQml.Models 2.15
 import "qrc:/scripts/Constants.js" as Constants
 
 Rectangle {
     id: rootMenuBar
     property int buttonWidth: 50
-    property var models: ["world", "noise"]
     width: 70
     height: 150
     radius: width
@@ -20,10 +20,20 @@ Rectangle {
         verticalOffset: 3
         radius: 3
     }
+    property ListModel models: ListModel {
+        ListElement {
+            name: "world"
+            fullName: "Map"
+        }
+        ListElement {
+            name: "noise"
+            fullName: "Data"
+        }
+    }
 
     signal clicked(string element)
 
-    Component.onCompleted: selectMenu(models[0])
+    Component.onCompleted: selectMenu(models.get(0).name)
 
     function selectMenu(menu) {
         for (let i = 0; i < menuRepeater.count; i++) {
@@ -51,12 +61,12 @@ Rectangle {
         anchors.centerIn: parent
         Repeater {
             id: menuRepeater
-            model: rootMenuBar.models
-            MIMGButton {
+            model: models
+            delegate: MIMGButton {
                 id: buttonDelegate
-                property string menuName: modelData
+                property string menuName: name
                 width:buttonWidth
-                img_src: `qrc:/img/${modelData}.png`
+                img_src: `qrc:/img/${name}.png`
                 mFont: Constants.FONT_SMALL
                 mDefaultColor: Qt.rgba(Constants.FONT_COLOR.r, Constants.FONT_COLOR.g, Constants.FONT_COLOR.b, 0.5)
                 mHoverColor: Constants.FOREGROUND_COLOR
@@ -65,10 +75,11 @@ Rectangle {
                 opacity: rootMenuBar.opacity
                 mCheckable: true
                 mManualUncheckable: false
+                mToolTipText: `${fullName}`
 
                 onClicked: {
-                    rootMenuBar.selectMenu(modelData)
-                    rootMenuBar.clicked(modelData)
+                    rootMenuBar.selectMenu(menuName)
+                    rootMenuBar.clicked(name)
                 }
 
                 onMouseEnter: {
