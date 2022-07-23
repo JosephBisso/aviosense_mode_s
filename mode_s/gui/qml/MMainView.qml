@@ -56,14 +56,14 @@ Frame {
             if (!filterText) {return}
             searchElement(filterText, suggestionPopup.suggestions)
             if (!suggestionPopup.opened) {suggestionPopup.open()}
-            
         }
 
          MSuggestions {
             id: suggestionPopup
 
-            onItemSelected: (item) => {
-                console.log("Selected", item)
+            onItemSelected: (address) => {
+                plotView.preparePlotsForAddress(address)
+                mapView.showAddress(address)
             }
         }
     }
@@ -155,6 +155,10 @@ Frame {
                     mapView.location = pointList
                     mapView.showLocation()
                 }
+            }
+
+            onAddressClicked: (address) => {
+                plotView.preparePlotsForAddress(address)
             }
         }
 

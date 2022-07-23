@@ -9,3 +9,4 @@ GDAL
 Fiona
 geopandas
 seaborn
+sklearn

@@ -35,6 +35,10 @@ Frame {
         }
     }   
 
+    function preparePlotsForAddress(address) {
+        plotSwipe.currentAddress = address
+    }
+
     MMenuBar {
         id: menubar
         z: 1
@@ -50,6 +54,7 @@ Frame {
 
     SwipeView {
         id: plotSwipe
+        property var currentAddress: ""
         anchors.fill: parent
         MOccurrencePlot {
             title: "Occurence Plot"
@@ -60,7 +65,7 @@ Frame {
 
         SwipeView {
             id: rawPlots
-            property bool isCurrentPlot: plotFrame.isCurrentView && SwipeView.isCurrentItem
+            interactive: false
             Connections {
                 target: __mode_s
 
@@ -68,12 +73,19 @@ Frame {
                     rawPlotRepeater.model = pointList
                 }
             }
+            function showCurrentAddress(indexOfLoadedItem) {
+                setCurrentIndex(indexOfLoadedItem)
+            }
+
             Repeater {
                 id: rawPlotRepeater
+
                 delegate: Loader {
                     id: rawPlotLoader
-                    active: rawPlots.isCurrentPlot && SwipeView.isCurrentItem
+                    active: plotSwipe.currentAddress == modelData["address"] || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
                     asynchronous: true
+                    onLoaded: rawPlots.showCurrentAddress(SwipeView.index)
+
                     sourceComponent: Component {
                         id: rawPlotComponent
                         MRawPlot {
@@ -95,7 +107,6 @@ Frame {
 
         SwipeView {
             id: filteredPlots
-            property bool isCurrentPlot: plotFrame.isCurrentView && SwipeView.isCurrentItem
             Connections {
                 target: __mode_s
 
@@ -103,13 +114,17 @@ Frame {
                     filteredPlotRepeater.model = pointList
                 }
             }
+            function showCurrentAddress(indexOfLoadedItem) {
+                setCurrentIndex(indexOfLoadedItem)
+            }
+
             Repeater {
                 id: filteredPlotRepeater
-                property string address: ""
                 delegate: Loader {
                     id: filteredPlotLoader
-                    active: filteredPlots.isCurrentPlot && SwipeView.isCurrentItem
+                    active: plotSwipe.currentAddress == modelData["address"] || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
                     asynchronous: true
+                    onLoaded: filteredPlots.showCurrentAddress(SwipeView.index)
                     sourceComponent: Component {
                         Column {
                             id: filteredColumn
@@ -144,7 +159,6 @@ Frame {
 
         SwipeView {
             id: intervallPlots
-            property bool isCurrentPlot: plotFrame.isCurrentView && SwipeView.isCurrentItem
             Connections {
                 target: __mode_s
 
@@ -152,12 +166,16 @@ Frame {
                     intervalPlotRepeater.model = pointList
                 }
             }
+            function showCurrentAddress(indexOfLoadedItem) {
+                setCurrentIndex(indexOfLoadedItem)
+            }
             Repeater {
                 id: intervalPlotRepeater
                 delegate: Loader {
                     id: intervallPlotLoader
-                    active: intervallPlots.isCurrentPlot && SwipeView.isCurrentItem
+                    active: plotSwipe.currentAddress == modelData["address"] || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
                     asynchronous: true
+                    onLoaded: intervallPlots.showCurrentAddress(SwipeView.index)
                     sourceComponent: Component {
                         MIntervalPlot {
                             id: intervalPlot
@@ -178,7 +196,6 @@ Frame {
 
         SwipeView {
             id: stdPlots
-            property bool isCurrentPlot: plotFrame.isCurrentView && SwipeView.isCurrentItem
             Connections {
                 target: __mode_s
 
@@ -186,12 +203,16 @@ Frame {
                     stdPlotRepeater.model = pointList
                 }
             }
+            function showCurrentAddress(indexOfLoadedItem) {
+                setCurrentIndex(indexOfLoadedItem)
+            }
             Repeater {
                 id: stdPlotRepeater
                 delegate: Loader {
                     id: stdPlotLoader
-                    active: stdPlots.isCurrentPlot && SwipeView.isCurrentItem
+                    active: plotSwipe.currentAddress == modelData["address"] || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
                     asynchronous: true
+                    onLoaded: stdPlots.showCurrentAddress(SwipeView.index)
                     sourceComponent: Component {
                         Row {
                             id: stdRows

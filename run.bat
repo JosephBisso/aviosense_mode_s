@@ -6,13 +6,10 @@ if "%arg1%"=="--loop" goto loop
 goto launch
 
 :loop
-set /p input="Start ?[y/n]"
-if "%input%"=="n" goto end
-if "%input%"=="y" (
-    cls
-    goto launch
-)
-goto end
+timeout /t -1
+cls
+echo run.bat %*
+goto launch 
 
 :launch
 pwsh .\run.ps1 %*

@@ -1,19 +1,22 @@
+from typing import List, Dict, NamedTuple, Union
+
 import seaborn as sb
 import geopandas as gpd
 import matplotlib.pyplot as plt
-
 from matplotlib.colors import ListedColormap
-from typing import List, Dict, NamedTuple, Union
 
 from constants import GUI_CONSTANTS
-
 from constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
 
 class Plotter:
     USED_MEDIAN_FILTER: int = 0
+    KDE_BAND_WIDTH: int = 0.5
     
     def updateUsedMedianFilter(medianN:int = 0):
         Plotter.USED_MEDIAN_FILTER = medianN
+
+    def setKDEBandwidth(bandwidth:int = 0.5):
+        Plotter.KDE_BAND_WIDTH = bandwidth
     
     def plotDataPointOccurrences(occurrences: List[Union[str, int]]) -> bool:
         plt.subplots(num="MODE-S @ Data Points Occurrence")
@@ -268,8 +271,8 @@ class Plotter:
                 
                 numShownAddresses += 1
 
-                allTurbulentLongitude += longitude
-                allTurbulentLatitude += latitude
+                allTurbulentLongitude.append(longitude)
+                allTurbulentLatitude.append(latitude)
 
                 points = ax1.plot(longitude, latitude, color="red", marker=".", ms=1, linestyle="none", label=label)                
 
@@ -281,7 +284,7 @@ class Plotter:
         ax2.set_ylim(GUI_CONSTANTS.DE_MIN_LATITUDE, GUI_CONSTANTS.DE_MAX_LATITUDE)
         ax2.set(aspect=1.78)
 
-        sb.histplot(x=allTurbulentLongitude, y=allTurbulentLatitude, ax=ax2, kde=True, cmap=ListedColormap(["orange", "red", "maroon"]))
+        sb.histplot(x=allTurbulentLongitude, y=allTurbulentLatitude, ax=ax2, kde=True, kde_kws={"bw_adjust":Plotter.KDE_BAND_WIDTH}, cmap=ListedColormap(["orange", "red", "maroon"]))
 
         # fig.legend(legendHandles, legendLabels, bbox_to_anchor=(0,0), loc="upper left", title="Addresses (number points)", ncol=3)
         plt.suptitle("Turbulence Areas (from " + str(numShownAddresses) + " addresses), mercator proj")

@@ -2,6 +2,9 @@ from typing import NamedTuple
 
 class ENGINE_CONSTANTS:
     PLOTS = ["occurrence", "bar_ivv", "filtered", "interval", "std", "location", "heat_map"]
+    MAX_NUMBER_THREADS_ENGINE: int = 150
+    KDE_BANDWIDTH = 0.5
+    MEDIAN_N = 1
     
 class DB_CONSTANTS:
     VALID_DB_COLUMNS = ["id", "timestamp", "frame_hex_chars", "address", "downlink_format", "bds", "on_ground", "adsb_version", "altitude", "altitude_is_barometric", "nuc_p", "latitude", "longitude", "nuc_r", "true_track", "groundspeed", "vertical_rate", "gnss_height_diff_from_baro_alt", "identification",
@@ -18,6 +21,10 @@ class DB_CONSTANTS:
     CONNECTIONS_TOTAL = 0
 
     MAX_ROW_BEFORE_LONG_DURATION = 200000
+    PREFERRED_NUMBER_THREADS = 10
+    MAX_NUMBER_THREADS = 20
+    MIN_NUMBER_THREADS = 5
+    
 
 class GUI_CONSTANTS:
     DE_MIN_LATITUDE = 46

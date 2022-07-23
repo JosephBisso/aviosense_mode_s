@@ -23,6 +23,8 @@ Frame {
         radius: 10
     }
 
+    signal addressClicked(int address)
+
     MMenuBar {
         id: menubar
         z: 1
@@ -72,6 +74,25 @@ Frame {
 
     MapItemGroup {
         id: group
+        property var lastPolylineClicked
+        property var actualAddress
+
+        signal addressClicked(var polyLine, int address)
+
+        onAddressClicked: (polyline, address) => {
+            showPolyline(polyline)
+            rootFrame.addressClicked(address)
+        }
+
+        function showPolyline(polyline) {
+            if (lastPolylineClicked) {lastPolylineClicked.reset()}
+            polyline.show()
+            group.lastPolylineClicked = polyline
+        }
+    }
+
+    function showAddress(address) {
+        group.actualAddress = address
     }
 
     function updateView(name) {

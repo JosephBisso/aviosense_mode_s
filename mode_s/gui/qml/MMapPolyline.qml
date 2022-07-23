@@ -6,8 +6,9 @@ MapPolyline {
     property var address: "None"
     property var identification: "None"
     property color lineColor: "red"
-    property real defaultOpacity: 0.4
+    property real defaultOpacity: 0.3
     property real defaultLineWidth: 5
+    property bool selected: false
     line.width: defaultLineWidth
     line.color: lineColor
     opacity: defaultOpacity
@@ -21,16 +22,28 @@ MapPolyline {
         onExited: reset()
         onClicked: {
             console.log("Clicked:", address, "::", identification)
+            polyLine.parent.addressClicked(polyLine, address)
+        }
+    }
+
+    Connections {
+        target: parent
+        function onActualAddressChanged () {
+            if (polyLine.address == parent.actualAddress) {
+                parent.showPolyline(polyLine)
+            }
         }
     }
 
     function reset() {
+        selected = false
         polyLine.opacity = defaultOpacity
         polyLine.line.width = defaultLineWidth
     }
 
     function show() {
+        selected = true
         polyLine.opacity = 1
-        polyLine.line.width = 7
+        polyLine.line.width = 8
     }
 }

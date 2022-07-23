@@ -61,7 +61,6 @@ def init_argparse():
                         help="The addresses of the desired plots.", default=[])
     parser.add_argument("--plot-all", action="store_true",
                         help="Plot all addresses for the desired plots.", default=False)
-    
     return parser
 
 
@@ -233,7 +232,8 @@ class Mode_S(QObject):
         
 
 if __name__ == "__main__":
-    args = init_argparse().parse_args()
+    know_args = init_argparse().parse_known_args()
+    args = know_args[0]
     if args.interactive:
         args.terminal = True
 
@@ -247,10 +247,11 @@ if __name__ == "__main__":
         DB_CONSTANTS.PASSWORD = "BisbiDb2022?"
     
     sys.argv += ['--style', 'Fusion']
+    app = QApplication(sys.argv)
+
     if args.debug:
         debugger = QQmlDebuggingEnabler()
-        # debugger.startTcpDebugServer(6969)
-    app = QApplication(sys.argv)
+        # debugger.startTcpDebugServer(6969, mode=QQmlDebuggingEnabler.StartMode.WaitForClient)
     
     logger = Logger(args.terminal, args.verbose, args.debug)
     logger.info("Framework for automatic Mode-S data transfer & turbulence prediction")

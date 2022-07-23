@@ -17,9 +17,9 @@ class Database:
     ROW_COUNT: int = 0
     LAST_DB_UPDATE: QDateTime = QDateTime.currentDateTime()
 
-    PREFERRED_NUMBER_THREADS = 20
-    MAX_NUMBER_THREADS = 25
-    MIN_NUMBER_THREADS = 10
+    preferedNumberThreads = DB_CONSTANTS.PREFERRED_NUMBER_THREADS
+    maxNumberThreads = DB_CONSTANTS.MAX_NUMBER_THREADS
+    minNumberThreads = DB_CONSTANTS.MIN_NUMBER_THREADS
     
     limit: int = ROW_COUNT
     
@@ -34,6 +34,8 @@ class Database:
     strFilter: str = " "
     
     backgroundFutures: List[concurrent.futures.Future] = []
+    
+    data:List[Dict[str, Union[str, float]]] = []
     
     def __init__(self, logger: Logger):        
         self.logger: Logger = logger
@@ -93,20 +95,20 @@ class Database:
         self.logger.log("Setting global query row limit to:", self.limit)
 
         if params.get("dbthreads_min"):
-            self.MIN_NUMBER_THREADS = params["dbthreads_min"]
+            self.minNumberThreads = params["dbthreads_min"]
         else:
-            self.MIN_NUMBER_THREADS = 10
+            self.minNumberThreads = DB_CONSTANTS.MIN_NUMBER_THREADS
         if params.get("dbthreads_max"):
-            self.MAX_NUMBER_THREADS = params["dbthreads_max"]
+            self.maxNumberThreads = params["dbthreads_max"]
         else:
-            self.MAX_NUMBER_THREADS = 25
+            self.maxNumberThreads = DB_CONSTANTS.MAX_NUMBER_THREADS
         if params.get("dbthreads"):
-            self.PREFERRED_NUMBER_THREADS = params["dbthreads"]
+            self.preferedNumberThreads = params["dbthreads"]
         else:
-            self.PREFERRED_NUMBER_THREADS = 20
+            self.preferedNumberThreads = DB_CONSTANTS.PREFERRED_NUMBER_THREADS
 
-        self.logger.log("Database number of threads || Min:", self.MIN_NUMBER_THREADS,
-                        "| Max:", self.MAX_NUMBER_THREADS, "| Preferred:", self.PREFERRED_NUMBER_THREADS, "||")
+        self.logger.log("Database number of threads || Min:", self.minNumberThreads,
+                        "| Max:", self.maxNumberThreads, "| Preferred:", self.preferedNumberThreads, "||")
 
         if params.get("duration_limit"):
             self.logger.log("Setting duration limit to", params["duration_limit"] ,"minutes")
@@ -366,8 +368,8 @@ class Database:
             limit = self.limit
         
         dividing = int(limit) > DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION
-        numThread = max(int(int(limit) / DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION), self.PREFERRED_NUMBER_THREADS) if dividing else self.MIN_NUMBER_THREADS
-        numThread = min(numThread, self.MAX_NUMBER_THREADS)
+        numThread = max(int(int(limit) / DB_CONSTANTS.MAX_ROW_BEFORE_LONG_DURATION), self.preferedNumberThreads) if dividing else self.minNumberThreads
+        numThread = min(numThread, self.maxNumberThreads)
 
         limitPerThread = int(int(limit)/numThread)
         if limitPerThread == 0: 

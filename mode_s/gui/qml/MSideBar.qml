@@ -204,7 +204,7 @@ Drawer {
                     ListElement {
                         option_name: "Filter"
                         option_value: "7"
-                        option_id:"median_n"
+                        option_id:"median"
                         option_type:"value"
 
                     }

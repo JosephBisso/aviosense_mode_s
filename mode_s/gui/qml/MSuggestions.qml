@@ -100,17 +100,19 @@ Popup {
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
                         onContainsMouseChanged: {
-                            if (containsMouse) {item.color = Constants.transparentBy(leColor, 0.5)}
+                            if (containsMouse) {item.color = Constants.transparentBy(leColor, 0.4)}
                             else {item.color = "transparent"}
                         }
                         onClicked: (event) => {
                             if (event.button === Qt.LeftButton) {
                                 rootPopup.itemSelected(Number(address))
+                                rootPopup.close()
                             }
                         }
                     }
                     ColumnLayout {
                         anchors.fill: parent
+                        anchors.margins: 10
                         Label {
                             text: identification
                             font: Constants.FONT_SMALL
