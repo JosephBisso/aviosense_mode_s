@@ -203,6 +203,20 @@ Drawer {
                 options: ListModel {
                     id: engineOptions
                     ListElement {
+                        option_name: "Bandwidth KDE"
+                        option_value: "0.5"
+                        option_id:"bandwidth"
+                        option_type:"value"
+
+                    }
+                    ListElement {
+                        option_name: "Data Points (Min)"
+                        option_value: "1"
+                        option_id:"mindatapoints"
+                        option_type:"value"
+
+                    }
+                    ListElement {
                         option_name: "Filter"
                         option_value: "7"
                         option_id:"median"

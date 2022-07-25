@@ -29,6 +29,7 @@ class Engine:
     plotAddresses: List[int] = []
     medianN: int = ENGINE_CONSTANTS.MEDIAN_N
     kdeBW: int = ENGINE_CONSTANTS.KDE_BANDWIDTH
+    minDataPoints: int = 1
     plotAll: bool = False
 
     def __init__(self, logger: Logger):
@@ -60,10 +61,15 @@ class Engine:
             self.maxNumberThreads = params["enginethreads"]
         else:
             self.maxNumberThreads = ENGINE_CONSTANTS.MAX_NUMBER_THREADS_ENGINE
+        if params.get("mindatapoints"):
+            self.minDataPoints = params["mindatapoints"]
+        else:
+            self.minDataPoints = 1
 
-        self.logger.log("Max number of threads for engine : " + str(self.maxNumberThreads))
-        self.logger.log("Setting median Filter to : " + str(self.medianN))
-        self.logger.log("Setting kde bandwidth to : " + str(self.kdeBW))
+        self.logger.log("Engines Max number of threads :", str(self.maxNumberThreads))
+        self.logger.log("Setting median Filter to :", str(self.medianN))
+        self.logger.log("Setting kde bandwidth to :", str(self.kdeBW))
+        self.logger.log("Setting minimum data points to:", str(self.minDataPoints))
         if self.plotAll:
             self.logger.log("Watching all Addresses")
         elif self.plotAddresses:
@@ -184,7 +190,7 @@ class Engine:
                 yield lineSeriesStd
 
         if activePlots["location"]:
-            location = self.prepareLocation()
+            location = self.prepareLocation(addressesToPlot)
             if usePlotter:
                 self.logger.info("Plotting location")
                 plotted.append(Plotter.plotLocation(location))
@@ -199,8 +205,10 @@ class Engine:
             if not activePlots["std"]:
                 slidingIntervalForStd = self.prepareSlidingIntervalForStd(data)
             if not activePlots["location"]:
-                location = self.prepareLocation()
+                location = self.prepareLocation(addressesToPlot)
+                
             heatMap = self.prepareHeatMap(slidingIntervalForStd)
+            
             if usePlotter:
                 self.logger.info("Plotting heat map")
                 plotted.append(Plotter.plotHeatMap(heatMap=heatMap, rawLocation=location))
@@ -222,7 +230,8 @@ class Engine:
     def prepareOccurrencesForAddresses(self, returnValue="datapoint") -> Union[List[Union[int, str]], List[int]]:
         self.logger.log("Computing Occurrences for Addresses")
         dataPointsCounter = Counter([entry["address"] for entry in self.data])
-        if returnValue != "datapoint": return [mostCommonAddress[0] for mostCommonAddress in dataPointsCounter.most_common() if mostCommonAddress[1] > 1]
+        if returnValue != "datapoint":
+            return [mostCommonAddress[0] for mostCommonAddress in dataPointsCounter.most_common() if mostCommonAddress[1] > self.minDataPoints]
 
         dataPoint = list(dataPointsCounter.values())
         dataPoint.sort(reverse=True)
@@ -311,13 +320,14 @@ class Engine:
         executor.shutdown()
         return slidingIntervalForStd
 
-    def prepareLocation(self) -> List[Dict[str, Union[str, List[LOCATION_DATA]]]]:
+    def prepareLocation(self, addresses: List[int] = []) -> List[Dict[str, Union[str, List[LOCATION_DATA]]]]:
         self.logger.log("Computing locations")
         allLocationData = []
         
         addressPoints: List[LOCATION_DATA] = []
          
         for index in range(len(self.data)):
+            if self.data[index]["address"] not in addresses: continue
             time = self.data[index]["timestamp"]
             longitude = self.data[index]["longitude"]
             latitude = self.data[index]["latitude"]

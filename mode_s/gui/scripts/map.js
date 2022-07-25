@@ -21,6 +21,7 @@ WorkerScript.onMessage = function (message) {
 
 function showLocation(target, listPoint) {
     console.info("Displaying line series for location")
+    target.clear()
     let usedColors = []
 
     for (let i = 0; i < listPoint.length; i++) {
@@ -55,6 +56,7 @@ function showLocation(target, listPoint) {
 
 function prepareTurbulentLocation(target, listPoint) {
     console.info("Displaying line series for turbulent location")
+    target.clear()
     for (let i = 0; i < listPoint.length; i++) {
         let address = listPoint[i].address
         let identification = listPoint[i].identification

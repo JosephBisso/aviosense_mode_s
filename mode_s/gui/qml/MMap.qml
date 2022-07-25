@@ -28,12 +28,14 @@ Frame {
     signal addressClicked(int address)
 
     function showLocation() {
-        locationGroup.clear()
         mapWorker.sendMessage({"type": "location", "target": locationGroup, "listPoint": location})
     }
-    function prepareTurbulentLocation(){  mapWorker.sendMessage({"type": "turbulent", "target": turbulentGroup, "listPoint": turbulentLocation})}
-    function prepareKDE(){ mapWorker.sendMessage({"type": "kde", "target": kdeGroup, "listPoint": kde})
-}
+    function prepareTurbulentLocation(){  
+        mapWorker.sendMessage({"type": "turbulent", "target": turbulentGroup, "listPoint": turbulentLocation})
+    }
+    function prepareKDE(){ 
+        mapWorker.sendMessage({"type": "kde", "target": kdeGroup, "listPoint": kde})
+    }
 
     MMenuBar {
         id: menubar
@@ -162,14 +164,17 @@ Frame {
     function updateView(name) {
         switch (name) {
             case "LOC":
+            map.clearMapItems()
             rootFrame.mode = "LOC"
             instantiator.active = true
                 break;
             case "TRB":
+            map.clearMapItems()
             rootFrame.mode = "TRB"
             instantiator.active = true
                 break;
             case "KDE":
+            map.clearMapItems()
             rootFrame.mode = "KDE"
             locationView = false
             // instantiator.model = locationGroup

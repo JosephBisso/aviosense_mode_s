@@ -180,8 +180,12 @@ class Mode_S(QObject):
         for key in data:
             if data[key].isdigit():
                 data[key] = int(data[key])
-            elif data[key].lower() == "none" or data[key].lower() == "all" or data[key].lower() == "auto":
-                data[key] = None
+            else:
+                try:
+                    data[key] = float(data[key])
+                except ValueError:
+                    if data[key].lower() == "none" or data[key].lower() == "all" or data[key].lower() == "auto":
+                        data[key] = None                    
 
         return data
 
@@ -231,7 +235,7 @@ class Mode_S(QObject):
             self.plotHeatMapReady.emit(heatMapSeries)
 
         except ModeSEngine.EngineError as err:
-            self.logger.warning("Error Occurred:", str(err))
+            self.logger.warning("Error Occurred: Mode_s plotting::", str(err))
         
 
 if __name__ == "__main__":
@@ -253,11 +257,11 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setOrganizationName("TU Braunschweig")
     app.setOrganizationDomain("tu-braunschweig.de")
-    app.setApplicationName("Mode_S")
+    app.setApplicationName("Mode_S Analysis")
 
     if args.debug:
         debugger = QQmlDebuggingEnabler()
-        debugger.startTcpDebugServer(6969, mode=QQmlDebuggingEnabler.StartMode.WaitForClient)
+        # debugger.startTcpDebugServer(6969, mode=QQmlDebuggingEnabler.StartMode.WaitForClient)
     
     logger = Logger(args.terminal, args.verbose, args.debug)
     logger.info("Framework for automatic Mode-S data transfer & turbulence prediction")
