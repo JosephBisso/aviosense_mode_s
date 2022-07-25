@@ -100,7 +100,6 @@ class Engine:
 
         activePlots = self.plots
 
-
         if not usePlotter:
             from analysis import Analysis
             Analysis.setKDEBandwidth(self.kdeBW)
@@ -206,6 +205,9 @@ class Engine:
                 self.logger.info("Plotting heat map")
                 plotted.append(Plotter.plotHeatMap(heatMap=heatMap, rawLocation=location))
             else:
+                self.logger.info("Getting lineSeries for turbulent location")
+                lineSeriesTurbulent = Analysis.getLineSeriesTurbulentLocation(heatMap)
+                yield lineSeriesTurbulent
                 self.logger.info("Getting lineSeries for heat map")
                 lineSeriesHeatMap = Analysis.getLineSeriesHeatMap(heatMap)
                 yield lineSeriesHeatMap
@@ -589,10 +591,10 @@ class Engine:
             
         if allTimes: closestTimes.insert(0, min(allTimes))
         
-        if len(heatPointsForAddress) < len(turbulentSlidingWindows):
-            self.logger.debug("Doubtful results for Heat Points for address " + str(
-                addressData["address"]) + ". Points Count: " + str(len(heatPointsForAddress)) + "| Found longitude and latitude data? " + str(foundLongitude) + 
-                " | Found window? " + str(foundWindow) + " | turbulent sliding windows: " + str(turbulentSlidingWindows) + " | closest Times: " + str(closestTimes))
+        # if len(heatPointsForAddress) < len(turbulentSlidingWindows):
+        #     self.logger.debug("Doubtful results for Heat Points for address " + str(
+        #         addressData["address"]) + ". Points Count: " + str(len(heatPointsForAddress)) + "| Found longitude and latitude data? " + str(foundLongitude) + 
+        #         " | Found window? " + str(foundWindow) + " | turbulent sliding windows: " + str(turbulentSlidingWindows) + " | closest Times: " + str(closestTimes))
 
         # else:
         #     self.logger.debug("Valid results for Heat Points for address " + str(

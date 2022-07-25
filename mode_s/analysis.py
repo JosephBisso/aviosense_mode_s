@@ -3,10 +3,13 @@ from typing import List, Dict, NamedTuple, Union
 from sklearn.neighbors import KernelDensity
 import numpy as np
 
+from PySide2 import QtPositioning
+
 from constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
 
 class Analysis:
     KDE_BAND_WIDTH: int = 0.5
+    POINT_RADIUS = 10000
 
     def setKDEBandwidth(bandwidth:int = 0.5):
         Analysis.KDE_BAND_WIDTH = bandwidth
@@ -130,25 +133,12 @@ class Analysis:
             lineSeries.append(addressSeries)
 
         return lineSeries
-
-    def getLineSeriesLocation(location: List[Dict[str, Union[str, List[LOCATION_DATA]]]]) -> List[Dict[str, Union[int, List[Dict[float, float]]]]]:
+    
+    def getLineSeriesLocation(location: List[Dict[str, Union[str, List[LOCATION_DATA]]]]) -> List[Dict[str, Union[int, List[List[QtPositioning.QGeoCoordinate]]]]]:
         lineSeries = []
         for index in range(len(location)):
-            addressSeries: Dict[str, Union[int, List[Dict[float, float]]]] = {
-                "address": location[index]["address"],
-                "identification": location[index].get("identification"),
-                "points": []
-            }
-            
-            for point in location[index]["points"]:
-                addressSeries["points"].append({
-                    "latitude": point.latitude,
-                    "longitude": point.longitude
-                })
-
-            addressSeries["points"].sort(key=lambda el: el["latitude"]**2 + el["longitude"]**2)
-            lineSeries.append(addressSeries)
-
+            lineSeries.append(Analysis.__getAddressSeries(location[index]))
+                    
         return lineSeries
 
     def getLineSeriesTurbulentLocation(heatMap: List[Dict[str, Union[str, List[LOCATION_DATA]]]]) -> List[Dict[str, List[int]]]:
@@ -156,19 +146,7 @@ class Analysis:
         
         for turbulentLocation in heatMap:
             if len(turbulentLocation["points"]) > 0 :
-                addressSeries: Dict[str, Union[int, List[Dict[float, float]]]] = {
-                    "address": turbulentLocation["address"],
-                    "identification": turbulentLocation.get("identification"),
-                    "points": []
-                }
-                for point in turbulentLocation["points"]:
-                    addressSeries["points"].append({
-                        "latitude": point.latitude,
-                        "longitude": point.longitude
-                    })
-
-                addressSeries["points"].sort(key=lambda el: el["latitude"]**2 + el["longitude"]**2)
-                lineSeries.append(addressSeries)
+                lineSeries.append(Analysis.__getAddressSeries(turbulentLocation))
 
         return lineSeries
 
@@ -184,11 +162,14 @@ class Analysis:
             longitude = [point.longitude for point in turbulentLocation["points"]]
             latitude = [point.latitude for point in turbulentLocation["points"]]
 
-            allLongitudes.append(longitude)
-            allLatitudes.append(latitude)
+            allLongitudes += longitude
+            allLatitudes += latitude
             if len(turbulentLocation["points"]) > 0 :
-                allTurbulentLongitude.append(longitude)
-                allTurbulentLatitude.append(latitude)
+                allTurbulentLongitude += longitude
+                allTurbulentLatitude += latitude
+
+        if not allTurbulentLatitude: 
+            return lineSeries
 
         mapPoints = np.vstack([allLongitudes, allLatitudes]).T
         turbulentMapPoints = np.vstack([allTurbulentLongitude, allTurbulentLatitude]).T
@@ -214,3 +195,29 @@ class Analysis:
             lineSeries.append(addressSeries)
 
         return lineSeries
+    
+
+    def __getAddressSeries(addressLocation: Dict[str, Union[str, List[LOCATION_DATA]]]) -> Dict[str, Union[int, List[List[QtPositioning.QGeoCoordinate]]]]:
+        addressSeries: Dict[str, Union[int, List[Dict[float, float]]]] = {
+            "address": addressLocation["address"],
+            "identification": addressLocation.get("identification"),
+            "segments": []
+        }
+        
+        addressLocation["points"].sort(key=lambda point: point.latitude**2 + point.longitude**2)
+
+        latitude = addressLocation["points"][0].latitude
+        longitude = addressLocation["points"][0].longitude
+        actualSegment: List[QtPositioning.QGeoCoordinate] = [QtPositioning.QGeoCoordinate(latitude, longitude)]
+
+        for pointIndex, point in enumerate(addressLocation["points"]):
+            point = QtPositioning.QGeoCoordinate(point.latitude, point.longitude)
+            if actualSegment[-1].distanceTo(point) <= Analysis.POINT_RADIUS:
+                actualSegment.append(point)
+            else:
+                addressSeries["segments"].append(actualSegment)
+                actualSegment = [point]
+            if pointIndex == len(addressLocation["points"]) - 1:
+                addressSeries["segments"].append(actualSegment)
+                
+        return addressSeries

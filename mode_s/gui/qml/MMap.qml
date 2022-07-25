@@ -8,22 +8,32 @@ import "qrc:/scripts/Constants.js" as Constants
 
 Frame {
     id: rootFrame
-    property real radius: 10000
     property var location: []
     property var turbulentLocation: []
     property var kde: []
+    property bool locationView: true
 
-    property var locationGroup: []
-    property var turbulentGroup: []
-    property var kdeGroup: []
+    property string mode: "LOC"
+
+    ListModel{id: locationGroup}
+    ListModel{id: turbulentGroup}
+    ListModel{id: kdeGroup}
 
     background: Rectangle {
         color: "transparent"
         border.color: Constants.BACKGROUND_COLOR2
         radius: 10
     }
-
+    signal done()
     signal addressClicked(int address)
+
+    function showLocation() {
+        locationGroup.clear()
+        mapWorker.sendMessage({"type": "location", "target": locationGroup, "listPoint": location})
+    }
+    function prepareTurbulentLocation(){  mapWorker.sendMessage({"type": "turbulent", "target": turbulentGroup, "listPoint": turbulentLocation})}
+    function prepareKDE(){ mapWorker.sendMessage({"type": "kde", "target": kdeGroup, "listPoint": kde})
+}
 
     MMenuBar {
         id: menubar
@@ -41,7 +51,7 @@ Frame {
                 fullName: "Location"
             }
             ListElement {
-                name: "TUR"
+                name: "TRB"
                 fullName: "Turbulent Location"
             }
             ListElement {
@@ -50,15 +60,18 @@ Frame {
             }
         }
 
-        onClicked: (element) => {updateView(element)}
+        onClicked: (element) => {rootFrame.updateView(element)}
     }
 
     Map {
         id: map
+        property var lastPolylineClicked
+        property var actualAddress
         anchors.fill: parent
         activeMapType: map.supportedMapTypes[0]
         center: QtPositioning.coordinate(51, 10)
         zoomLevel: 6
+
         plugin: Plugin {
             name: 'osm'
             PluginParameter {
@@ -70,16 +83,9 @@ Frame {
                 value: "http://maps-redirect.qt.io/osm/5.6/"
             }
         }
-    }
 
-    MapItemGroup {
-        id: group
-        property var lastPolylineClicked
-        property var actualAddress
 
-        signal addressClicked(var polyLine, int address)
-
-        onAddressClicked: (polyline, address) => {
+        function addressClicked(polyline, address) {
             showPolyline(polyline)
             rootFrame.addressClicked(address)
         }
@@ -87,90 +93,88 @@ Frame {
         function showPolyline(polyline) {
             if (lastPolylineClicked) {lastPolylineClicked.reset()}
             polyline.show()
-            group.lastPolylineClicked = polyline
+            map.lastPolylineClicked = polyline
+        }
+
+    }
+
+    Instantiator {
+        id: instantiator
+        asynchronous: true
+        active: true
+        model: rootFrame.mode === "TRB" ? turbulentGroup : locationGroup 
+        delegate: MMapPolyline {
+            id: locationDelegate
+            address: location_address
+            identification: location_identification
+            lineColor: rootFrame.mode === "TRB" ? "red" : Qt.rgba(r, g, b, 1)
+            path: {
+                let allPoints = []
+                for (let i = 0; i < segment.count; i++) {
+                    allPoints.push(segment.get(i))
+                }
+                return allPoints
+            }
+        }
+
+        onObjectAdded: {
+            map.addMapItem(object)
+        }
+    }
+
+    Instantiator {
+        id: instantiatorTurbulent
+        asynchronous: true
+        active: false
+        model: turbulentGroup
+        delegate: MMapPolyline {
+            id: turbulentDelegate
+            address: location_address
+            identification: location_identification
+            lineColor: "red"
+            path: {
+                let allPoints = []
+                for (let i = 0; i < segment.count; i++) {
+                    allPoints.push(segment.get(i))
+                }
+                return allPoints
+            }
+        }
+
+        onObjectAdded: {
+            map.addMapItem(object)
+        }
+    }
+
+    WorkerScript {
+        id: mapWorker
+        source: "qrc:/scripts/map.js"
+
+        onMessage: {
+            console.log("Gui Thread: Done ", messageObject.toLoad)
         }
     }
 
     function showAddress(address) {
-        group.actualAddress = address
+        map.actualAddress = address
     }
 
     function updateView(name) {
-        switch(name) {
+        switch (name) {
             case "LOC":
+            rootFrame.mode = "LOC"
+            instantiator.active = true
                 break;
             case "TRB":
+            rootFrame.mode = "TRB"
+            instantiator.active = true
                 break;
             case "KDE":
+            rootFrame.mode = "KDE"
+            locationView = false
+            // instantiator.model = locationGroup
                 break;
         }
-    }   
-    
-    function addPolyline(segment, r, g, b, target) {
-        let allPoints = []
-        for (let k = 0; k < segment.length; k++) {
-            allPoints.push(QtPositioning.coordinate(segment[k].latitude, segment[k].longitude))
-        }
-        var component = Qt.createComponent("MMapPolyline.qml")
-        var polyLine = component.createObject(group, {
-            address         : segment[0].address,
-            identification  :segment[0].identification,
-            lineColor       : Qt.rgba(r, g, b, 1),
-            path            : allPoints
-        })
-        if (target === "location") {
-            locationGroup.push(polyLine)
-        } else {
-            turbulentGroup.push(polyLine)
-        }    
     }
 
-    function showLocation() {
-        console.info("Displaying line series for location")
-        map.clearMapItems()
-        group.children = []
-        locationGroup = []
-        let usedColors = []
-
-        for (let i = 0; i < rootFrame.location.length; i++) {
-            let r, b, g, colorStr
-            do {
-                r = Math.random()
-                g = Math.random()
-                b = Math.random()
-                colorStr = `r${r}g${g}b${b}`
-            } while (usedColors.includes(colorStr))
-
-            usedColors.push(colorStr)
-
-            var segment = []
-
-            let address = rootFrame.location[i].address
-            let identification = rootFrame.location[i].identification
-            let lat0 = rootFrame.location[i].points[0].latitude
-            let long0 = rootFrame.location[i].points[0].longitude
-            segment.push({"longitude": long0, "latitude": lat0, "address": address, "identification":identification})
-
-            for (let j = 1; j < rootFrame.location[i].points.length; j++) {
-                let latitude = rootFrame.location[i].points[j].latitude
-                let longitude = rootFrame.location[i].points[j].longitude
-
-                var point = QtPositioning.coordinate(latitude, longitude)
-                let lastSegmentIndex = segment.length - 1
-                let lastSegmetPoint = QtPositioning.coordinate(segment[lastSegmentIndex].latitude, segment[lastSegmentIndex].longitude)
-                if (lastSegmetPoint.distanceTo(point) < rootFrame.radius) {
-                    segment.push({"longitude": point.longitude, "latitude": point.latitude, "address": address, "identification":identification})
-                    if (j == rootFrame.location[i].points.length - 1) {
-                        rootFrame.addPolyline(segment, r, g, b, "location")
-                    }
-                } else {
-                    rootFrame.addPolyline(segment, r, g, b, "location")
-                    segment = []
-                    segment.push({"longitude": point.longitude, "latitude": point.latitude, "address": address, "identification":identification})
-                }
-            }
-        }
-
-        map.addMapItemGroup(group)
-    }
 }

@@ -22,6 +22,7 @@
     <file>qml/MSuggestions.qml</file>
     <file>scripts/Constants.js</file>
     <file>scripts/main.js</file>
+    <file>scripts/map.js</file>
     <file>scripts/world.geojson</file>
     <file>scripts/guiWorker.mjs</file>
     <file>img/database.png</file>

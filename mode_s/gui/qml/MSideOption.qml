@@ -41,14 +41,13 @@ ColumnLayout {
 
         for(let i = 0; i < allOptions.count; i++) {
             let option = allOptions.itemAt(i)
-            let value = option.value
             if(option.textField.text) {
                 option.value = option.textField.text
             }
-            if (value.indexOf('-') == -1) {
+            if (option.value.indexOf('-') == -1) {
                 allData[option.identification] = option.value
             } else {
-                let min_max = value.split('-')
+                let min_max = option.value.split('-')
                 let min = min_max[0]
                 let max = min_max[1]
                 allData[option.identification + "_min"] = min
@@ -62,6 +61,17 @@ ColumnLayout {
     }
 
     signal edited()
+
+    Component.onDestruction: {
+        console.info(`Saving Configurations for ${title}...`)
+        for(let i = 0; i < allOptions.count; i++) {
+            let option = allOptions.itemAt(i)
+            let value = option.value
+            let key = option.identification
+            
+            appSettings.setValue(key, value)
+        }
+    }
 
     Rectangle {
         id: rowClickable
@@ -138,8 +148,8 @@ ColumnLayout {
             color: Constants.GLASSY_BACKGROUND
             clip: true
             property string name: option_name
-            property string value: option_value
             property string identification: option_id
+            property string value: appSettings.value(identification, option_value)
             property alias textField: delegateTextField
             Layout.leftMargin: rootSideOption.leftMarginContent
 
@@ -165,7 +175,7 @@ ColumnLayout {
 
                     verticalCenterOffset: 20
                 }
-                placeholderText: option_value
+                placeholderText: rectDelegate.value
                 font: Constants.FONT_SMALL
                 color: Constants.FONT_COLOR
                 readOnly: false

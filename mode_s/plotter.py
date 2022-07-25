@@ -271,8 +271,8 @@ class Plotter:
                 
                 numShownAddresses += 1
 
-                allTurbulentLongitude.append(longitude)
-                allTurbulentLatitude.append(latitude)
+                allTurbulentLongitude += longitude
+                allTurbulentLatitude += latitude
 
                 points = ax1.plot(longitude, latitude, color="red", marker=".", ms=1, linestyle="none", label=label)                
 

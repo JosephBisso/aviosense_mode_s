@@ -179,7 +179,7 @@ Drawer {
                 img_src: "qrc:/img/database.png"
                 title: "Database"
                 Layout.fillWidth: true
-                options: MSideOptionList{}
+                options: MSideOptionList{id: dbOptions}
 
                 onEdited: {
                     if (rootSideBar.edited){return}
@@ -201,6 +201,7 @@ Drawer {
                 Layout.fillWidth: true
 
                 options: ListModel {
+                    id: engineOptions
                     ListElement {
                         option_name: "Filter"
                         option_value: "7"

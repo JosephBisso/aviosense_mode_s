@@ -6,7 +6,7 @@ MapPolyline {
     property var address: "None"
     property var identification: "None"
     property color lineColor: "red"
-    property real defaultOpacity: 0.3
+    property real defaultOpacity: 0.5
     property real defaultLineWidth: 5
     property bool selected: false
     line.width: defaultLineWidth

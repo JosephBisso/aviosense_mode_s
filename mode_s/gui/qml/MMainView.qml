@@ -155,6 +155,16 @@ Frame {
                     mapView.location = pointList
                     mapView.showLocation()
                 }
+
+                function onPlotTurbulentReady(pointList) {
+                    mapView.turbulentLocation = pointList
+                    mapView.prepareTurbulentLocation()
+                }
+
+                function onPlotHeatMapReady(pointList) {
+                    mapView.kde = pointList
+                    mapView.prepareKDE()
+                }
             }
 
             onAddressClicked: (address) => {

@@ -101,14 +101,15 @@ class Mode_S(QObject):
     computingFinished   = Signal()
 
     readyToPlot         = Signal()
-    identificationMapped = Signal("QVariantMap", arguments=["identMap"])
-    plotOccurrenceReady = Signal(list, arguments=["pointList"])
-    plotRawReady        = Signal(list, arguments=["pointList"])
-    plotStdReady        = Signal(list, arguments=["pointList"])
-    plotFilteredReady   = Signal(list, arguments=["pointList"])
-    plotIntervalReady   = Signal(list, arguments=["pointList"])
-    plotLocationReady   = Signal(list, arguments=["pointList"])
-    plotHeatMapReady    = Signal(list, arguments=["pointList"])
+    identificationMapped= Signal("QVariantMap", arguments=["identMap"])
+    plotOccurrenceReady = Signal("QVariantList", arguments=["pointList"])
+    plotRawReady        = Signal("QVariantList", arguments=["pointList"])
+    plotStdReady        = Signal("QVariantList", arguments=["pointList"])
+    plotFilteredReady   = Signal("QVariantList", arguments=["pointList"])
+    plotIntervalReady   = Signal("QVariantList", arguments=["pointList"])
+    plotLocationReady   = Signal("QVariantList", arguments=["pointList"])
+    plotTurbulentReady  = Signal("QVariantList", arguments=["pointList"])
+    plotHeatMapReady    = Signal("QVariantList", arguments=["pointList"])
     
     backgroundFutures: List[concurrent.futures.Future] = []
 
@@ -212,6 +213,7 @@ class Mode_S(QObject):
             filteredSeries = next(results)
             stdSeries = next(results)
             locationSeries = next(results)
+            turbulentLocationSeries = next(results)
             heatMapSeries = next(results)
 
             self.logger.success("Done computing")
@@ -225,6 +227,7 @@ class Mode_S(QObject):
             self.plotFilteredReady.emit(filteredSeries)
             self.plotStdReady.emit(stdSeries)
             self.plotLocationReady.emit(locationSeries)
+            self.plotTurbulentReady.emit(turbulentLocationSeries)
             self.plotHeatMapReady.emit(heatMapSeries)
 
         except ModeSEngine.EngineError as err:
@@ -248,10 +251,13 @@ if __name__ == "__main__":
     
     sys.argv += ['--style', 'Fusion']
     app = QApplication(sys.argv)
+    app.setOrganizationName("TU Braunschweig")
+    app.setOrganizationDomain("tu-braunschweig.de")
+    app.setApplicationName("Mode_S")
 
     if args.debug:
         debugger = QQmlDebuggingEnabler()
-        # debugger.startTcpDebugServer(6969, mode=QQmlDebuggingEnabler.StartMode.WaitForClient)
+        debugger.startTcpDebugServer(6969, mode=QQmlDebuggingEnabler.StartMode.WaitForClient)
     
     logger = Logger(args.terminal, args.verbose, args.debug)
     logger.info("Framework for automatic Mode-S data transfer & turbulence prediction")
