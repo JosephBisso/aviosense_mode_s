@@ -91,6 +91,15 @@ Frame {
         }    
     }
 
+    MFlightInfo {
+        id: flightInfo
+        z:1
+        visible: {
+            if (rootSwipe.currentIndex !== 0) {return false}
+            else {return flightInfo.opened}
+        } //Only forWord View
+    }
+
     MVerticalMenuBar {
         id: verticalMenuBar
         z: 1

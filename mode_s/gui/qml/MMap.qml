@@ -11,9 +11,9 @@ Frame {
     property var location: []
     property var turbulentLocation: []
     property var kde: []
-    property bool locationView: true
 
-    property string mode: "LOC"
+    property string mode: Constants.LOCATION
+    property bool locationView: rootFrame.mode !== Constants.KDE
 
     ListModel{id: locationGroup}
     ListModel{id: turbulentGroup}
@@ -24,6 +24,7 @@ Frame {
         border.color: Constants.BACKGROUND_COLOR2
         radius: 10
     }
+
     signal done()
     signal addressClicked(int address)
 
@@ -86,9 +87,40 @@ Frame {
             }
         }
 
+        onActualAddressChanged: markPolyline(actualAddress)
+
+        function markPolyline(targetAddress) {
+            let targetInstantiator = rootFrame.mode === Constants.TURBULENCE ? instantiatorTurbulent : instantiator 
+            let turbulence = false;
+
+            for (let i = 0; i < targetInstantiator.count; i++) {
+                if (targetInstantiator.objectAt(i) && targetInstantiator.objectAt(i).address != targetAddress) {continue}
+                showPolyline(targetInstantiator.objectAt(i))
+                if (rootFrame.mode === Constants.TURBULENCE) {turbulence = true}
+                else {
+                    for (let j = 0; j < turbulentGroup.count; j++) {
+                        if (turbulentGroup.get(j).location_address != targetAddress) {continue}
+                        turbulence = true
+                        break
+                    }
+                }
+                showFlightInfo(targetInstantiator.objectAt(i), turbulence)
+                break
+            }
+        }
 
         function addressClicked(polyline, address) {
             showPolyline(polyline)
+            let turbulence = false
+            if (rootFrame.mode === Constants.TURBULENCE) {turbulence = true}
+            else {
+                for (let j = 0; j < turbulentGroup.count; j++) {
+                    if (turbulentGroup.get(j).location_address != polyline.address) {continue}
+                    turbulence = true
+                    break
+                }
+            }
+            showFlightInfo(polyline, turbulence)
             rootFrame.addressClicked(address)
         }
 
@@ -98,18 +130,27 @@ Frame {
             map.lastPolylineClicked = polyline
         }
 
+        function showFlightInfo(polyline, turbulent) {
+            flightInfo.identification = polyline.identification
+            flightInfo.address = polyline.address
+            flightInfo.flightColor = polyline.lineColor
+            flightInfo.datapoints = polyline.path.length
+            flightInfo.turbulentFlight = turbulent
+            flightInfo.open()
+        }
+
     }
 
     Instantiator {
         id: instantiator
         asynchronous: true
-        active: true
-        model: rootFrame.mode === "TRB" ? turbulentGroup : locationGroup 
+        active: rootFrame.locationView && rootFrame.mode === Constants.LOCATION
+        model: locationGroup 
         delegate: MMapPolyline {
             id: locationDelegate
             address: location_address
             identification: location_identification
-            lineColor: rootFrame.mode === "TRB" ? "red" : Qt.rgba(r, g, b, 1)
+            lineColor: Qt.rgba(r, g, b, 1)
             path: {
                 let allPoints = []
                 for (let i = 0; i < segment.count; i++) {
@@ -127,7 +168,7 @@ Frame {
     Instantiator {
         id: instantiatorTurbulent
         asynchronous: true
-        active: false
+        active: rootFrame.locationView && rootFrame.mode === Constants.TURBULENCE
         model: turbulentGroup
         delegate: MMapPolyline {
             id: turbulentDelegate
@@ -162,22 +203,20 @@ Frame {
     }
 
     function updateView(name) {
+        if (rootFrame.mode === name) {return}
         switch (name) {
-            case "LOC":
-            map.clearMapItems()
-            rootFrame.mode = "LOC"
-            instantiator.active = true
+            case Constants.LOCATION:
+                map.clearMapItems()
+                rootFrame.mode = Constants.LOCATION
                 break;
-            case "TRB":
-            map.clearMapItems()
-            rootFrame.mode = "TRB"
-            instantiator.active = true
+            case Constants.TURBULENCE:
+                map.clearMapItems()
+                rootFrame.mode = Constants.TURBULENCE
                 break;
-            case "KDE":
-            map.clearMapItems()
-            rootFrame.mode = "KDE"
-            locationView = false
-            // instantiator.model = locationGroup
+            case Constants.KDE:
+                map.clearMapItems()
+                rootFrame.mode = Constants.KDE
+                // instantiator.model = locationGroup
                 break;
         }
     }

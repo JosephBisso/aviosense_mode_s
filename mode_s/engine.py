@@ -525,6 +525,9 @@ class Engine:
         arrayIvvStds = np.array(ivvStds)
         diffStds = arrayBarStds - arrayIvvStds
         
+        ## TODO
+        ## False formula. 1- compute average of standard deviation difference!
+        
         ddof = 1 if len(diffStds) > 1 else 0
         threshold = np.average(diffStds) + 1.2 * np.std(diffStds, ddof=ddof)
         slidingIntervalsForStd["threshold"] = threshold

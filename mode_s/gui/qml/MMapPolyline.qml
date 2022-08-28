@@ -26,15 +26,6 @@ MapPolyline {
         }
     }
 
-    Connections {
-        target: parent
-        function onActualAddressChanged () {
-            if (polyLine.address == parent.actualAddress) {
-                parent.showPolyline(polyLine)
-            }
-        }
-    }
-
     function reset() {
         selected = false
         polyLine.opacity = defaultOpacity

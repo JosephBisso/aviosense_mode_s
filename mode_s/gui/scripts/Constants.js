@@ -7,6 +7,9 @@ const FOREGROUND_COLOR  = "#457B9D"
 const GLASSY_BACKGROUND = Qt.rgba(255, 252, 252, 0.3)
 const GLASSY_BLACK_BACKGROUND = Qt.rgba(FONT_COLOR.r, FONT_COLOR.g, FONT_COLOR.b, 0.5)
 const BORDER_WIDTH = 4
+const LOCATION = "LOC"
+const TURBULENCE = "TRB"
+const KDE = "KDE"
 
 const FONT_VERY_BIG = Qt.font(
     {
@@ -23,6 +26,12 @@ const FONT_BIG = Qt.font(
 const FONT_MEDIUM = Qt.font(
     {
         bold: true,
+        pointSize: 16
+    }
+)
+const FONT_MEDIUM_NOT_BOLD = Qt.font(
+    {
+        bold: false,
         pointSize: 16
     }
 )

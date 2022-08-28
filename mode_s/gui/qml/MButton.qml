@@ -108,6 +108,7 @@ Rectangle {
         delay: 750
         parent: root
         text: mToolTipText
+        z:1
 
         contentItem: Text {
             text: tooTip.text
