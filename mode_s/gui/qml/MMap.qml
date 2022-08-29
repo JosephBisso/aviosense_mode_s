@@ -91,15 +91,15 @@ Frame {
 
         function markPolyline(targetAddress) {
             let targetInstantiator = rootFrame.mode === Constants.TURBULENCE ? instantiatorTurbulent : instantiator 
-            let turbulence = false;
+            let turbulence = false
 
             for (let i = 0; i < targetInstantiator.count; i++) {
-                if (targetInstantiator.objectAt(i) && targetInstantiator.objectAt(i).address != targetAddress) {continue}
+                if (targetInstantiator.objectAt(i) && targetInstantiator.objectAt(i).address != targetAddress) {continue;}
                 showPolyline(targetInstantiator.objectAt(i))
                 if (rootFrame.mode === Constants.TURBULENCE) {turbulence = true}
                 else {
                     for (let j = 0; j < turbulentGroup.count; j++) {
-                        if (turbulentGroup.get(j).location_address != targetAddress) {continue}
+                        if (turbulentGroup.get(j).location_address != targetAddress) {continue;}
                         turbulence = true
                         break
                     }
@@ -115,13 +115,24 @@ Frame {
             if (rootFrame.mode === Constants.TURBULENCE) {turbulence = true}
             else {
                 for (let j = 0; j < turbulentGroup.count; j++) {
-                    if (turbulentGroup.get(j).location_address != polyline.address) {continue}
+                    if (turbulentGroup.get(j).location_address != polyline.address) {continue;}
                     turbulence = true
                     break
                 }
             }
             showFlightInfo(polyline, turbulence)
             rootFrame.addressClicked(address)
+        }
+
+        function zoneKDEClicked(kdeZone) {
+            mapElementInfo.identification = `${kdeZone.centerLatitude.toFixed(2)}N, ${kdeZone.centerLongitude.toFixed(2)}E`
+            mapElementInfo.address = `Bandwidth: ${kdeZone.bw}`
+            mapElementInfo.flightColor = kdeZone.color
+            mapElementInfo.displayText = `KDE (tat.)\t: ${kdeZone.kde_e.toFixed(2)}\nKDE (%max)\t`
+            mapElementInfo.datapoints = kdeZone.kde_normed.toFixed(2) * 100
+            mapElementInfo.turbulentFlight = true
+            mapElementInfo.showButton = false
+            mapElementInfo.open()
         }
 
         function showPolyline(polyline) {
@@ -131,12 +142,12 @@ Frame {
         }
 
         function showFlightInfo(polyline, turbulent) {
-            flightInfo.identification = polyline.identification
-            flightInfo.address = polyline.address
-            flightInfo.flightColor = polyline.lineColor
-            flightInfo.datapoints = polyline.path.length
-            flightInfo.turbulentFlight = turbulent
-            flightInfo.open()
+            mapElementInfo.identification = polyline.identification
+            mapElementInfo.address = polyline.address
+            mapElementInfo.flightColor = polyline.lineColor
+            mapElementInfo.datapoints = polyline.path.length
+            mapElementInfo.turbulentFlight = turbulent
+            mapElementInfo.open()
         }
 
     }
@@ -161,7 +172,9 @@ Frame {
         }
 
         onObjectAdded: {
-            map.addMapItem(object)
+            if (active) {
+                map.addMapItem(object)
+            }
         }
     }
 
@@ -185,7 +198,30 @@ Frame {
         }
 
         onObjectAdded: {
-            map.addMapItem(object)
+            if (active) {
+                map.addMapItem(object)
+            }
+        }
+    }
+
+    Instantiator {
+        id: instantiatorKDE
+        asynchronous: true
+        active: !rootFrame.locationView && rootFrame.mode === Constants.KDE
+        model: kdeGroup
+        delegate: MMapRectangle {
+            id: kdeDelegate
+            kde_e: kde
+            kde_normed: normedKDE
+            centerLatitude: latitude
+            centerLongitude: longitude
+            bw: bandwidth
+        }
+
+        onObjectAdded: {
+            if (active) {
+                map.addMapItem(object)
+            }
         }
     }
 
@@ -216,7 +252,6 @@ Frame {
             case Constants.KDE:
                 map.clearMapItems()
                 rootFrame.mode = Constants.KDE
-                // instantiator.model = locationGroup
                 break;
         }
     }

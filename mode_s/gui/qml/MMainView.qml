@@ -91,12 +91,12 @@ Frame {
         }    
     }
 
-    MFlightInfo {
-        id: flightInfo
+    MMapElementInfo {
+        id: mapElementInfo
         z:1
         visible: {
             if (rootSwipe.currentIndex !== 0) {return false}
-            else {return flightInfo.opened}
+            else {return mapElementInfo.opened}
         } //Only forWord View
     }
 

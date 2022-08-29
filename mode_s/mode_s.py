@@ -211,28 +211,34 @@ class Mode_S(QObject):
             results = self.engine.compute(usePlotter=False)
 
             occurrenceSeries = next(results)
-            computedAddresses = next(results)
-            rawSeries = next(results)
-            intervalSeries = next(results)
-            filteredSeries = next(results)
-            stdSeries = next(results)
-            locationSeries = next(results)
-            turbulentLocationSeries = next(results)
-            heatMapSeries = next(results)
 
-            self.logger.success("Done computing")
-            
+            computedAddresses = next(results)
             identMap = self.db.getMapping(computedAddresses)
-            
             self.identificationMapped.emit(identMap)
             self.plotOccurrenceReady.emit(occurrenceSeries)
+
+            rawSeries = next(results)
             self.plotRawReady.emit(rawSeries)
+
+            intervalSeries = next(results)
             self.plotIntervalReady.emit(intervalSeries)
+
+            filteredSeries = next(results)
             self.plotFilteredReady.emit(filteredSeries)
+
+            stdSeries = next(results)
             self.plotStdReady.emit(stdSeries)
+
+            locationSeries = next(results)
             self.plotLocationReady.emit(locationSeries)
+
+            turbulentLocationSeries = next(results)
             self.plotTurbulentReady.emit(turbulentLocationSeries)
+
+            heatMapSeries = next(results)
             self.plotHeatMapReady.emit(heatMapSeries)
+
+            self.logger.success("Done computing")
 
         except ModeSEngine.EngineError as err:
             self.logger.warning("Error Occurred: Mode_s plotting::", str(err))

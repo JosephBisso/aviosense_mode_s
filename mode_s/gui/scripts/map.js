@@ -38,7 +38,7 @@ function showLocation(target, listPoint) {
         let address = listPoint[i].address
         let identification = listPoint[i].identification
         for (let segment of listPoint[i].segments) {
-            var polyLine = {
+            let polyLine = {
                 "location_address": address,
                 "location_identification": identification,
                 "r": r,
@@ -61,7 +61,7 @@ function prepareTurbulentLocation(target, listPoint) {
         let address = listPoint[i].address
         let identification = listPoint[i].identification
         for (let segment of listPoint[i].segments) {
-            var polyLine = {
+            let polyLine = {
                 "location_address": address,
                 "location_identification": identification,
                 "turbulent":true,
@@ -75,40 +75,16 @@ function prepareTurbulentLocation(target, listPoint) {
 
 function prepareKDE(target, listPoint) {
     console.info("Displaying line series for KDE")
-    // map.clearMapItems()
-    // group.children = []
-    // turbulentGroup = []
-    // let usedColors = []
+    target.clear()
+    for (let i = 0; i < listPoint.length; i++) {
+        let kdePoint = {
+            "latitude": listPoint[i].latitude,
+            "longitude": listPoint[i].longitude,
+            "normedKDE": listPoint[i].normedKDE,
+            "kde": listPoint[i].kde,
+            "bandwidth": listPoint[i].bandwidth
+        }
 
-    // for (let i = 0; i < listPoint.length; i++) {
-
-    //     var segment = []
-
-    //     let address = listPoint[i].address
-    //     let identification = listPoint[i].identification
-    //     let lat0 = listPoint[i].points[0].latitude
-    //     let long0 = listPoint[i].points[0].longitude
-    //     segment.push({ "longitude": long0, "latitude": lat0, "address": address, "identification": identification })
-
-    //     for (let j = 1; j < listPoint[i].points.length; j++) {
-    //         let latitude = listPoint[i].points[j].latitude
-    //         let longitude = listPoint[i].points[j].longitude
-
-    //         var point = QtPositioning.coordinate(latitude, longitude)
-    //         let lastSegmentIndex = segment.length - 1
-    //         let lastSegmetPoint = QtPositioning.coordinate(segment[lastSegmentIndex].latitude, segment[lastSegmentIndex].longitude)
-    //         if (lastSegmetPoint.distanceTo(point) < rootFrame.radius) {
-    //             segment.push({ "longitude": point.longitude, "latitude": point.latitude, "address": address, "identification": identification })
-    //             if (j == listPoint[i].points.length - 1) {
-    //                 addPolyline(segment, r, g, b, "location")
-    //             }
-    //         } else {
-    //             addPolyline(segment, r, g, b, "location")
-    //             segment = []
-    //             segment.push({ "longitude": point.longitude, "latitude": point.latitude, "address": address, "identification": identification })
-    //         }
-    //     }
-    // }
-
-    // map.addMapItemGroup(group)
+        target.append(kdePoint)
+    }
 }

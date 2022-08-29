@@ -1,4 +1,5 @@
 from typing import List, Dict, NamedTuple, Union
+import statistics
 
 from sklearn.neighbors import KernelDensity
 import numpy as np
@@ -9,7 +10,7 @@ from constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
 
 class Analysis:
     KDE_BAND_WIDTH: int = 0.5
-    POINT_RADIUS = 10000
+    POINT_RADIUS = 20000
 
     def setKDEBandwidth(bandwidth:int = 0.5):
         Analysis.KDE_BAND_WIDTH = bandwidth
@@ -175,24 +176,48 @@ class Analysis:
         turbulentMapPoints = np.vstack([allTurbulentLongitude, allTurbulentLatitude]).T
         
         kde = KernelDensity(kernel="gaussian", bandwidth=Analysis.KDE_BAND_WIDTH).fit(mapPoints)
-        logDensity = np.exp(kde.score_samples(turbulentMapPoints))
+        density = np.exp(kde.score_samples(turbulentMapPoints))
+        normedDensity = density / max(density)
+        
 
-        for index in range(len(heatMap)):
-            addressSeries: Dict[str, Union[int, List[Dict[float, float]]]] = {
-                "address": heatMap[index]["address"],
-                "identification": heatMap[index].get("identification"),
-                "points": []
-            }
-            
-            for point in heatMap[index]["points"]:
-                addressSeries["points"].append({
-                    "latitude": point.latitude,
-                    "longitude": point.longitude,
-                    "kde":logDensity[index]
+        latitude = allLatitudes[0]
+        longitude = allLongitudes[0]
+        actualSegment: Dict[str, List[Union[QtPositioning.QGeoCoordinate, float]]] = {
+            "coordinates": [QtPositioning.QGeoCoordinate(latitude, longitude)],
+            "normedKDEs": [float(normedDensity[0])],
+            "KDEs": [float(density[0])]
+        }
+        
+        for pointIndex, point in enumerate(zip(allTurbulentLatitude, allTurbulentLongitude, normedDensity, density)):
+            latitude = point[0]
+            longitude = point[1]
+            normedKDE = float(point[2])
+            pointKDE = float(point[3])
+            actualPoint = QtPositioning.QGeoCoordinate(latitude, longitude)
+            if actualSegment["coordinates"][-1].distanceTo(actualPoint) <= Analysis.POINT_RADIUS:
+                actualSegment["coordinates"].append(actualPoint)
+                actualSegment["normedKDEs"].append(normedKDE)
+                actualSegment["KDEs"].append(pointKDE)
+            else:
+                lineSeries.append({
+                    "latitude": statistics.mean([coord.latitude() for coord in actualSegment["coordinates"]]),
+                    "longitude": statistics.mean([coord.longitude() for coord in actualSegment["coordinates"]]),
+                    "normedKDE": max(actualSegment["normedKDEs"]),
+                    "kde": max(actualSegment["KDEs"]),
+                    "bandwidth": Analysis.KDE_BAND_WIDTH
                 })
-
-            addressSeries["points"].sort(key=lambda el: el["latitude"]**2 + el["longitude"]**2)
-            lineSeries.append(addressSeries)
+                
+                actualSegment["coordinates"] = [actualPoint]
+                actualSegment["normedKDEs"] = [normedKDE]
+                actualSegment["KDEs"] = [pointKDE]
+            if pointIndex == len(allTurbulentLatitude) - 1:
+                lineSeries.append({
+                    "latitude": statistics.mean([coord.latitude() for coord in actualSegment["coordinates"]]),
+                    "longitude": statistics.mean([coord.longitude() for coord in actualSegment["coordinates"]]),
+                    "normedKDE": max(actualSegment["normedKDEs"]),
+                    "kde": max(actualSegment["KDEs"]),
+                    "bandwidth": Analysis.KDE_BAND_WIDTH
+                })
 
         return lineSeries
     
@@ -211,12 +236,12 @@ class Analysis:
         actualSegment: List[QtPositioning.QGeoCoordinate] = [QtPositioning.QGeoCoordinate(latitude, longitude)]
 
         for pointIndex, point in enumerate(addressLocation["points"]):
-            point = QtPositioning.QGeoCoordinate(point.latitude, point.longitude)
-            if actualSegment[-1].distanceTo(point) <= Analysis.POINT_RADIUS:
-                actualSegment.append(point)
+            actualPoint = QtPositioning.QGeoCoordinate(point.latitude, point.longitude)
+            if actualSegment[-1].distanceTo(actualPoint) <= Analysis.POINT_RADIUS:
+                actualSegment.append(actualPoint)
             else:
                 addressSeries["segments"].append(actualSegment)
-                actualSegment = [point]
+                actualSegment = [actualPoint]
             if pointIndex == len(addressLocation["points"]) - 1:
                 addressSeries["segments"].append(actualSegment)
                 

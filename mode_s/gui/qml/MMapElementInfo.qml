@@ -12,7 +12,9 @@ Popup {
     property string address: "address"
     property color flightColor: "blue"
     property int datapoints: -69
+    property string displayText: "Data points"
     property bool turbulentFlight: false
+    property bool showButton: true
 
     property var control: parent
     property var mHeight: (4/15) * parent.height
@@ -100,7 +102,7 @@ Popup {
             Layout.bottomMargin: -10
         }
         Label {
-            text: `${rootPopup.datapoints} Data points`
+            text: `${rootPopup.displayText}: ${rootPopup.datapoints}`
             font: Constants.FONT_VERY_SMALL
             color: Constants.FONT_COLOR
             Layout.alignment: Qt.AlignLeft
@@ -110,6 +112,7 @@ Popup {
             id: buttonDelegate
             z:1
 
+            visible: rootPopup.showButton
             Layout.alignment: Qt.AlignHCenter | Qt.AlignBottom
             Layout.bottomMargin: 10
 

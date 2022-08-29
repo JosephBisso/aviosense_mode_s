@@ -18,9 +18,10 @@
     <file>qml/MMap.qml</file>
     <file>qml/MPlots.qml</file>
     <file>qml/MMapPolyline.qml</file>
+    <file>qml/MMapRectangle.qml</file>
     <file>qml/MSearchBar.qml</file>
     <file>qml/MSuggestions.qml</file>
-    <file>qml/MFlightInfo.qml</file>
+    <file>qml/MMapElementInfo.qml</file>
     <file>scripts/Constants.js</file>
     <file>scripts/main.js</file>
     <file>scripts/map.js</file>
