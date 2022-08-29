@@ -29,13 +29,13 @@ Frame {
     signal addressClicked(int address)
 
     function showLocation() {
-        mapWorker.sendMessage({"type": "location", "target": locationGroup, "listPoint": location})
+        locationWorker.sendMessage({"type": "location", "target": locationGroup, "listPoint": location})
     }
     function prepareTurbulentLocation(){  
-        mapWorker.sendMessage({"type": "turbulent", "target": turbulentGroup, "listPoint": turbulentLocation})
+        turbulenceWorker.sendMessage({"type": "turbulent", "target": turbulentGroup, "listPoint": turbulentLocation})
     }
     function prepareKDE(){ 
-        mapWorker.sendMessage({"type": "kde", "target": kdeGroup, "listPoint": kde})
+        turbulenceWorker.sendMessage({"type": "kde", "target": kdeGroup, "listPoint": kde})
     }
 
     MMenuBar {
@@ -228,11 +228,20 @@ Frame {
     }
 
     WorkerScript {
-        id: mapWorker
+        id: locationWorker
         source: "qrc:/scripts/map.js"
 
         onMessage: {
-            console.log("Gui Thread: Done ", messageObject.toLoad)
+            console.log("Location Worker: Done ", messageObject.toLoad)
+        }
+    }
+
+    WorkerScript {
+        id: turbulenceWorker
+        source: "qrc:/scripts/map.js"
+
+        onMessage: {
+            console.log("Turbulence Worker: Done ", messageObject.toLoad)
         }
     }
 

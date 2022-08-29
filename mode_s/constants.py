@@ -1,4 +1,5 @@
 from typing import NamedTuple
+import os
 
 class ENGINE_CONSTANTS:
     PLOTS = ["occurrence", "bar_ivv", "filtered", "interval", "std", "location", "heat_map"]
@@ -25,6 +26,11 @@ class DB_CONSTANTS:
     MAX_NUMBER_THREADS = 16
     MIN_NUMBER_THREADS = 4
     
+    
+class MODE_S_CONSTANTS:
+    APP_DATA_PATH: str = os.path.join(os.path.expanduser("~"), ".mode_s")
+    if not os.path.exists(APP_DATA_PATH):
+        os.mkdir(APP_DATA_PATH)
 
 class GUI_CONSTANTS:
     DE_MIN_LATITUDE = 46

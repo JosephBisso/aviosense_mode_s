@@ -17,11 +17,12 @@ Popup {
     property bool showButton: true
 
     property var control: parent
-    property var mHeight: (4/15) * parent.height
+    property var mHeight: {Math.max((4/15) * parent.height, 275)}
 
     x: 150
     y: 20
     width: mHeight
+
     clip: true
     closePolicy: Popup.CloseOnPressOutside
 

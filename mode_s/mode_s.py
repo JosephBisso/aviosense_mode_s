@@ -1,11 +1,12 @@
 # This Python file uses the following encoding: utf-8
 import os
+import gc
 import sys
 import argparse
 import json
 import concurrent.futures
 from collections import namedtuple
-from typing import Dict, NamedTuple, List
+from typing import Any, Dict, NamedTuple, List
 
 
 from PySide2.QtQml import QQmlApplicationEngine, QQmlDebuggingEnabler
@@ -239,10 +240,36 @@ class Mode_S(QObject):
             self.plotHeatMapReady.emit(heatMapSeries)
 
             self.logger.success("Done computing")
+            
+            next(results, None)
 
         except ModeSEngine.EngineError as err:
             self.logger.warning("Error Occurred: Mode_s plotting::", str(err))
-        
+        finally:
+            self.executor.submit(self.__dumpData, self.db.data, "database")
+            self.db.data = self.engine.data = []
+            
+            toDump = [occurrenceSeries, computedAddresses, rawSeries, intervalSeries,
+                      filteredSeries, stdSeries, locationSeries, turbulentLocationSeries, heatMapSeries]
+            toDumpName = ["occurrence", "addresses", "bar_ivv", "interval",
+                          "filtered", "std", "location", "turbulent", "heatmap"]
+            for index in range(len(toDump)):
+                self.executor.submit(
+                    self.__dumpData, toDump[index], toDumpName[index])
+                toDump[index] = []
+
+            gc.collect()
+
+    def __dumpData(self, data: List[Any], name: str):
+        self.logger.debug("Dumping and freeing memory for", name)
+        dumpFolder = os.path.join(MODE_S_CONSTANTS.APP_DATA_PATH, "dump")
+        if not os.path.exists(dumpFolder):
+            os.mkdir(dumpFolder)
+
+        dumpName = f"{name}.dump.json"
+        dumpFile = os.path.join(dumpFolder, dumpName)
+        with open(dumpFile, "w") as dumpF:
+            json.dump(data, dumpF, indent = 2)
 
 if __name__ == "__main__":
     know_args = init_argparse().parse_known_args()

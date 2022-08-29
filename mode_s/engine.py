@@ -1,14 +1,16 @@
 
 import sys
+import os
+import json
 import statistics
 import numpy as np
 import concurrent.futures
 from scipy.signal import medfilt
 from collections import Counter
-from typing import List, Dict, Union
+from typing import Any, List, Dict, Union
 
 from logger import Logger
-from constants import ENGINE_CONSTANTS
+from constants import ENGINE_CONSTANTS, MODE_S_CONSTANTS
 from constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
 
 
@@ -174,7 +176,8 @@ class Engine:
 
             if not usePlotter:
                 self.logger.info("Getting line series for filtered bar and ivv on time")
-                yield Analysis.getLineSeriesFilteredBarAndIvv(data)
+                lineSeriesFilteredBarAndIvv = Analysis.getLineSeriesFilteredBarAndIvv(data)
+                yield lineSeriesFilteredBarAndIvv
 
             slidingIntervalForStd = self.prepareSlidingIntervalForStd(data) 
             if usePlotter:
@@ -226,7 +229,7 @@ class Engine:
             self.logger.success("Successfully plotted")
         else:
             self.logger.warning("Error while plotting")
-
+            
     def prepareOccurrencesForAddresses(self, returnValue="datapoint") -> Union[List[Union[int, str]], List[int]]:
         self.logger.log("Computing Occurrences for Addresses")
         dataPointsCounter = Counter([entry["address"] for entry in self.data])
@@ -375,7 +378,6 @@ class Engine:
             thread_name_prefix="engine_workerThread", max_workers=self.maxNumberThreads)
         self.executors.append(ex)
         return ex
-
 
     def __getDataForAddress(self, address: int) -> Dict[str, Union[str, List[DATA]]]:
         addressData: Dict[str, Union[str, List[int]]] = {

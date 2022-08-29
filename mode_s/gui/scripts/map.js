@@ -15,7 +15,7 @@ WorkerScript.onMessage = function (message) {
     }
 
     message.target.sync()
-    console.log("Sync?", message.target, message.target.count)
+    // console.log("Sync?", message.target, message.target.count)
     WorkerScript.sendMessage({ "toLoad": message.type })
 }
 
