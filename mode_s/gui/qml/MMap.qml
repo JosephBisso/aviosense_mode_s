@@ -145,8 +145,10 @@ Frame {
             mapElementInfo.identification = polyline.identification
             mapElementInfo.address = polyline.address
             mapElementInfo.flightColor = polyline.lineColor
+            mapElementInfo.displayText = "Data points"
             mapElementInfo.datapoints = polyline.path.length
             mapElementInfo.turbulentFlight = turbulent
+            mapElementInfo.showButton = true
             mapElementInfo.open()
         }
 
