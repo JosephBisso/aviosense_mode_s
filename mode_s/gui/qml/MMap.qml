@@ -8,9 +8,9 @@ import "qrc:/scripts/Constants.js" as Constants
 
 Frame {
     id: rootFrame
-    property var location: []
-    property var turbulentLocation: []
-    property var kde: []
+    property var location: __mode_s.locationSeries
+    property var turbulentLocation: __mode_s.turbulentLocationSeries
+    property var kde: __mode_s.heatMapSeries
 
     property string mode: Constants.LOCATION
     property bool locationView: rootFrame.mode !== Constants.KDE

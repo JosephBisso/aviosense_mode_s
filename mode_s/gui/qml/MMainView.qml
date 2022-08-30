@@ -32,7 +32,8 @@ Frame {
     Connections {
         target: __mode_s
 
-        function onIdentificationMapped(identMapping)  {
+        function onIdentificationMapped()  {
+            let identMapping = __mode_s.identMap
             console.log("Receive identMapping. Length:", Object.keys(identMapping).length)
             rootMainView.identMap = identMapping
         }
@@ -160,18 +161,15 @@ Frame {
             Connections {
                 target: __mode_s
 
-                function onPlotLocationReady(pointList) {
-                    mapView.location = pointList
+                function onPlotLocationReady() {
                     mapView.showLocation()
                 }
 
-                function onPlotTurbulentReady(pointList) {
-                    mapView.turbulentLocation = pointList
+                function onPlotTurbulentReady() {
                     mapView.prepareTurbulentLocation()
                 }
 
-                function onPlotHeatMapReady(pointList) {
-                    mapView.kde = pointList
+                function onPlotHeatMapReady() {
                     mapView.prepareKDE()
                 }
             }

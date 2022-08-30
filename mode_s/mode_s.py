@@ -12,6 +12,7 @@ from typing import Any, Dict, NamedTuple, List
 from PySide2.QtQml import QQmlApplicationEngine, QQmlDebuggingEnabler
 from PySide2.QtCore import *
 from PySide2.QtWidgets import QApplication
+from PySide2 import QtPositioning
 
 sys.path.append(os.getcwd())
 
@@ -102,17 +103,27 @@ class Mode_S(QObject):
     computingFinished   = Signal()
 
     readyToPlot         = Signal()
-    identificationMapped= Signal("QVariantMap", arguments=["identMap"])
-    plotOccurrenceReady = Signal("QVariantList", arguments=["pointList"])
-    plotRawReady        = Signal("QVariantList", arguments=["pointList"])
-    plotStdReady        = Signal("QVariantList", arguments=["pointList"])
-    plotFilteredReady   = Signal("QVariantList", arguments=["pointList"])
-    plotIntervalReady   = Signal("QVariantList", arguments=["pointList"])
-    plotLocationReady   = Signal("QVariantList", arguments=["pointList"])
-    plotTurbulentReady  = Signal("QVariantList", arguments=["pointList"])
-    plotHeatMapReady    = Signal("QVariantList", arguments=["pointList"])
-    
+    identificationMapped= Signal()
+    plotOccurrenceReady = Signal()
+    plotRawReady        = Signal()
+    plotStdReady        = Signal()
+    plotFilteredReady   = Signal()
+    plotIntervalReady   = Signal()
+    plotLocationReady   = Signal()
+    plotTurbulentReady  = Signal()
+    plotHeatMapReady    = Signal()
+
     backgroundFutures: List[concurrent.futures.Future] = []
+    
+    __occurrenceSeries        = []
+    __identMap                = {}
+    __rawSeries               = []
+    __intervalSeries          = []
+    __filteredSeries          = []
+    __stdSeries               = []
+    __locationSeries          = []
+    __turbulentLocationSeries = []
+    __heatMapSeries           = []
 
     def __init__(self, db: Database, msEngine: ModeSEngine.Engine, logger: Logger):
         super(Mode_S, self).__init__(None)
@@ -211,40 +222,39 @@ class Mode_S(QObject):
 
     def __plotting(self, **params):
         try: 
-            occurrenceSeries = identMap = rawSeries = intervalSeries = filteredSeries = stdSeries = locationSeries = turbulentLocationSeries = heatMapSeries = 0
-            
             if params.get("fromDump"):
                 results = self.engine.loadDump()
             else:
                 results = self.engine.compute(usePlotter=False)
 
-            occurrenceSeries = next(results)
+            self.__occurrenceSeries = next(results)
 
             computedAddresses = next(results)
-            identMap = computedAddresses if params.get("fromDump") else self.db.getMapping(computedAddresses)
-            self.identificationMapped.emit(identMap)
-            self.plotOccurrenceReady.emit(occurrenceSeries)
+            self.__identMap = computedAddresses if params.get("fromDump") else self.db.getMapping(computedAddresses)
+            self.identificationMapped.emit()
+            self.plotOccurrenceReady.emit()
 
-            rawSeries = next(results)
-            self.plotRawReady.emit(rawSeries)
+            self.__rawSeries = next(results)
+            self.plotRawReady.emit()
 
-            intervalSeries = next(results)
-            self.plotIntervalReady.emit(intervalSeries)
+            self.__intervalSeries = next(results)
+            self.plotIntervalReady.emit()
 
-            filteredSeries = next(results)
-            self.plotFilteredReady.emit(filteredSeries)
+            self.__filteredSeries = next(results)
+            self.plotFilteredReady.emit()
 
-            stdSeries = next(results)
-            self.plotStdReady.emit(stdSeries)
+            self.__stdSeries = next(results)
+            self.plotStdReady.emit()
 
-            locationSeries = next(results)
-            self.plotLocationReady.emit(locationSeries)
+            self.__locationSeries = next(results)
+            self.plotLocationReady.emit()
 
-            turbulentLocationSeries = next(results)
-            self.plotTurbulentReady.emit(turbulentLocationSeries)
+            self.__turbulentLocationSeries = next(results)
+            self.plotTurbulentReady.emit()
 
-            heatMapSeries = next(results)
-            self.plotHeatMapReady.emit(heatMapSeries)
+            self.__heatMapSeries = next(results)
+            self.plotHeatMapReady.emit()
+
 
             self.logger.success("Done computing")
             
@@ -254,16 +264,18 @@ class Mode_S(QObject):
             self.logger.warning("Error Occurred: Mode_s plotting::", str(err))
         finally:
             ms = MODE_S_CONSTANTS
-            self.executor.submit(self.__dumpData, self.db.data, ms.DATABASE_DUMP)
-            self.db.data = self.engine.data = []
+            if self.engine.data:
+                self.executor.submit(self.__dumpData, self.engine.data, ms.DATABASE_DUMP)
+                self.db.data = self.engine.data = []
             
-            toDump = [occurrenceSeries, identMap, rawSeries, intervalSeries,
-                      filteredSeries, stdSeries, locationSeries, turbulentLocationSeries, heatMapSeries]
+            toDump = [self.__occurrenceSeries, self.__identMap, self.__rawSeries, self.__intervalSeries,
+                      self.__filteredSeries, self.__stdSeries, self.__locationSeries, self.__turbulentLocationSeries, self.__heatMapSeries]
             toDumpName = [ms.OCCURRENCE_DUMP, ms.INDENT_MAPPING, ms.BAR_IVV_DUMP, ms.INTERVAL_DUMP,
                           ms.FILTERED_DUMP, ms.STD_DUMP, ms.LOCATION_DUMP, ms.TURBULENCE_DUMP, ms.HEATMAP_DUMP]
             for index in range(len(toDump)):
-                self.executor.submit(
-                    self.__dumpData, toDump[index], toDumpName[index])
+                if not toDump[index]:
+                    continue
+                self.executor.submit(self.__dumpData, toDump[index], toDumpName[index])
                 toDump[index] = []
 
             gc.collect()
@@ -271,7 +283,38 @@ class Mode_S(QObject):
     def __dumpData(self, data: List[Any], name: str):
         self.logger.debug("Dumping and freeing memory for", name)
         with open(name, "w") as dumpF:
-            json.dump(data, dumpF, indent = 2)
+            json.dump(data, dumpF, indent = 2, default=lambda coord: {"longitude":coord.longitude() ,"latitude": coord.latitude()})
+            
+    def __identMapping(self):
+        return self.__identMap
+    def __occurrence(self):
+        return self.__occurrenceSeries
+    def __raw(self):
+        return self.__rawSeries
+    def __std(self):
+        return self.__stdSeries
+    def __filtered(self):
+        return self.__filteredSeries
+    def __interval(self):
+        return self.__intervalSeries
+    def __location(self):
+        return self.__locationSeries
+    def __turbulentLocation(self):
+        return self.__turbulentLocationSeries
+    def __heatMap(self):
+        return self.__heatMapSeries
+        
+    
+    identMap                = Property("QVariantMap", __identMapping,       notify = identificationMapped)
+    rawSeries               = Property("QVariantList", __raw,               notify = plotRawReady)
+    stdSeries               = Property("QVariantList", __std,               notify = plotStdReady)
+    heatMapSeries           = Property("QVariantList", __heatMap,           notify = plotHeatMapReady)
+    filteredSeries          = Property("QVariantList", __filtered,          notify = plotFilteredReady)
+    intervalSeries          = Property("QVariantList", __interval,          notify = plotIntervalReady)
+    locationSeries          = Property("QVariantList", __location,          notify = plotLocationReady)
+    occurrenceSeries        = Property("QVariantList", __occurrence,        notify = plotOccurrenceReady)
+    turbulentLocationSeries = Property("QVariantList", __turbulentLocation, notify = plotTurbulentReady)
+
 
 if __name__ == "__main__":
     know_args = init_argparse().parse_known_args()

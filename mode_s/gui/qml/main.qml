@@ -20,7 +20,6 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
-        sideBar.open()
         __mode_s.startDatabase()
     }
 

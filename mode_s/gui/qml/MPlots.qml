@@ -66,20 +66,14 @@ Frame {
         SwipeView {
             id: rawPlots
             interactive: false
-            Connections {
-                target: __mode_s
 
-                function onPlotRawReady(pointList) {
-                    rawPlotRepeater.model = pointList
-                }
-            }
             function showCurrentAddress(indexOfLoadedItem) {
                 setCurrentIndex(indexOfLoadedItem)
             }
 
             Repeater {
                 id: rawPlotRepeater
-
+                model: __mode_s.rawSeries
                 delegate: Loader {
                     id: rawPlotLoader
                     active: plotSwipe.currentAddress == modelData["address"] || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
@@ -107,19 +101,15 @@ Frame {
 
         SwipeView {
             id: filteredPlots
-            Connections {
-                target: __mode_s
 
-                function onPlotFilteredReady(pointList) {
-                    filteredPlotRepeater.model = pointList
-                }
-            }
             function showCurrentAddress(indexOfLoadedItem) {
                 setCurrentIndex(indexOfLoadedItem)
             }
 
             Repeater {
                 id: filteredPlotRepeater
+                model: __mode_s.filteredSeries
+
                 delegate: Loader {
                     id: filteredPlotLoader
                     active: plotSwipe.currentAddress == modelData["address"] || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
@@ -159,18 +149,14 @@ Frame {
 
         SwipeView {
             id: intervallPlots
-            Connections {
-                target: __mode_s
 
-                function onPlotIntervalReady(pointList) {
-                    intervalPlotRepeater.model = pointList
-                }
-            }
             function showCurrentAddress(indexOfLoadedItem) {
                 setCurrentIndex(indexOfLoadedItem)
             }
             Repeater {
                 id: intervalPlotRepeater
+                model: __mode_s.intervalSeries
+
                 delegate: Loader {
                     id: intervallPlotLoader
                     active: plotSwipe.currentAddress == modelData["address"] || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
@@ -196,18 +182,13 @@ Frame {
 
         SwipeView {
             id: stdPlots
-            Connections {
-                target: __mode_s
 
-                function onPlotStdReady(pointList) {
-                    stdPlotRepeater.model = pointList
-                }
-            }
             function showCurrentAddress(indexOfLoadedItem) {
                 setCurrentIndex(indexOfLoadedItem)
             }
             Repeater {
                 id: stdPlotRepeater
+                model: __mode_s.stdSeries
                 delegate: Loader {
                     id: stdPlotLoader
                     active: plotSwipe.currentAddress == modelData["address"] || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
