@@ -102,7 +102,12 @@ class Engine:
     def compute(self, usePlotter=True) -> None:
         self.logger.info("Starting Engine")
         if not self.data:
-            raise EngineError("Engine has no data to compute")
+            self.logger.debug("Using Dump DB")
+            dumpDB = self.__loadDBfromDump()
+            if not dumpDB: 
+                raise EngineError("Engine has no data to compute")
+            else:
+                self.data = dumpDB
         if usePlotter and not any(self.plots.values()):
             return
 
@@ -229,7 +234,35 @@ class Engine:
             self.logger.success("Successfully plotted")
         else:
             self.logger.warning("Error while plotting")
-            
+        
+    def loadDump(self):
+        self.logger.info("Loading Dump")
+        ms = MODE_S_CONSTANTS
+        
+        toLoadDump = [ms.OCCURRENCE_DUMP, ms.INDENT_MAPPING, ms.BAR_IVV_DUMP, ms.INTERVAL_DUMP,
+                      ms.FILTERED_DUMP, ms.STD_DUMP, ms.LOCATION_DUMP, ms.TURBULENCE_DUMP, ms.HEATMAP_DUMP]
+        for dump in toLoadDump:
+            try:
+                with open(dump, "r") as dumpF:
+                    loaded = json.load(dumpF)
+                    yield loaded
+            except Exception as esc:
+                type, value, traceback = sys.exc_info()
+                self.logger.warning("Error occurred while loading dump", dump, "::", type, value)
+                yield []
+    
+    def __loadDBfromDump(self) -> List[Dict[str, Union[str, float]]]:
+        self.logger.info("Loading DB from dump")
+        loadedDB = []
+        try:
+            with open(MODE_S_CONSTANTS.DATABASE_DUMP, "r") as dumpDB:
+                loadedDB = json.load(dumpDB)
+        except Exception as esc:
+            type, value, traceback = sys.exc_info()
+            self.logger.warning("Error occurred while loading dump database::", type, value)
+        finally:
+            return loadedDB
+
     def prepareOccurrencesForAddresses(self, returnValue="datapoint") -> Union[List[Union[int, str]], List[int]]:
         self.logger.log("Computing Occurrences for Addresses")
         dataPointsCounter = Counter([entry["address"] for entry in self.data])

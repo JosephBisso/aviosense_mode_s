@@ -124,6 +124,8 @@ class Mode_S(QObject):
         self.engineFilterUpdated.connect(self.compute)
         self.readyToPlot.connect(self.plot)
         self.executor = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="modeS_workerThread")
+
+        self.plot(fromDump=True)
     
     @Slot(str, result=None)
     def updateDBFilter(self, dbJson: str): 
@@ -159,8 +161,8 @@ class Mode_S(QObject):
         self.executor.submit(self.db.start)
                 
     @Slot()
-    def plot(self): 
-        future = self.executor.submit(self.__plotting)
+    def plot(self, **params): 
+        future = self.executor.submit(self.__plotting, **params)
         future.add_done_callback(self.__computingFinished)
 
     @Slot()
@@ -207,14 +209,19 @@ class Mode_S(QObject):
         concurrent.futures.wait(self.backgroundFutures)
         return True
 
-    def __plotting(self):
+    def __plotting(self, **params):
         try: 
-            results = self.engine.compute(usePlotter=False)
+            occurrenceSeries = identMap = rawSeries = intervalSeries = filteredSeries = stdSeries = locationSeries = turbulentLocationSeries = heatMapSeries = 0
+            
+            if params.get("fromDump"):
+                results = self.engine.loadDump()
+            else:
+                results = self.engine.compute(usePlotter=False)
 
             occurrenceSeries = next(results)
 
             computedAddresses = next(results)
-            identMap = self.db.getMapping(computedAddresses)
+            identMap = computedAddresses if params.get("fromDump") else self.db.getMapping(computedAddresses)
             self.identificationMapped.emit(identMap)
             self.plotOccurrenceReady.emit(occurrenceSeries)
 
@@ -246,13 +253,14 @@ class Mode_S(QObject):
         except ModeSEngine.EngineError as err:
             self.logger.warning("Error Occurred: Mode_s plotting::", str(err))
         finally:
-            self.executor.submit(self.__dumpData, self.db.data, "database")
+            ms = MODE_S_CONSTANTS
+            self.executor.submit(self.__dumpData, self.db.data, ms.DATABASE_DUMP)
             self.db.data = self.engine.data = []
             
-            toDump = [occurrenceSeries, computedAddresses, rawSeries, intervalSeries,
+            toDump = [occurrenceSeries, identMap, rawSeries, intervalSeries,
                       filteredSeries, stdSeries, locationSeries, turbulentLocationSeries, heatMapSeries]
-            toDumpName = ["occurrence", "addresses", "bar_ivv", "interval",
-                          "filtered", "std", "location", "turbulent", "heatmap"]
+            toDumpName = [ms.OCCURRENCE_DUMP, ms.INDENT_MAPPING, ms.BAR_IVV_DUMP, ms.INTERVAL_DUMP,
+                          ms.FILTERED_DUMP, ms.STD_DUMP, ms.LOCATION_DUMP, ms.TURBULENCE_DUMP, ms.HEATMAP_DUMP]
             for index in range(len(toDump)):
                 self.executor.submit(
                     self.__dumpData, toDump[index], toDumpName[index])
@@ -262,13 +270,7 @@ class Mode_S(QObject):
 
     def __dumpData(self, data: List[Any], name: str):
         self.logger.debug("Dumping and freeing memory for", name)
-        dumpFolder = os.path.join(MODE_S_CONSTANTS.APP_DATA_PATH, "dump")
-        if not os.path.exists(dumpFolder):
-            os.mkdir(dumpFolder)
-
-        dumpName = f"{name}.dump.json"
-        dumpFile = os.path.join(dumpFolder, dumpName)
-        with open(dumpFile, "w") as dumpF:
+        with open(name, "w") as dumpF:
             json.dump(data, dumpF, indent = 2)
 
 if __name__ == "__main__":

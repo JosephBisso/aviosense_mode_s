@@ -31,6 +31,21 @@ class MODE_S_CONSTANTS:
     APP_DATA_PATH: str = os.path.join(os.path.expanduser("~"), ".mode_s")
     if not os.path.exists(APP_DATA_PATH):
         os.mkdir(APP_DATA_PATH)
+    
+    APP_DUMP_PATH: str = os.path.join(APP_DATA_PATH, "dump")
+    if not os.path.exists(APP_DUMP_PATH):
+        os.mkdir(APP_DUMP_PATH)
+
+    STD_DUMP: str           = os.path.join(APP_DUMP_PATH, "std.dump.json")
+    HEATMAP_DUMP: str       = os.path.join(APP_DUMP_PATH, "heatmap.dump.json")
+    BAR_IVV_DUMP: str       = os.path.join(APP_DUMP_PATH, "bar_ivv.dump.json")
+    INTERVAL_DUMP: str      = os.path.join(APP_DUMP_PATH, "interval.dump.json")
+    FILTERED_DUMP: str      = os.path.join(APP_DUMP_PATH, "filtered.dump.json")
+    LOCATION_DUMP: str      = os.path.join(APP_DUMP_PATH, "location.dump.json")
+    DATABASE_DUMP: str      = os.path.join(APP_DUMP_PATH, "database.dump.json")
+    INDENT_MAPPING: str     = os.path.join(APP_DUMP_PATH, "addresses.dump.json")
+    TURBULENCE_DUMP: str    = os.path.join(APP_DUMP_PATH, "turbulence.dump.json")
+    OCCURRENCE_DUMP: str    = os.path.join(APP_DUMP_PATH, "occurrence.dump.json")
 
 class GUI_CONSTANTS:
     DE_MIN_LATITUDE = 46
