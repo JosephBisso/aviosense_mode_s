@@ -162,15 +162,15 @@ Frame {
                 target: __mode_s
 
                 function onPlotLocationReady() {
-                    mapView.showLocation()
+                    mapView.update(Constants.LOCATION)
                 }
 
                 function onPlotTurbulentReady() {
-                    mapView.prepareTurbulentLocation()
+                    mapView.update(Constants.TURBULENCE)
                 }
 
                 function onPlotHeatMapReady() {
-                    mapView.prepareKDE()
+                    mapView.update(Constants.KDE)
                 }
             }
 

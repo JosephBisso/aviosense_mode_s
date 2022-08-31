@@ -14,14 +14,14 @@ WorkerScript.onMessage = function (message) {
             break;
     }
 
+    console.log("Method end for", message.type, ". Sync follows...")
     message.target.sync()
-    // console.log("Sync?", message.target, message.target.count)
+    console.log("Sync?", message.target, message.target.count)
     WorkerScript.sendMessage({ "toLoad": message.type })
 }
 
 function showLocation(target, listPoint) {
     console.info("Displaying line series for location")
-    target.clear()
     let usedColors = []
 
     for (let i = 0; i < listPoint.length; i++) {
@@ -51,12 +51,10 @@ function showLocation(target, listPoint) {
             target.append(polyLine)
         }
     }
-
 }
 
 function prepareTurbulentLocation(target, listPoint) {
     console.info("Displaying line series for turbulent location")
-    target.clear()
     for (let i = 0; i < listPoint.length; i++) {
         let address = listPoint[i].address
         let identification = listPoint[i].identification
@@ -75,7 +73,6 @@ function prepareTurbulentLocation(target, listPoint) {
 
 function prepareKDE(target, listPoint) {
     console.info("Displaying line series for KDE")
-    target.clear()
     for (let i = 0; i < listPoint.length; i++) {
         let kdePoint = {
             "latitude": listPoint[i].latitude,

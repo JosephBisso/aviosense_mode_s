@@ -1,6 +1,7 @@
 
 import QtCharts 2.15
 import QtQml 2.15
+import "qrc:/scripts/plot.js" as PLT
 
 ChartView {
     id: chartView
@@ -30,12 +31,16 @@ ChartView {
         id: rawSeries
         name: "RAW " + chartView.dataSet
         color: "red"
+        width: 1
+        pointsVisible: true
     }
 
     LineSeries {
         id: filteredSeries
         name: "FILTERED " + chartView.dataSet
         color: chartView.dataSet === "BAR" ? "blue" : "darkturquoise"
+        width: 1
+        pointsVisible: true
     }
 
     function update() {

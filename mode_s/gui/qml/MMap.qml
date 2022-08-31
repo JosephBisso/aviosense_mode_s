@@ -28,14 +28,49 @@ Frame {
     signal done()
     signal addressClicked(int address)
 
-    function showLocation() {
-        locationWorker.sendMessage({"type": "location", "target": locationGroup, "listPoint": location})
+    function update(view) {
+        let type = "location"
+        let target = locationGroup
+        let pointList = location
+
+        target.clear()
+
+        switch (view) {
+            case Constants.LOCATION:
+                locationUpdater.start()
+                return
+            case Constants.TURBULENCE:
+                type        = "turbulent"
+                target      = turbulentGroup
+                pointList   = turbulentLocation
+                break
+            case Constants.KDE:
+                type        = "kde"
+                target      = kdeGroup
+                pointList   = kde
+                break
+        }
+
+        mapWorker.sendMessage({"type": type, "target": target, "listPoint": pointList}) 
     }
-    function prepareTurbulentLocation(){  
-        turbulenceWorker.sendMessage({"type": "turbulent", "target": turbulentGroup, "listPoint": turbulentLocation})
-    }
-    function prepareKDE(){ 
-        turbulenceWorker.sendMessage({"type": "kde", "target": kdeGroup, "listPoint": kde})
+
+    Timer {
+        id: locationUpdater
+        interval: 10000
+        running: false
+        repeat: true
+        triggeredOnStart: true
+        property int counter: 0
+        property int partialLength: 4
+        onTriggered: {
+            let partialList = location.slice(counter * partialLength, (counter+1) * partialLength)
+            mapWorker.sendMessage({"type": "location", "target": locationGroup, "listPoint": partialList})
+            counter++
+            if (counter*partialLength >= location.length) {
+                counter = 0
+                locationUpdater.stop()
+            }
+        }
     }
 
     MMenuBar {
@@ -94,7 +129,8 @@ Frame {
             let turbulence = false
 
             for (let i = 0; i < targetInstantiator.count; i++) {
-                if (targetInstantiator.objectAt(i) && targetInstantiator.objectAt(i).address != targetAddress) {continue;}
+                if (!targetInstantiator.objectAt(i)){continue;}
+                if (targetInstantiator.objectAt(i).address != targetAddress) {continue;}
                 showPolyline(targetInstantiator.objectAt(i))
                 if (rootFrame.mode === Constants.TURBULENCE) {turbulence = true}
                 else {
@@ -178,6 +214,10 @@ Frame {
                 map.addMapItem(object)
             }
         }
+
+        onObjectRemoved: {
+            map.removeMapItem(object)
+        }
     }
 
     Instantiator {
@@ -204,6 +244,10 @@ Frame {
                 map.addMapItem(object)
             }
         }
+        onObjectRemoved: {
+            map.removeMapItem(object)
+        }
+
     }
 
     Instantiator {
@@ -225,23 +269,18 @@ Frame {
                 map.addMapItem(object)
             }
         }
-    }
-
-    WorkerScript {
-        id: locationWorker
-        source: "qrc:/scripts/map.js"
-
-        onMessage: {
-            console.log("Location Worker: Done ", messageObject.toLoad)
+        onObjectRemoved: {
+            map.removeMapItem(object)
         }
+
     }
 
     WorkerScript {
-        id: turbulenceWorker
+        id: mapWorker
         source: "qrc:/scripts/map.js"
 
         onMessage: {
-            console.log("Turbulence Worker: Done ", messageObject.toLoad)
+            console.log("Map Worker: Done ", messageObject.toLoad)
         }
     }
 

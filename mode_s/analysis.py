@@ -10,7 +10,7 @@ from constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
 
 class Analysis:
     KDE_BAND_WIDTH: int = 0.5
-    POINT_RADIUS = 20000
+    POINT_RADIUS = 10000
 
     def setKDEBandwidth(bandwidth:int = 0.5):
         Analysis.KDE_BAND_WIDTH = bandwidth

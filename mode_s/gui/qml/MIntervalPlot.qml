@@ -33,13 +33,15 @@ ChartView {
     function update() {
         console.info("Displaying", title)
         for (let index = 0; index < windows.length; index++) {
+            let middleWindows = windows[index]
             if (index > 0) {
-                slidingSeries.append(windows[index], points[index-1])
+                middleWindows = (windows[index] + windows[index-1]) / 2
+                slidingSeries.append(middleWindows, points[index-1])
             }
-            slidingSeries.append(windows[index], points[index])
+            slidingSeries.append(middleWindows, points[index])
         }
-        xAxis.max = Math.max.apply(null, windows)
-        yAxis.max = Math.max.apply(null, points)
+        xAxis.max = Math.max.apply(null, windows) + 5
+        yAxis.max = Math.max.apply(null, points) + 25
         xAxis.applyNiceNumbers()
         yAxis.applyNiceNumbers()
     }

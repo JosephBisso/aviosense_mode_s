@@ -23,7 +23,7 @@
     <file>qml/MSuggestions.qml</file>
     <file>qml/MMapElementInfo.qml</file>
     <file>scripts/Constants.js</file>
-    <file>scripts/main.js</file>
+    <file>scripts/plot.js</file>
     <file>scripts/map.js</file>
     <file>scripts/world.geojson</file>
     <file>scripts/guiWorker.mjs</file>

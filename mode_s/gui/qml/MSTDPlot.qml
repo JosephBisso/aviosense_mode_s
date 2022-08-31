@@ -1,5 +1,6 @@
 import QtCharts 2.15
 import QtQml 2.15
+import "qrc:/scripts/plot.js" as PLT
 
 ChartView {
     id: chartView
@@ -66,9 +67,7 @@ ChartView {
             secondSeries.append(windows[windows.length -1], threshold)
 
             for (let index = 0; index < windows.length; index++) {
-                series.append(windows[index], 0)
-                series.append(windows[index], diff[index])
-                series.append(windows[index], 0)
+                PLT.appendVerticalLine(windows[index], diff[index], series)
             }
 
             yAxis.max = Math.max.apply(null, diff)

@@ -4,7 +4,6 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQml.Models 2.15
 import "qrc:/scripts/Constants.js" as Constants
-import "qrc:/scripts/main.js" as JS
 
 Drawer {
     id: rootSideBar
@@ -211,7 +210,7 @@ Drawer {
                     }
                     ListElement {
                         option_name: "Data Points (Min)"
-                        option_value: "1"
+                        option_value: "2000"
                         option_id:"mindatapoints"
                         option_type:"value"
 

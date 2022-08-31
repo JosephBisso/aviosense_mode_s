@@ -1,5 +1,6 @@
 import QtCharts 2.15
 import QtQml 2.15
+import "qrc:/scripts/plot.js" as PLT
 
 ChartView {
     id: chartView
@@ -27,8 +28,9 @@ ChartView {
     LineSeries {
         id: barSeries
         name: "BAR"
-        width: 1
         color: "blue"
+        width: 1
+        pointsVisible: true
     }
 
     LineSeries {
@@ -36,6 +38,7 @@ ChartView {
         name: "IVV"
         color: "red"
         width: 1
+        pointsVisible: true
     }
 
     function update() {
