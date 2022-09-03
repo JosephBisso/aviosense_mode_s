@@ -34,8 +34,8 @@ ChartView {
         id: series
         name: std ? "BAR" : "Diff" 
         color: std ? "blue" : "green"
-        pointsVisible: true
-        width: 2
+        pointsVisible: false
+        width: 4
     }
 
     LineSeries {
@@ -43,16 +43,16 @@ ChartView {
         name: std ? "IVV" : "Threshold"
         color: "red"
         style: std ? 1 : 2 // Qt.SolidLine : Qt.DashLine
-        pointsVisible: std
-        width: 2
+        pointsVisible: false
+        width: 4
     }
 
     function update() {
         console.info("Displaying", title)
         if (std) {
             for (let index = 0; index < windows.length; index++) {
-                series.append(windows[index], bar[index])
-                secondSeries.append(windows[index], ivv[index])
+                PLT.appendVerticalLine(windows[index], bar[index], series)
+                PLT.appendVerticalLine(windows[index], ivv[index], secondSeries)
             }
 
             let maxBar = Math.max.apply(null, bar)
