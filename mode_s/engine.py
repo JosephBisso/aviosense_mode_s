@@ -243,6 +243,9 @@ class Engine:
                       ms.FILTERED_DUMP, ms.STD_DUMP, ms.LOCATION_DUMP, ms.TURBULENCE_DUMP, ms.HEATMAP_DUMP]
         for dump in toLoadDump:
             try:
+                if not os.path.exists(dump): 
+                    yield []
+                    continue
                 with open(dump, "r") as dumpF:
                     loaded = json.load(dumpF)
                     yield loaded
@@ -408,7 +411,7 @@ class Engine:
 
     def __executor(self) -> concurrent.futures.ThreadPoolExecutor:
         ex = concurrent.futures.ThreadPoolExecutor(
-            thread_name_prefix="engine_workerThread", max_workers=self.maxNumberThreads)
+            thread_name_prefix="engine_thread", max_workers=self.maxNumberThreads)
         self.executors.append(ex)
         return ex
 

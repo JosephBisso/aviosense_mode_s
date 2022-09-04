@@ -28,6 +28,17 @@ Frame {
     signal done()
     signal addressClicked(int address)
 
+    function stopBackgroundLoading() {
+        locationUpdater.counter = 0
+        locationUpdater.stop()
+    }
+    function pauseBackgroundLoading() {
+        locationUpdater.stop()
+    }
+    function resumeBackgroundLoading() {
+        locationUpdater.start()
+    }
+
     function update(view) {
         let type = "location"
         let target = locationGroup
@@ -37,7 +48,7 @@ Frame {
 
         switch (view) {
             case Constants.LOCATION:
-                locationUpdater.start()
+                if(location.length > 0) locationUpdater.start()
                 return
             case Constants.TURBULENCE:
                 type        = "turbulent"
@@ -51,6 +62,7 @@ Frame {
                 break
         }
 
+        if (pointList.length === 0) {return}
         mapWorker.sendMessage({"type": type, "target": target, "listPoint": pointList}) 
     }
 
@@ -59,14 +71,20 @@ Frame {
         interval: 10000
         running: false
         repeat: true
-        triggeredOnStart: true
+        triggeredOnStart: false
         property int counter: 0
-        property int partialLength: 4
+        property int maxSegmentLength: 1000
         onTriggered: {
-            let partialList = location.slice(counter * partialLength, (counter+1) * partialLength)
+            let actualSegmentLength = location[counter].segments.length
+            let endSlice = counter + 1
+            while (actualSegmentLength + location[endSlice].segments.length < maxSegmentLength) {
+                actualSegmentLength += location[endSlice].segments.length
+                endSlice++
+            }
+            let partialList = location.slice(counter, endSlice)
             mapWorker.sendMessage({"type": "location", "target": locationGroup, "listPoint": partialList})
-            counter++
-            if (counter*partialLength >= location.length) {
+            counter = endSlice
+            if (counter > location.length - 1) {
                 counter = 0
                 locationUpdater.stop()
             }

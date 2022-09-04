@@ -26,6 +26,7 @@ ChartView {
             console.info("Displaying line series for occurrences")
             chartView.removeAllSeries()
             let pointList = __mode_s.occurrenceSeries
+            if (__mode_s.occurrenceSeries.length == 0) {return}
             var series = chartView.createSeries(ChartView.SeriesTypeLine, "Datapoints over addresses", xAxis, yAxis)
             series.pointsVisible = true
             // series.hovered.connect((point, state) => { console.log("hovered", point, state);})
