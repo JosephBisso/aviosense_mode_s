@@ -30,6 +30,7 @@ Frame {
 
     function stopBackgroundLoading() {
         locationUpdater.counter = 0
+        console.info(Constants.PROGRESS_BAR, Constants.ID_LOCATION, Constants.END_PROGRESS_BAR)
         locationUpdater.stop()
     }
     function pauseBackgroundLoading() {
@@ -44,11 +45,12 @@ Frame {
         let target = locationGroup
         let pointList = location
 
-        target.clear()
-
         switch (view) {
             case Constants.LOCATION:
-                if(location.length > 0) locationUpdater.start()
+                if(location.length > 0) {
+                    target.clear()
+                    locationUpdater.start()
+                }
                 return
             case Constants.TURBULENCE:
                 type        = "turbulent"
@@ -63,28 +65,32 @@ Frame {
         }
 
         if (pointList.length === 0) {return}
+        target.clear()
         mapWorker.sendMessage({"type": type, "target": target, "listPoint": pointList}) 
     }
 
     Timer {
         id: locationUpdater
-        interval: 10000
+        interval: 15000
         running: false
         repeat: true
         triggeredOnStart: false
         property int counter: 0
-        property int maxSegmentLength: 1000
+        property int maxSegmentLength: 500
         onTriggered: {
+            console.info(Constants.PROGRESS_BAR, Constants.ID_LOCATION, `Loading All Routes [${counter}/${location.length - 1}]`)
             let actualSegmentLength = location[counter].segments.length
             let endSlice = counter + 1
-            while (actualSegmentLength + location[endSlice].segments.length < maxSegmentLength) {
+            while (endSlice <= location.length - 1 && actualSegmentLength + location[endSlice].segments.length < maxSegmentLength) {
                 actualSegmentLength += location[endSlice].segments.length
                 endSlice++
             }
+            console.log(`Loading ${actualSegmentLength} location elements`)
             let partialList = location.slice(counter, endSlice)
             mapWorker.sendMessage({"type": "location", "target": locationGroup, "listPoint": partialList})
             counter = endSlice
-            if (counter > location.length - 1) {
+            if (counter >= location.length - 1) {
+                console.info(Constants.PROGRESS_BAR, Constants.ID_LOCATION, Constants.END_PROGRESS_BAR)
                 counter = 0
                 locationUpdater.stop()
             }

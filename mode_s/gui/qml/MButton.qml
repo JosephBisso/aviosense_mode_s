@@ -32,6 +32,10 @@ Rectangle {
         }
     }
 
+    onMEnabledChanged: {
+        enabled_timer.start()
+    }
+
     width: 150
     height: 45
     radius: 10
@@ -50,12 +54,35 @@ Rectangle {
         color: mEnabled ? mBorderColor : Qt.lighter("darkgrey", 1.2)
     }
 
+    Timer {
+        id: enabled_timer
+        interval: 2000
+        repeat: false
+        triggeredOnStart: false
+
+        onTriggered: {
+            root.color = Qt.binding(()=>{
+                if (mEnabled) {
+                    if (mCheckable && mChecked) {
+                        return Constants.ACCENT_COLOR1
+                    }
+                    return mDefaultColor
+                } else {
+                    return "darkgrey"
+                }
+            })
+            root.border.color = Qt.binding(() => {
+                return mEnabled ? mBorderColor : Qt.lighter("darkgrey", 1.2)
+            })
+        }
+    }
+
     MouseArea {
         id: mouseArea
         anchors.fill: parent
         enabled: mEnabled
         hoverEnabled: mEnabled
-        cursorShape: Qt.PointingHandCursor
+        cursorShape: mEnabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
 
         onEntered: {
             if (!mCheckable || (mCheckable && !mChecked)) {

@@ -36,10 +36,18 @@ ApplicationWindow {
         id: busyIndicator
     }
 
-    WorkerScript {
-        id: guiWorker
-        source: "qrc:/scripts/guiWorker.mjs"
+    MStatusBar {
+        id: backgroudTaskIndicator
+        z: 1
+        anchors {
+            left: parent.left
+            bottom: parent.bottom
+
+            margins: 20
+        }
     }
+
+
 
     Settings {
         id: appSettings

@@ -10,7 +10,7 @@ from collections import Counter
 from typing import Any, List, Dict, Union
 
 from logger import Logger
-from constants import ENGINE_CONSTANTS, MODE_S_CONSTANTS
+from constants import ENGINE_CONSTANTS, MODE_S_CONSTANTS, LOGGER_CONSTANTS
 from constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
 
 
@@ -101,6 +101,7 @@ class Engine:
 
     def compute(self, usePlotter=True) -> None:
         self.logger.info("Starting Engine")
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [0/9]")
         if not self.data:
             self.logger.debug("Using Dump DB")
             dumpDB = self.__loadDBfromDump()
@@ -134,6 +135,8 @@ class Engine:
                 lineSeriesOccurrence = Analysis.getLineSeriesDataPointOccurrences(dataPoints)
                 yield lineSeriesOccurrence
 
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [1/9]")
+
         allAddresses = self.prepareOccurrencesForAddresses("addresses")
         mostPointAddresses = allAddresses[:4]
         if self.plotAddresses:
@@ -149,6 +152,8 @@ class Engine:
         if not usePlotter:
             yield addressesToPlot
             
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [2/9]")
+            
         data = self.prepareBarAndIvvAndTime(addressesToPlot)
 
         if activePlots["bar_ivv"]:
@@ -159,6 +164,8 @@ class Engine:
                 self.logger.info("Getting lineSeries for raw bar & ivv")
                 lineSeriesBarIvv = Analysis.getLineSeriesBarAndIvv(data)
                 yield lineSeriesBarIvv
+
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [3/9]")
 
         if usePlotter:
             if activePlots["filtered"] and not activePlots["std"]:
@@ -176,6 +183,8 @@ class Engine:
                 lineSeriesInterval = Analysis.getLineSeriesSlidingInterval(slidingIntervals)
                 yield lineSeriesInterval
 
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [4/9]")
+
         if activePlots["std"]:
             self.prepareMedianFilter(data)
 
@@ -183,6 +192,8 @@ class Engine:
                 self.logger.info("Getting line series for filtered bar and ivv on time")
                 lineSeriesFilteredBarAndIvv = Analysis.getLineSeriesFilteredBarAndIvv(data)
                 yield lineSeriesFilteredBarAndIvv
+
+            self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [5/9]")
 
             slidingIntervalForStd = self.prepareSlidingIntervalForStd(data) 
             if usePlotter:
@@ -197,6 +208,8 @@ class Engine:
                 lineSeriesStd = Analysis.getLineSeriesSlidingIntervalForStd(slidingIntervalForStd)
                 yield lineSeriesStd
 
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [6/9]")
+
         if activePlots["location"]:
             location = self.prepareLocation(addressesToPlot)
             if usePlotter:
@@ -206,6 +219,8 @@ class Engine:
                 self.logger.info("Getting lineSeries for location")
                 lineSeriesLocation = Analysis.getLineSeriesLocation(location)
                 yield lineSeriesLocation
+
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [7/9]")
 
         if activePlots["heat_map"]:
             if not activePlots["filtered"] and not activePlots["std"]:
@@ -224,9 +239,14 @@ class Engine:
                 self.logger.info("Getting lineSeries for turbulent location")
                 lineSeriesTurbulent = Analysis.getLineSeriesTurbulentLocation(heatMap)
                 yield lineSeriesTurbulent
+                
+                self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [8/9]")
+                
                 self.logger.info("Getting lineSeries for heat map")
                 lineSeriesHeatMap = Analysis.getLineSeriesHeatMap(heatMap)
                 yield lineSeriesHeatMap
+
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [9/9]")
 
         if not usePlotter:
             self.logger.success("Successfully computed")
@@ -234,6 +254,8 @@ class Engine:
             self.logger.success("Successfully plotted")
         else:
             self.logger.warning("Error while plotting")
+
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, LOGGER_CONSTANTS.END_PROGRESS_BAR)
         
     def loadDump(self):
         self.logger.info("Loading Dump")

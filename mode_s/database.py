@@ -6,7 +6,7 @@ import concurrent.futures
 from typing import List, Dict, Union
 
 from logger import Logger
-from constants import DB_CONSTANTS
+from constants import DB_CONSTANTS, LOGGER_CONSTANTS
 
 
 class DatabaseError(BaseException):
@@ -207,11 +207,14 @@ class Database:
     
     def actualizeData(self) -> bool:
         self.logger.info("Actualizing database")
+        self.logger.progress(LOGGER_CONSTANTS.DATABASE, "Actualizing Database [0/2]")
         executor = self.__executor()
         valid = True
         try:
             barAndIvv = self.getFromDB(["address", "timestamp", "bar", "ivv"], options={
                                               "not_null_values": ["bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"], "limit": int(int(self.limit) / 2)})
+            
+            self.logger.progress(LOGGER_CONSTANTS.DATABASE, "Actualizing Database [1/2]")
             
             self.__updatedUsedAddresses(barAndIvv)
 
@@ -221,6 +224,7 @@ class Database:
             self.data = barAndIvv
             self.data.extend(latAndlon__future.result())
 
+            self.logger.progress(LOGGER_CONSTANTS.DATABASE, "Actualizing Database [2/2]")
             self.logger.success("Data actualized. Size: " + str(len(self.data)))
 
             # import json 
@@ -235,6 +239,7 @@ class Database:
                 "Error occurred while getting results \nERROR: " + str(esc))
             valid = False
         finally:
+            self.logger.progress(LOGGER_CONSTANTS.DATABASE, LOGGER_CONSTANTS.END_PROGRESS_BAR)
             executor.shutdown()
 
         return valid

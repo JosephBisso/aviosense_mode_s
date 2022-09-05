@@ -47,6 +47,13 @@ class MODE_S_CONSTANTS:
     TURBULENCE_DUMP: str    = os.path.join(APP_DUMP_PATH, "turbulence.dump.json")
     OCCURRENCE_DUMP: str    = os.path.join(APP_DUMP_PATH, "occurrence.dump.json")
 
+class LOGGER_CONSTANTS:
+    ENGINE:str              = "ID_EGN"
+    MODE_S:str              = "ID_MDS"
+    DATABASE:str            = "ID_DTB"
+    PROGRESS_BAR:str        = "[==>]"
+    END_PROGRESS_BAR:str    = "[==|]"
+
 class GUI_CONSTANTS:
     DE_MIN_LATITUDE = 46
     DE_MAX_LATITUDE = 56

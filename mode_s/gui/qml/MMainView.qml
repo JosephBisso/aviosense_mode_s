@@ -8,6 +8,7 @@ Frame {
     id: rootMainView
     property var identMap: null
     anchors.fill: parent
+    
     background: Rectangle {
         color: "transparent"
         border.color: "transparent"
@@ -25,9 +26,9 @@ Frame {
         }
     } 
 
-    function loadPlotsForFilteredAddress(filteredAddress) {
-
-    }
+    function stopBackgroundLoading() {
+        mapView.stopBackgroundLoading()
+    } 
 
     Connections {
         target: __mode_s

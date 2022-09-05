@@ -27,6 +27,16 @@ Drawer {
 
     onClosed: rootSideBar.edited = false 
 
+    function lockButtons() {
+        dbButton.mEnabled = false
+        engineButton.mEnabled = false
+    }
+
+    function unlockButtons() {
+        dbButton.mEnabled = true
+        engineButton.mEnabled = true
+    }
+
     function getDBData() {
         let databaseDataJson = JSON.stringify(database.getData())
         return databaseDataJson
@@ -70,9 +80,8 @@ Drawer {
         height: 60
         anchors {
             top: parent.top
-            right: parent.right
+            horizontalCenter: subheader.horizontalCenter
             topMargin: 20
-            rightMargin: 40
         }
         text: "MODE_S"
         font: Constants.FONT_VERY_BIG
@@ -83,8 +92,8 @@ Drawer {
         height: 20
         anchors {
             top: header.bottom
-            right: parent.right
-            rightMargin: 40
+            horizontalCenter: parent.horizontalCenter
+            horizontalCenterOffset: 100
         }
         text: "Data Transfer & Turbulence Prediction"
         font: Constants.FONT_SMALL
@@ -162,7 +171,7 @@ Drawer {
 
         anchors {
             top: parent.top
-            bottom: params.top
+            bottom: parent.bottom
             left:parent.left
             topMargin: rootSideBar.verticalMarginItems
             bottomMargin: rootSideBar.verticalMarginItems
@@ -173,6 +182,7 @@ Drawer {
 
         ColumnLayout {
             spacing: rootSideBar.verticalMarginItems
+            anchors.fill: parent
             MSideOption {
                 id: database
                 img_src: "qrc:/img/database.png"
@@ -238,17 +248,17 @@ Drawer {
         }
     }
 
-    MSideOption {
-        id: params
-        img_src: "qrc:/img/params.png"
-        title: "Preferences"
+    // MSideOption {
+    //     id: params
+    //     img_src: "qrc:/img/params.png"
+    //     title: "Preferences"
 
-        anchors {
-            bottom: parent.bottom
-            left:parent.left
-            leftMargin: rootSideBar.leftMarginTitle
-            bottomMargin: rootSideBar.verticalMarginItems
-        }
-    }
+    //     anchors {
+    //         bottom: parent.bottom
+    //         left:parent.left
+    //         leftMargin: rootSideBar.leftMarginTitle
+    //         bottomMargin: rootSideBar.verticalMarginItems
+    //     }
+    // }
 
 }

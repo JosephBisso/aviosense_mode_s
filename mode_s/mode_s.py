@@ -96,6 +96,7 @@ def qt_message_handler(mode, context, message):
 class Mode_S(QObject):
     
     logged              = Signal(str, arguments=['log'])
+    progressed          = Signal(str, str, arguments=['id', 'msg'])
 
     dbFilterUpdated     = Signal()
     engineFilterUpdated = Signal()
@@ -131,6 +132,7 @@ class Mode_S(QObject):
         self.engine = msEngine
         self.logger = logger
         logger.logged.connect(self.__log)
+        logger.progressed.connect(self.__progress)
         self.dbFilterUpdated.connect(self.actualizeDB)
         self.engineFilterUpdated.connect(self.compute)
         self.readyToPlot.connect(self.plot)
@@ -187,6 +189,10 @@ class Mode_S(QObject):
     @Slot(str)
     def __log(self, log: str):
         self.logged.emit(log)
+
+    @Slot(str, str)
+    def __progress(self, id: str, msg: str):
+        self.progressed.emit(id, msg)
         
     def __checkParam(self, strJson):
         data: Dict[str, str] = json.loads(strJson)
@@ -222,6 +228,7 @@ class Mode_S(QObject):
 
     def __plotting(self, **params):
         try: 
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [0/9]")
             if params.get("fromDump"):
                 results = self.engine.loadDump()
             else:
@@ -232,53 +239,71 @@ class Mode_S(QObject):
             computedAddresses = next(results)
             self.__identMap = computedAddresses if params.get("fromDump") else self.db.getMapping(computedAddresses)
             self.identificationMapped.emit()
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [1/9]")
+
             self.plotOccurrenceReady.emit()
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [2/9]")
 
             self.__rawSeries = next(results)
             self.plotRawReady.emit()
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [3/9]")
 
             self.__intervalSeries = next(results)
             self.plotIntervalReady.emit()
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [4/9]")
 
             self.__filteredSeries = next(results)
             self.plotFilteredReady.emit()
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [5/9]")
 
             self.__stdSeries = next(results)
             self.plotStdReady.emit()
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [6/9]")
 
             self.__locationSeries = next(results)
             self.plotLocationReady.emit()
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [7/9]")
 
             self.__turbulentLocationSeries = next(results)
             self.plotTurbulentReady.emit()
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [8/9]")
 
             self.__heatMapSeries = next(results)
             self.plotHeatMapReady.emit()
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S,"Sending plot data [9/9]")
 
 
             self.logger.success("Done computing")
             
-            next(results, None)
+            while next(results, None) is not None:
+                pass
+            
+            self.__dumpAll()
 
         except ModeSEngine.EngineError as err:
             self.logger.warning("Error Occurred: Mode_s plotting::", str(err))
-        finally:
-            ms = MODE_S_CONSTANTS
-            if self.engine.data:
-                self.executor.submit(self.__dumpData, self.engine.data, ms.DATABASE_DUMP)
-                self.db.data = self.engine.data = []
-            
-            toDump = [self.__occurrenceSeries, self.__identMap, self.__rawSeries, self.__intervalSeries,
-                      self.__filteredSeries, self.__stdSeries, self.__locationSeries, self.__turbulentLocationSeries, self.__heatMapSeries]
-            toDumpName = [ms.OCCURRENCE_DUMP, ms.INDENT_MAPPING, ms.BAR_IVV_DUMP, ms.INTERVAL_DUMP,
-                          ms.FILTERED_DUMP, ms.STD_DUMP, ms.LOCATION_DUMP, ms.TURBULENCE_DUMP, ms.HEATMAP_DUMP]
-            for index in range(len(toDump)):
-                if not toDump[index]:
-                    continue
-                self.executor.submit(self.__dumpData, toDump[index], toDumpName[index])
-                toDump[index] = []
+        finally:            
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, LOGGER_CONSTANTS.END_PROGRESS_BAR)
 
-            gc.collect()
+    def __dumpAll(self):
+        self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Dumping Data")
+
+        ms = MODE_S_CONSTANTS
+        if self.engine.data:
+            self.executor.submit(self.__dumpData, self.engine.data, ms.DATABASE_DUMP)
+            self.db.data = self.engine.data = []
+        
+        toDump = [self.__occurrenceSeries, self.__identMap, self.__rawSeries, self.__intervalSeries,
+                    self.__filteredSeries, self.__stdSeries, self.__locationSeries, self.__turbulentLocationSeries, self.__heatMapSeries]
+        toDumpName = [ms.OCCURRENCE_DUMP, ms.INDENT_MAPPING, ms.BAR_IVV_DUMP, ms.INTERVAL_DUMP,
+                        ms.FILTERED_DUMP, ms.STD_DUMP, ms.LOCATION_DUMP, ms.TURBULENCE_DUMP, ms.HEATMAP_DUMP]
+        for index in range(len(toDump)):
+            if not toDump[index]:
+                continue
+            self.executor.submit(self.__dumpData, toDump[index], toDumpName[index])
+            toDump[index] = []
+
+        gc.collect()
 
     def __dumpData(self, data: List[Any], name: str):
         self.logger.debug("Dumping and freeing memory for", name)

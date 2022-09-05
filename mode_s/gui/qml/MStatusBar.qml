@@ -1,0 +1,170 @@
+import QtQml 2.15
+import QtQuick 2.15
+import QtQml.Models 2.15
+import QtQuick.Layouts 1.15
+import QtQuick.Controls 2.15
+import "qrc:/scripts/Constants.js" as Constants
+
+Column {
+    id: statusBar
+    width: Math.max((1/4) * parent.width, 475)
+    height: implicitHeight + 10
+    spacing: 2
+    clip: true
+    visible: !busyIndicator.visible
+
+    move: Transition {
+        NumberAnimation {properties: "x, y"; duration: 250}
+    }
+    add: Transition {
+        NumberAnimation {properties: "x, y"; duration: 250}
+    }
+
+
+    ListModel {
+        id: statusElements
+    }
+
+    Connections {
+        id: statusConnection
+        target: __mode_s
+        function onProgressed(progressID, msg) {
+            let deleting = false
+            for (let i = 0; i < statusElements.count; i++) {
+                if (!statusElements.get(i)) {continue}
+                if (statusElements.get(i).progressID == progressID) {
+                    if (msg.includes(Constants.END_PROGRESS_BAR)) {
+                        statusElements.remove(i, 1)
+                        deleting = true
+                        continue
+                    }
+                    let cleanMsg = msg.replace(statusElements.get(i).progressID, "")
+                    statusElements.get(i).message = cleanMsg
+                    return
+                }
+            }
+            if (deleting)  {return}
+
+            let color = ""
+            let leID = "ID_"
+            switch(progressID) {
+                case Constants.DATABASE:
+                    leID = Constants.DATABASE
+                    color = Constants.ACCENT_COLOR2
+                    break
+                case Constants.ENGINE:
+                    leID = Constants.ENGINE
+                    color = "lime"
+                    break
+                case Constants.MODE_S:
+                    leID = Constants.MODE_S
+                    color = Constants.ACCENT_COLOR3
+                    break
+                case Constants.ID_LOCATION:
+                    leID = Constants.ID_LOCATION
+                    color = "dodgerBlue"
+                    break
+                default:
+                    color = "dodgerBlue"
+                    break
+            }
+
+            let cleanMsg = msg.replace(leID, "")
+            let img = getImgFromId(progressID)
+
+            statusElements.append({
+                "progressID"    : progressID,
+                "img"           : img,
+                "message"       : cleanMsg,
+                "progressColor" : color
+            })
+        }
+    }
+
+    function getImgFromId(progressID) {
+        switch(progressID) {
+            case Constants.ID_LOCATION:
+                return "world"
+            case Constants.DATABASE:
+                return "sync_db"
+            case Constants.ENGINE:
+                return "power_button"
+            case Constants.MODE_S:
+                return "home"
+            default:
+                return "settings"
+        }
+    }
+
+    Repeater {
+        id: statusBarRepeater
+        model: statusElements
+        delegate: Rectangle {
+            id: statusFrame
+            height: 55
+            width: Math.min(contentRow.width + 20, statusBar.width)
+            color: Constants.transparentBy(progressColor, 0.5)
+            radius: 10
+            border {
+                width: Constants.BORDER_WIDTH
+                color: progressColor
+            }
+
+            RowLayout {
+                id: contentRow
+                anchors {
+                    top: parent.top
+                    bottom: parent.bottom
+                    left: parent.left
+                    
+                    margins: 10
+                }
+                width: implicitWidth
+
+                MIMGButton {
+                    id: statusButton
+                    Layout.alignment: Qt.AlignVCenter
+                    width: 35
+                    img_src: `qrc:/img/${img}.png`
+                    mFont: Constants.FONT_SMALL
+                    mDefaultColor: Constants.GLASSY_BLACK_BACKGROUND
+                    mHoverColor: Constants.FOREGROUND_COLOR
+                    mClickColor:Qt.rgba(Constants.ACCENT_COLOR1.r, Constants.ACCENT_COLOR1.g, Constants.ACCENT_COLOR1.b, 0.5)
+                    mTextColor: "white"
+                    opacity: 1
+                    mToolTipText: "Show Log"
+    
+                    onClicked: {
+                        busyIndicator.pieck(progressColor, message)
+                    }
+                }
+
+                Label {
+                    id: statusMsg
+                    Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+                    text: message
+                    font: Constants.FONT_VERY_SMALL
+                    color: "lightgrey"
+                }
+                MIMGButton {
+                    id: closeButton
+                    visible: progressID === Constants.ID_LOCATION
+                    Layout.alignment: Qt.AlignVCenter
+                    width: 25
+                    img_src: `qrc:/img/close.png`
+                    mFont: Constants.FONT_SMALL
+                    mDefaultColor: "red"
+                    mHoverColor: Qt.darker(mDefaultColor, 1.1)
+                    mClickColor:Qt.rgba(Constants.ACCENT_COLOR1.r, Constants.ACCENT_COLOR1.g, Constants.ACCENT_COLOR1.b, 0.5)
+                    mTextColor: "black"
+                    opacity: 1
+                    mToolTipText: "Stop Background task"
+    
+                    onClicked: {
+                        mainView.stopBackgroundLoading()
+                    }
+                }
+            }
+        }
+    }
+}

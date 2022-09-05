@@ -18,7 +18,7 @@ Popup {
     opacity: 0.2
     dim: true
     modal: true
-    closePolicy: Popup.NoAutoClose
+    closePolicy: Popup.CloseOnPressOutside | Popup.CloseOnEscape
 
     enter: Transition {
         ParallelAnimation {
@@ -61,6 +61,13 @@ Popup {
         }
     }
 
+    function pieck(boderColor, message) {
+        mTitle = message
+        mBorderColor = boderColor
+        busyIndicator.visible = true
+        open()
+    }
+
     Connections {
         target: __mode_s
 
@@ -69,16 +76,18 @@ Popup {
         }
 
         function onComputingStarted() {
+            mTitle = "Working..."
             busyIndicator.visible = true
-            indicatorTitle.text = mTitle
             rootPane.mBorderColor = "white"
+            sideBar.lockButtons()
             rootPane.open()
         }
 
         function onComputingFinished() {
             busyIndicator.visible = false
-            indicatorTitle.text = "Done"
+            mTitle = "Done"
             rootPane.mBorderColor = "lime"
+            sideBar.unlockButtons()
             closingTimer.start()
         }
     }
