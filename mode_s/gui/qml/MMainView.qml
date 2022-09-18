@@ -26,8 +26,8 @@ Frame {
         }
     } 
 
-    function stopBackgroundLoading() {
-        mapView.stopBackgroundLoading()
+    function stopBackgroundLoading(progressID) {
+        mapView.stopBackgroundLoading(progressID)
     } 
 
     Connections {
@@ -175,8 +175,8 @@ Frame {
                 }
             }
 
-            onAddressClicked: (address) => {
-                plotView.preparePlotsForAddress(address)
+            onAddressClicked: (address, mode) => {
+                plotView.preparePlotsForAddress(address, mode)
             }
 
             onKdeClicked: (latitude, longitude, bandwidth) => {

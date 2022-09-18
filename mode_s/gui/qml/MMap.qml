@@ -26,78 +26,143 @@ Frame {
     }
 
     signal done()
-    signal addressClicked(int address)
+    signal addressClicked(int address, string mode)
     signal kdeClicked(double latitude, double longitude, double bandwidth)
 
-    function stopBackgroundLoading() {
-        locationUpdater.counter = 0
-        console.info(Constants.PROGRESS_BAR, Constants.ID_LOCATION, Constants.END_PROGRESS_BAR)
-        locationUpdater.stop()
+    function stopBackgroundLoading(progressID) {
+        switch (progressID) {
+            case Constants.ID_LOCATION:
+                locationLoader.counter = 0
+                locationLoader.stop()
+                break
+            case Constants.ID_TURBULENT:
+                turbulentLoader.counter = 0
+                turbulentLoader.stop()
+                break
+            case Constants.ID_KDE:
+                kdeLoader.counter = 0
+                kdeLoader.stop()
+                break
+
+        }
+        console.info(Constants.PROGRESS_BAR, progressID, Constants.END_PROGRESS_BAR)
     }
     function pauseBackgroundLoading() {
-        locationUpdater.stop()
+        locationLoader.stop()
+        turbulentLoader.stop()
+        kdeLoader.stop()
     }
     function resumeBackgroundLoading() {
-        locationUpdater.start()
+        locationLoader.start()
+        turbulentLoader.start()
+        kdeLoader.start()
     }
 
     function update(view) {
-        let type = "location"
-        let target = locationGroup
-        let pointList = location
-
         switch (view) {
             case Constants.LOCATION:
                 if(location.length > 0) {
-                    target.clear()
-                    locationUpdater.start()
+                    console.log(location.length)
+                    locationGroup.clear()
+                    locationLoader.start()
                 }
-                return
+                break
             case Constants.TURBULENCE:
-                type        = "turbulent"
-                target      = turbulentGroup
-                pointList   = turbulentLocation
+                if(turbulentLocation.length > 0) {
+                    turbulentGroup.clear()
+                    turbulentLoader.start()
+                }
                 break
             case Constants.KDE:
-                type        = "kde"
-                target      = kdeGroup
-                pointList   = kde
+                if(turbulentLocation.length > 0) {
+                    kdeGroup.clear()
+                    kdeLoader.start()
+                }
                 break
         }
-
-        if (pointList.length === 0) {return}
-        target.clear()
-        mapWorker.sendMessage({"type": type, "target": target, "listPoint": pointList}) 
     }
 
     Timer {
-        id: locationUpdater
+        id: locationLoader
         interval: 15000
         running: false
         repeat: true
         triggeredOnStart: false
+        property string progressID: Constants.ID_LOCATION
         property int counter: 0
         property int maxSegmentLength: 500
+        property var source: location
+        property var target: locationGroup
+        property string sourceStr: "location"
+        property string progressString: "Loading All Routes"
         onTriggered: {
-            console.info(Constants.PROGRESS_BAR, Constants.ID_LOCATION, `Loading All Routes [${counter}/${location.length - 1}]`)
-            let actualSegmentLength = location[counter].segments.length
-            let endSlice = counter + 1
-            while (endSlice <= location.length - 1 && actualSegmentLength + location[endSlice].segments.length < maxSegmentLength) {
-                actualSegmentLength += location[endSlice].segments.length
-                endSlice++
-            }
-            console.log(`Loading ${actualSegmentLength} location elements`)
-            let partialList = location.slice(counter, endSlice)
-            mapWorker.sendMessage({"type": "location", "target": locationGroup, "listPoint": partialList})
-            counter = endSlice
-            if (counter >= location.length - 1) {
-                console.info(Constants.PROGRESS_BAR, Constants.ID_LOCATION, Constants.END_PROGRESS_BAR)
-                counter = 0
-                locationUpdater.stop()
-            }
+            run(locationLoader)
+        }
+    }
+    Timer {
+        id: turbulentLoader
+        interval: 1500
+        running: false
+        repeat: true
+        triggeredOnStart: false
+        property string progressID: Constants.ID_TURBULENT
+        property int counter: 0
+        property int maxSegmentLength: 20
+        property var source: turbulentLocation
+        property var target: turbulentGroup
+        property string sourceStr: "turbulent"
+        property string progressString: "Loading All Turbulent Routes"
+        onTriggered: {
+            run(turbulentLoader)
         }
     }
 
+    Timer {
+        id: kdeLoader
+        interval: 1000
+        running: false
+        repeat: true
+        triggeredOnStart: false
+        property string progressID: Constants.ID_KDE
+        property int counter: 0
+        property int maxSegmentLength: 10
+        property var source: kde
+        property var target: kdeGroup
+        property string sourceStr: "kde"
+        property string progressString: "Loading All KDE Zones"
+        onTriggered: {
+            run(kdeLoader, true)
+        }
+    }
+
+    function run(t, kde=false) {
+        console.info(Constants.PROGRESS_BAR, t.progressID, `${t.progressString} [${t.counter}/${t.source.length - 1}]`)
+        let endSlice = 0
+        let partialList = []
+
+        if (kde) {
+            endSlice = t.counter + t.maxSegmentLength
+            partialList = t.source.slice(t.counter, endSlice )
+        } else {
+            let actualSegmentLength = t.source[t.counter].segments.length
+            endSlice = t.counter + 1
+            while (endSlice <= t.source.length - 1 && actualSegmentLength + t.source[endSlice].segments.length < t.maxSegmentLength) {
+                actualSegmentLength += t.source[endSlice].segments.length
+                endSlice++
+            }
+            console.log(`Loading ${actualSegmentLength} ${t.sourceStr} elements`)
+            partialList = t.source.slice(t.counter, endSlice)
+        }
+        
+        mapWorker.sendMessage({"type": t.sourceStr, "target": t.target, "listPoint": partialList})
+        t.counter = endSlice
+        if (t.counter >= t.source.length - 1) {
+            console.info(Constants.PROGRESS_BAR, t.progressID, Constants.END_PROGRESS_BAR)
+            t.counter = 0
+            t.stop()
+        }
+    }
+    
     MMenuBar {
         id: menubar
         z: 1
@@ -182,7 +247,7 @@ Frame {
                 }
             }
             showFlightInfo(polyline, turbulence)
-            rootFrame.addressClicked(address)
+            rootFrame.addressClicked(address, rootFrame.mode)
         }
 
         function zoneKDEClicked(kdeZone) {
@@ -211,6 +276,7 @@ Frame {
             mapElementInfo.datapoints = polyline.path.length
             mapElementInfo.turbulentFlight = turbulent
             mapElementInfo.buttonShowGraph = true
+            mapElementInfo.mode = rootFrame.mode
             mapElementInfo.open()
         }
 

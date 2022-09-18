@@ -46,23 +46,25 @@ Column {
             if (deleting)  {return}
 
             let color = ""
-            let leID = "ID_"
+            let leID = progressID
             switch(progressID) {
                 case Constants.DATABASE:
-                    leID = Constants.DATABASE
                     color = Constants.ACCENT_COLOR2
                     break
                 case Constants.ENGINE:
-                    leID = Constants.ENGINE
                     color = "lime"
                     break
                 case Constants.MODE_S:
-                    leID = Constants.MODE_S
                     color = Constants.ACCENT_COLOR3
                     break
                 case Constants.ID_LOCATION:
-                    leID = Constants.ID_LOCATION
                     color = "dodgerBlue"
+                    break
+                case Constants.ID_TURBULENT:
+                    color = "lightsalmon"
+                    break
+                case Constants.ID_KDE:
+                    color = "cyan"
                     break
                 default:
                     color = "dodgerBlue"
@@ -83,6 +85,8 @@ Column {
 
     function getImgFromId(progressID) {
         switch(progressID) {
+            case Constants.ID_TURBULENT:
+            case Constants.ID_KDE:
             case Constants.ID_LOCATION:
                 return "world"
             case Constants.DATABASE:
@@ -161,7 +165,7 @@ Column {
                     mToolTipText: "Stop Background task"
     
                     onClicked: {
-                        mainView.stopBackgroundLoading()
+                        mainView.stopBackgroundLoading(progressID)
                     }
                 }
             }

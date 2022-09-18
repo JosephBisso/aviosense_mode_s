@@ -1,6 +1,4 @@
 WorkerScript.onMessage = function (message) {
-    message.target.clear()
-    
     switch (message.type) {
         case "location":
             showLocation(message.target, message.listPoint)

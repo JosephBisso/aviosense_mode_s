@@ -656,15 +656,17 @@ class Engine:
         if not exceeds:
             return exceedingData
         
+        sizeRatio = 10
+        
         exceedingPercentageGroup = []
 
         for exceedingPercentage in exceeds:
             percentage = next((dist for dist in exceedingData["distribution"] if int(dist) <= exceedingPercentage < int(dist) + 10), "100")
             exceedingData["distribution"][percentage] += 1
-            exceedingPercentageGroup.append(percentage)
+            exceedingPercentageGroup.append(int(percentage)/sizeRatio)
 
         exceedsShape = np.array(exceedingPercentageGroup).reshape(-1, 1)
-        Xs = np.linspace(0, 100, num=1000).reshape(-1, 1)
+        Xs = np.linspace(0, 100/sizeRatio, num=1000).reshape(-1, 1)
         
         kde = KernelDensity(kernel="gaussian", bandwidth=self.kdeBW).fit(exceedsShape)
         density = np.exp(kde.score_samples(Xs))

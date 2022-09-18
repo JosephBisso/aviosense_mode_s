@@ -132,7 +132,7 @@ Rectangle {
 
     ToolTip {
         id: tooTip
-        delay: 750
+        delay: 1000
         parent: root
         text: mToolTipText
         z:1

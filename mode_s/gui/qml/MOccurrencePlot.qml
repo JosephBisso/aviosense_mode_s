@@ -3,6 +3,7 @@ import QtCharts 2.15
 
 ChartView {
     id: chartView
+    property var pointList: []
 
     axes: [
         ValueAxis{
@@ -19,26 +20,23 @@ ChartView {
         }
     ]
 
-    Connections {
-        target: __mode_s
+    function update() {
+        console.info("Displaying line series for occurrences")
+        chartView.removeAllSeries()
+        if (pointList.length == 0) {return}
+        var series = chartView.createSeries(ChartView.SeriesTypeLine, "Datapoints over addresses", xAxis, yAxis)
+        series.pointsVisible = true
+        // series.hovered.connect((point, state) => { console.log("hovered", point, state);})
 
-        function onPlotOccurrenceReady() {
-            console.info("Displaying line series for occurrences")
-            chartView.removeAllSeries()
-            let pointList = __mode_s.occurrenceSeries
-            if (__mode_s.occurrenceSeries.length == 0) {return}
-            var series = chartView.createSeries(ChartView.SeriesTypeLine, "Datapoints over addresses", xAxis, yAxis)
-            series.pointsVisible = true
-            // series.hovered.connect((point, state) => { console.log("hovered", point, state);})
-
-            for (let index = 0; index < pointList.length; index++) {
-                series.append(index+1, pointList[index])
-            }
-
-            xAxis.max = pointList.length
-            yAxis.max = Math.max.apply(null, pointList)
-            xAxis.applyNiceNumbers()
-            yAxis.applyNiceNumbers()
+        for (let index = 0; index < pointList.length; index++) {
+            series.append(index+1, pointList[index])
         }
-    } 
+
+        xAxis.max = pointList.length
+        yAxis.max = Math.max.apply(null, pointList)
+        xAxis.applyNiceNumbers()
+        yAxis.applyNiceNumbers()
+    }
+
+    onPointListChanged: update()
 }

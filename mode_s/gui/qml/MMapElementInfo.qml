@@ -15,6 +15,7 @@ Popup {
     property string displayText: "Data points"
     property bool turbulentFlight: false
     property bool buttonShowGraph: true
+    property string mode: Constants.LOCATION
 
     property var control: parent
     property var mHeight: {Math.max((4/15) * parent.height, 275)}
@@ -130,10 +131,10 @@ Popup {
                 verticalMenuBar.selectMenu("noise")
                 verticalMenuBar.clicked("noise")
                 if (rootPopup.buttonShowGraph) {
-                    if (rootPopup.turbulentFlight) {
-                        plotView.switchToSTD()
-                    } else {
+                    if (rootPopup.mode == Constants.LOCATION) {
                         plotView.switchToRaw()
+                    } else {
+                        plotView.switchToSTD()
                     }
                 } else {
                     plotView.switchToKDE()

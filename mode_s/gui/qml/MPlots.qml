@@ -41,8 +41,9 @@ Frame {
         }
     }   
 
-    function preparePlotsForAddress(address) {
+    function preparePlotsForAddress(address, mode) {
         plotSwipe.currentAddress = address
+        plotSwipe.mode = mode
     }
 
     function prepareKDEExceedZone(latitude, longitude, bandwidth) {
@@ -80,16 +81,27 @@ Frame {
     SwipeView {
         id: plotSwipe
         property var currentAddress: ""
+        property string mode: ""
         property double kdeZoneLatitude: 0
         property double kdeZoneLongitude: 0
         property double kdeZoneBandwidth: 0
 
         anchors.fill: parent
-        MOccurrencePlot {
-            title: "Occurence Plot"
-            titleFont: Constants.FONT_MEDIUM
-            titleColor: Constants.FONT_COLOR
-            theme: ChartView.ChartThemeBlueIcy
+
+        Loader {
+            id: occurrenceLoader
+            active: plotFrame.isCurrentView && (SwipeView.isCurrentItem || SwipeView.isPreviousItem)
+            visible: status == Loader.Ready
+            asynchronous: true
+            sourceComponent: Component {
+                MOccurrencePlot {
+                    title: "Occurence Plot"
+                    pointList: __mode_s.occurrenceSeries
+                    titleFont: Constants.FONT_MEDIUM
+                    titleColor: Constants.FONT_COLOR
+                    theme: ChartView.ChartThemeBlueIcy
+                }
+            }
         }
 
         SwipeView {
@@ -105,7 +117,8 @@ Frame {
                 model: __mode_s.rawSeries
                 delegate: Loader {
                     id: rawPlotLoader
-                    active: plotSwipe.currentAddress == modelData["address"] || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+                    active: (plotSwipe.currentAddress == modelData["address"] && (plotSwipe.mode == Constants.LOCATION || plotFrame.isCurrentView) ) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+                    visible: true
                     asynchronous: true
                     onLoaded: rawPlots.showCurrentAddress(SwipeView.index)
 
@@ -130,7 +143,7 @@ Frame {
 
         SwipeView {
             id: filteredPlots
-
+            property bool isNeighbor: SwipeView.isPreviousItem || SwipeView.isNextItem || SwipeView.isCurrentItem 
             function showCurrentAddress(indexOfLoadedItem) {
                 setCurrentIndex(indexOfLoadedItem)
             }
@@ -141,7 +154,8 @@ Frame {
 
                 delegate: Loader {
                     id: filteredPlotLoader
-                    active: plotSwipe.currentAddress == modelData["address"] || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+                    active: (plotSwipe.currentAddress == modelData["address"] && plotFrame.isCurrentView && filteredPlots.isNeighbor) || (plotFrame.isCurrentView && filteredPlots.isNeighbor && SwipeView.isCurrentItem)
+                    visible: status == Loader.Ready
                     asynchronous: true
                     onLoaded: filteredPlots.showCurrentAddress(SwipeView.index)
                     sourceComponent: Component {
@@ -188,7 +202,8 @@ Frame {
 
                 delegate: Loader {
                     id: intervallPlotLoader
-                    active: plotSwipe.currentAddress == modelData["address"] || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+                    active: (plotSwipe.currentAddress == modelData["address"] && plotFrame.isCurrentView) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+                    visible: status == Loader.Ready
                     asynchronous: true
                     onLoaded: intervallPlots.showCurrentAddress(SwipeView.index)
                     sourceComponent: Component {
@@ -220,7 +235,8 @@ Frame {
                 model: __mode_s.stdSeries
                 delegate: Loader {
                     id: stdPlotLoader
-                    active: plotSwipe.currentAddress == modelData["address"] || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+                    active: (plotSwipe.currentAddress == modelData["address"] && (plotSwipe.mode == Constants.TURBULENCE || plotFrame.isCurrentView )) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+                    visible: true
                     asynchronous: true
                     onLoaded: stdPlots.showCurrentAddress(SwipeView.index)
                     sourceComponent: Component {
@@ -287,7 +303,8 @@ Frame {
 
                 delegate: Loader {
                     id: exceedPlotLoader
-                    active: plotSwipe.currentAddress == modelData["address"] || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+                    active: (plotSwipe.currentAddress == modelData["address"] && (plotSwipe.mode == Constants.TURBULENCE || plotFrame.isCurrentView)) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+                    visible: true
                     asynchronous: true
                     onLoaded: exceedPlots.showCurrentAddress(SwipeView.index)
                     sourceComponent: Component {
@@ -325,6 +342,7 @@ Frame {
                 delegate: Loader {
                     id: kdeExceedPlotLoader
                     active: (plotSwipe.kdeZoneLatitude == modelData["latitude"] && plotSwipe.kdeZoneLongitude == modelData["longitude"]) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+                    visible: true
                     asynchronous: true
                     onLoaded: kdeExceedPlots.showCurrentAddress(SwipeView.index)
                     sourceComponent: Component {

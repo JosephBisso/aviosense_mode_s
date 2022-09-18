@@ -337,7 +337,6 @@ class Analysis:
         }
         
         maxX = 1000
-        Xs = np.linspace(0, 100, num=maxX).reshape(-1, 1)
 
         allExceedingData = []
         
@@ -364,19 +363,20 @@ class Analysis:
             if not allDiffs:
                 continue
             
-            exceeds = [100*(diff - threshold) /
-                    threshold for diff in allDiffs if diff >= threshold]
+            exceeds = [100*(diff - threshold)/threshold for diff in allDiffs if diff >= threshold]
 
             if not exceeds:
                 continue
             
             exceedingPercentageGroup = []
+            sizeRatio = 10
 
             for exceedingPercentage in exceeds:
                 percentage = next((dist for dist in [0,10,20,30,40,50,60,70,80,90,100] if dist <= exceedingPercentage < dist + 10), 100)
-                exceedingPercentageGroup.append(percentage)
+                exceedingPercentageGroup.append(percentage/sizeRatio)
 
             exceedsShape = np.array(exceedingPercentageGroup).reshape(-1, 1)
+            Xs = np.linspace(0, 100/sizeRatio, num=maxX).reshape(-1, 1)
 
             kde = KernelDensity(kernel="gaussian",bandwidth=Analysis.KDE_BAND_WIDTH).fit(exceedsShape)
             density = np.exp(kde.score_samples(Xs))
