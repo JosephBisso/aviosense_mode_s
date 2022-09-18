@@ -150,6 +150,7 @@ class Mode_S(QObject):
         data: Dict[str, str] = self.__checkParam(dbJson)
         
         future = self.executor.submit(self.__setDbParameters, data)
+        future.add_done_callback(self.__backgroundThreadFinished)
         self.backgroundFutures.append(future)
     
     def __setDbParameters(self, data):
@@ -171,12 +172,14 @@ class Mode_S(QObject):
         
     @Slot()
     def compute(self):
-        self.executor.submit(self.__prepareEngine)
-        
+        future = self.executor.submit(self.__prepareEngine)
+        future.add_done_callback(self.__backgroundThreadFinished)
+
     @Slot()
     def startDatabase(self):
-        self.executor.submit(self.db.start)
-                
+        future = self.executor.submit(self.db.start)
+        future.add_done_callback(self.__backgroundThreadFinished)
+
     @Slot()
     def plot(self, **params): 
         future = self.executor.submit(self.__plotting, **params)
@@ -216,6 +219,9 @@ class Mode_S(QObject):
     def __computingFinished(self, future: concurrent.futures.Future):
         future.result()
         self.computingFinished.emit()
+
+    def __backgroundThreadFinished(self, future: concurrent.futures.Future):
+        future.result()
 
     def __prepareEngine(self):
         self.waitUntilReady()
@@ -302,7 +308,8 @@ class Mode_S(QObject):
 
         ms = MODE_S_CONSTANTS
         if self.engine.data:
-            self.executor.submit(self.__dumpData, self.engine.data, ms.DATABASE_DUMP)
+            dbDump = self.executor.submit(self.__dumpData, self.engine.data, ms.DATABASE_DUMP)
+            dbDump.add_done_callback(self.__backgroundThreadFinished)
             self.db.data = self.engine.data = []
         
         toDump = [self.__occurrenceSeries, self.__identMap, self.__rawSeries, self.__intervalSeries,
@@ -312,7 +319,8 @@ class Mode_S(QObject):
         for index in range(len(toDump)):
             if not toDump[index]:
                 continue
-            self.executor.submit(self.__dumpData, toDump[index], toDumpName[index])
+            dumping = self.executor.submit(self.__dumpData, toDump[index], toDumpName[index])
+            dumping.add_done_callback(self.__backgroundThreadFinished)
             toDump[index] = []
 
 

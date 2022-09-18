@@ -1,10 +1,11 @@
 from PySide2 import QtSql
 from PySide2.QtCore import QDateTime
 
-import sys
+import multiprocessing
 import concurrent.futures
 from typing import List, Dict, Union
 
+import background
 from logger import Logger
 from constants import DB_CONSTANTS, LOGGER_CONSTANTS
 
@@ -25,7 +26,7 @@ class Database:
     
     filterOn: bool = False 
     data: List[Dict[str, Union[str, int]]] = []  
-    executors: List[concurrent.futures.Executor] = []
+    executors: List[concurrent.futures.ThreadPoolExecutor] = []
     
     addresses: List[int] = []
     usedAddresses: List[int] = []
@@ -151,37 +152,48 @@ class Database:
         # option={..., "limit":50000}
         self.logger.debug("Getting attributes", ", ".join(attrib for attrib in attributes), "from Database")
         allResults = []
-        executor = self.__executor()
-        try:
-            queries = self.__generateQueries(attributes, options) 
-            threadedQueries = [executor.submit(self.__query, query, attributes) for query in queries]
-
-            for completedQuery in concurrent.futures.as_completed(threadedQueries):
-                try:
-                    results, dbName = completedQuery.result()
-                except DatabaseError as de:
-                    self.logger.critical(str(de))
-                except Exception as esc:
-                    self.logger.warning("Error occurred while getting attributes " + str(attributes) + "\nERROR: " + str(esc))
-                else:
-                    allResults.extend(results)
-                finally:
-                    QtSql.QSqlDatabase.removeDatabase(dbName)
-
+        with concurrent.futures.ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+            dbName = None
             try:
-                limit = options["limit"]
-            except KeyError:
-                limit = self.limit
+                queries = self.__generateQueries(attributes, options) 
+                threadedQueries = []
+                queriesPerProcess = int(len(queries) / multiprocessing.cpu_count())
+                for i in range(multiprocessing.cpu_count()):
+                    DB_CONSTANTS.CONNECTIONS_TOTAL += 1
+                    startIndex = i*queriesPerProcess
+                    endIndex = startIndex + queriesPerProcess if i < multiprocessing.cpu_count() - 1 else None
+                    pack = queries[startIndex : endIndex]
+                    if not pack:
+                        continue
+                    threadedQueries.append(executor.submit(background.query, pack, attributes, self.knownIdents, DB_CONSTANTS.CONNECTIONS_TOTAL))
                     
-            if len(allResults) < int(limit): self.logger.warning("Query executed. Results lower than expected (" + str(len(allResults)) + " < " + str(limit) + ")")
-            else: self.logger.success("Query successfully executed.")
 
-        except DatabaseError as de:
-            self.logger.critical(str(de))
-            return []
-        finally:
-            executor.shutdown()
-        
+                for completedQuery in concurrent.futures.as_completed(threadedQueries):
+                    try:
+                        results, dbName = completedQuery.result()
+                    except ConnectionError as de:
+                        self.logger.critical("Error occurred while getting attributes " + str(attributes))
+                        self.logger.critical(str(de))
+                    except Exception as esc:
+                        self.logger.warning("Error occurred while getting attributes " + str(attributes) + "\nERROR: " + str(esc))
+                    else:
+                        allResults.extend(results)
+                    finally:
+                        if dbName:
+                            QtSql.QSqlDatabase.removeDatabase(dbName)
+
+                try:
+                    limit = options["limit"]
+                except KeyError:
+                    limit = self.limit
+                        
+                if len(allResults) < int(limit): self.logger.warning("Query executed. Results lower than expected (" + str(len(allResults)) + " < " + str(limit) + ")")
+                else: self.logger.success("Query successfully executed.")
+
+            except DatabaseError as de:
+                self.logger.critical(str(de))
+                return []
+            
         return allResults
     
     def mapAddressIndent(self) -> bool:
@@ -194,12 +206,12 @@ class Database:
             idAndAddress__future.add_done_callback(self.__actualizeKnownAddresses)
 
             self.backgroundFutures.append(idAndAddress__future)
-        except DatabaseError as dbe:
+        except ConnectionError as dbe:
+            self.logger.critical("Error occurred while actualizing known addresses")
             self.logger.critical(str(dbe))
             valid =  False
         except Exception as esc:
-            self.logger.warning(
-                "Error occurred while actualizing known addresses \nERROR: " + str(esc))
+            self.logger.warning("Error occurred while actualizing known addresses \nERROR: " + str(esc))
             valid = False
         finally:
             executor.shutdown()
@@ -286,7 +298,7 @@ class Database:
             raise DatabaseError("Database " + name +
                                 " not accessible. ERROR:: " + db.lastError().text())
 
-        self.logger.debug("New database connection: " + name)
+        # self.logger.debug("New database connection: " + name)
 
         q = QtSql.QSqlQuery(db)
         q.setForwardOnly(True)
@@ -294,7 +306,7 @@ class Database:
             raise DatabaseError(
                 "Could not execute query: " + q.lastQuery() + " on " + name + " ERROR:: " + q.lastError().text())
 
-        self.logger.debug("Executed query :: on :: " + name)
+        # self.logger.debug("Executed query :: on :: " + name)
 
         allResults = []
 
@@ -318,7 +330,7 @@ class Database:
                     entry["identification"] = self.knownIdents[entry["address"]]
             allResults.append(entry)
 
-        self.logger.debug(len(allResults),"entries for query", str(q.lastQuery()))
+        # self.logger.debug(len(allResults),"entries for query", str(q.lastQuery()))
         q.finish()
         q.clear()
         db.close()
@@ -398,7 +410,7 @@ class Database:
             else:
                 orderStr += "ASC "
 
-        self.logger.log(str(len(offsetStr))  + " threads for query for attributes", ", ".join(attrib for attrib in attributes))
+        self.logger.log(str(len(offsetStr))  + " sub queries for attributes", ", ".join(attrib for attrib in attributes))
         queries = [(selectStr + " FROM tbl_mode_s " + whereStr + orderStr + offset) for offset in offsetStr]
         return queries
 

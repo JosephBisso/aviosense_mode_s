@@ -14,16 +14,21 @@ class DB_CONSTANTS:
     USED_COLUMNS = ["identification", "address", "timestamp",
                      "latitude", "longitude",  "bar", "ivv"]
 
-    HOSTNAME = "airdata.skysquitter.com"
-    DATABASE_NAME = "db_airdata"
-    USER_NAME = "tubs"
-    PASSWORD = "ue73f5dn"
+    # HOSTNAME = "airdata.skysquitter.com"
+    # DATABASE_NAME = "db_airdata"
+    # USER_NAME = "tubs"
+    # PASSWORD = "ue73f5dn"
+
+    HOSTNAME = None
+    DATABASE_NAME = "local_mode_s"
+    USER_NAME = "root"
+    PASSWORD = "BisbiDb2022?"
 
     CONNECTIONS_TOTAL = 0
 
     MAX_ROW_BEFORE_LONG_DURATION = 200000
     PREFERRED_NUMBER_THREADS = 5
-    MAX_NUMBER_THREADS = 10
+    MAX_NUMBER_THREADS = 8
     MIN_NUMBER_THREADS = 2
     
     

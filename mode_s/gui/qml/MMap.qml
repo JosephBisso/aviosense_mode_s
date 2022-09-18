@@ -62,7 +62,6 @@ Frame {
         switch (view) {
             case Constants.LOCATION:
                 if(location.length > 0) {
-                    console.log(location.length)
                     locationGroup.clear()
                     locationLoader.start()
                 }
