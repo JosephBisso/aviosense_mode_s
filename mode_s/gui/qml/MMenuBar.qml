@@ -8,7 +8,7 @@ import "qrc:/scripts/Constants.js" as Constants
 Rectangle {
     id: rootMenuBar
     property int buttonWidth: 55
-    width: 375
+    width: buttonLayout.implicitWidth + 50
     height: 70
     radius: 50
     color: Qt.rgba(255, 255, 255, 0.2)
@@ -41,6 +41,14 @@ Rectangle {
             name: "STD"
             fullName: "Standard deviation"
         }
+        ListElement {
+            name: "EXD"
+            fullName: "Exceed Distribution"
+        }
+        ListElement {
+            name: "KDE"
+            fullName: "Distribution per Zone"
+        }
     }
 
     signal clicked(string element)
@@ -70,6 +78,7 @@ Rectangle {
     }
 
     RowLayout {
+        id: buttonLayout
         spacing: 20
         anchors.centerIn: parent
         Repeater {

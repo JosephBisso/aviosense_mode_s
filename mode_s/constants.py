@@ -3,7 +3,7 @@ import os
 
 class ENGINE_CONSTANTS:
     PLOTS = ["occurrence", "bar_ivv", "filtered", "interval", "std", "location", "heat_map"]
-    MAX_NUMBER_THREADS_ENGINE: int = 150
+    MAX_NUMBER_THREADS_ENGINE: int = 20
     KDE_BANDWIDTH = 0.5
     MEDIAN_N = 1
     
@@ -37,6 +37,7 @@ class MODE_S_CONSTANTS:
         os.mkdir(APP_DUMP_PATH)
 
     STD_DUMP: str           = os.path.join(APP_DUMP_PATH, "std.dump.json")
+    EXCEEDS_DUMP: str       = os.path.join(APP_DUMP_PATH, "exceeds.dump.json")
     HEATMAP_DUMP: str       = os.path.join(APP_DUMP_PATH, "heatmap.dump.json")
     BAR_IVV_DUMP: str       = os.path.join(APP_DUMP_PATH, "bar_ivv.dump.json")
     INTERVAL_DUMP: str      = os.path.join(APP_DUMP_PATH, "interval.dump.json")
@@ -46,6 +47,8 @@ class MODE_S_CONSTANTS:
     INDENT_MAPPING: str     = os.path.join(APP_DUMP_PATH, "addresses.dump.json")
     TURBULENCE_DUMP: str    = os.path.join(APP_DUMP_PATH, "turbulence.dump.json")
     OCCURRENCE_DUMP: str    = os.path.join(APP_DUMP_PATH, "occurrence.dump.json")
+    KDE_EXCEEDS_DUMP: str   = os.path.join(APP_DUMP_PATH, "kde_exceeds.dump.json")
+
 
 class LOGGER_CONSTANTS:
     ENGINE:str              = "ID_EGN"
@@ -70,7 +73,6 @@ class DATA(NamedTuple):
 class WINDOW_POINT(NamedTuple):
     window: float
     point: float
-
 
 class WINDOW_DATA(NamedTuple):
     window: float

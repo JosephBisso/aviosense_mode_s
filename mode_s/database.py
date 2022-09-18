@@ -42,6 +42,7 @@ class Database:
     
     def start(self) -> bool:
         self.logger.info("Starting database")
+        self.logger.progress(LOGGER_CONSTANTS.DATABASE, "Starting Database Connector...")
         started = True
         executor = self.__executor()
         try:
@@ -437,6 +438,7 @@ class Database:
         time = self.getFromDB( ["timestamp"], options = {"not_null_values": ["timestamp"], "limit": 1})
         self.LAST_DB_UPDATE = QDateTime.fromMSecsSinceEpoch(int(time[0]["timestamp"]) / 10**6)
         self.logger.log("Lattest database db_airdata update: " + self.LAST_DB_UPDATE.toString("yyyy-MM-dd hh:mm:ss"))
+        self.logger.progress(LOGGER_CONSTANTS.DATABASE, LOGGER_CONSTANTS.END_PROGRESS_BAR)
 
     def __getDBInformation(self):
         self.__getDBRowCount()

@@ -32,11 +32,36 @@ Frame {
             case "STD":
                 plotView.swipe.currentIndex = 4
                 break;
+            case "EXD":
+                plotView.swipe.currentIndex = 5
+                break;
+            case "KDE":
+                plotView.swipe.currentIndex = 6
+                break;
         }
     }   
 
     function preparePlotsForAddress(address) {
         plotSwipe.currentAddress = address
+    }
+
+    function prepareKDEExceedZone(latitude, longitude, bandwidth) {
+        plotSwipe.kdeZoneLatitude = latitude
+        plotSwipe.kdeZoneLongitude = longitude
+        plotSwipe.kdeZoneBandwidth = bandwidth
+    }
+
+    function switchToRaw() {
+        menubar.selectMenu("RAW")
+        menubar.clicked("RAW")
+    }
+    function switchToSTD() {
+        menubar.selectMenu("STD")
+        menubar.clicked("STD")
+    }
+    function switchToKDE() {
+        menubar.selectMenu("KDE")
+        menubar.clicked("KDE")
     }
 
     MMenuBar {
@@ -55,6 +80,10 @@ Frame {
     SwipeView {
         id: plotSwipe
         property var currentAddress: ""
+        property double kdeZoneLatitude: 0
+        property double kdeZoneLongitude: 0
+        property double kdeZoneBandwidth: 0
+
         anchors.fill: parent
         MOccurrencePlot {
             title: "Occurence Plot"
@@ -245,5 +274,76 @@ Frame {
                 }
             }
         }
+
+        SwipeView {
+            id: exceedPlots
+
+            function showCurrentAddress(indexOfLoadedItem) {
+                setCurrentIndex(indexOfLoadedItem)
+            }
+            Repeater {
+                id: exceedPlotRepeater
+                model: __mode_s.exceedSeries
+
+                delegate: Loader {
+                    id: exceedPlotLoader
+                    active: plotSwipe.currentAddress == modelData["address"] || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+                    asynchronous: true
+                    onLoaded: exceedPlots.showCurrentAddress(SwipeView.index)
+                    sourceComponent: Component {
+                        MExceedPlot {
+                            id: exceedPlot
+                            title: "Threshold exceeds Distribution for Address " + modelData["address"]
+                            address: modelData["address"]
+                            identification: modelData["identification"]
+                            distribution: modelData["distribution"]
+                            smoothed: modelData["smoothed"]
+                            
+                            distChart.titleFont: Constants.FONT_MEDIUM
+                            distChart.titleColor: Constants.FONT_COLOR
+                            distChart.theme: ChartView.ChartThemeBlueIcy
+                            
+                            smoothChart.titleFont: Constants.FONT_MEDIUM
+                            smoothChart.titleColor: Constants.FONT_COLOR
+                            smoothChart.theme: ChartView.ChartThemeBlueIcy
+                        }
+                    }
+                }
+            }
+        }
+
+        SwipeView {
+            id: kdeExceedPlots
+
+            function showCurrentAddress(indexOfLoadedItem) {
+                setCurrentIndex(indexOfLoadedItem)
+            }
+            Repeater {
+                id: kdeExceedPlotRepeater
+                model: __mode_s.kdeExceedSeries
+
+                delegate: Loader {
+                    id: kdeExceedPlotLoader
+                    active: (plotSwipe.kdeZoneLatitude == modelData["latitude"] && plotSwipe.kdeZoneLongitude == modelData["longitude"]) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+                    asynchronous: true
+                    onLoaded: kdeExceedPlots.showCurrentAddress(SwipeView.index)
+                    sourceComponent: Component {
+                        MExceedKDEZonePlot {
+                            id: kdeExceedPlot
+                            title: `KDE for Zone ${modelData.latitude.toFixed(2)}N, ${modelData.longitude.toFixed(2)}E, Offset: +/-${(plotSwipe.kdeZoneBandwidth / 2).toFixed(2)}`
+                            latitude: modelData["latitude"]
+                            longitude: modelData["longitude"]
+                            exceedsPerAddress: modelData["exceedsPerAddress"]
+                            kde: modelData["kde"]
+
+                            titleFont: Constants.FONT_MEDIUM
+                            titleColor: Constants.FONT_COLOR
+                            theme: ChartView.ChartThemeBlueIcy
+                        }
+                    }
+                }
+            }
+        }
+
     }
 }

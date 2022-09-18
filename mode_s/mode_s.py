@@ -1,6 +1,5 @@
 # This Python file uses the following encoding: utf-8
 import os
-import gc
 import sys
 import argparse
 import json
@@ -108,11 +107,13 @@ class Mode_S(QObject):
     plotOccurrenceReady = Signal()
     plotRawReady        = Signal()
     plotStdReady        = Signal()
+    plotExceedsReady    = Signal()
     plotFilteredReady   = Signal()
     plotIntervalReady   = Signal()
     plotLocationReady   = Signal()
     plotTurbulentReady  = Signal()
     plotHeatMapReady    = Signal()
+    plotKDEExceedsReady = Signal()
 
     backgroundFutures: List[concurrent.futures.Future] = []
     
@@ -122,9 +123,12 @@ class Mode_S(QObject):
     __intervalSeries          = []
     __filteredSeries          = []
     __stdSeries               = []
+    __exceedsSeries           = []
     __locationSeries          = []
     __turbulentLocationSeries = []
     __heatMapSeries           = []
+    __kdeExceedsSeries        = []
+
 
     def __init__(self, db: Database, msEngine: ModeSEngine.Engine, logger: Logger):
         super(Mode_S, self).__init__(None)
@@ -228,7 +232,7 @@ class Mode_S(QObject):
 
     def __plotting(self, **params):
         try: 
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [0/9]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [0/12]")
             if params.get("fromDump"):
                 results = self.engine.loadDump()
             else:
@@ -239,38 +243,46 @@ class Mode_S(QObject):
             computedAddresses = next(results)
             self.__identMap = computedAddresses if params.get("fromDump") else self.db.getMapping(computedAddresses)
             self.identificationMapped.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [1/9]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [1/12]")
 
             self.plotOccurrenceReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [2/9]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [2/12]")
 
             self.__rawSeries = next(results)
             self.plotRawReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [3/9]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [3/12]")
 
             self.__intervalSeries = next(results)
             self.plotIntervalReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [4/9]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [4/12]")
 
             self.__filteredSeries = next(results)
             self.plotFilteredReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [5/9]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [5/12]")
 
             self.__stdSeries = next(results)
             self.plotStdReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [6/9]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [6/12]")
+
+            self.__exceedsSeries = next(results)
+            self.plotExceedsReady.emit()
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [7/12]")
 
             self.__locationSeries = next(results)
             self.plotLocationReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [7/9]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [8/12]")
 
             self.__turbulentLocationSeries = next(results)
             self.plotTurbulentReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [8/9]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [9/12]")
 
             self.__heatMapSeries = next(results)
             self.plotHeatMapReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S,"Sending plot data [9/9]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S,"Sending plot data [10/12]")
+
+            self.__kdeExceedsSeries = next(results)
+            self.plotKDEExceedsReady.emit()
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S,"Sending plot data [11/12]")
 
 
             self.logger.success("Done computing")
@@ -286,7 +298,7 @@ class Mode_S(QObject):
             self.logger.progress(LOGGER_CONSTANTS.MODE_S, LOGGER_CONSTANTS.END_PROGRESS_BAR)
 
     def __dumpAll(self):
-        self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Dumping Data")
+        self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Dumping Data [12/12]")
 
         ms = MODE_S_CONSTANTS
         if self.engine.data:
@@ -294,16 +306,15 @@ class Mode_S(QObject):
             self.db.data = self.engine.data = []
         
         toDump = [self.__occurrenceSeries, self.__identMap, self.__rawSeries, self.__intervalSeries,
-                    self.__filteredSeries, self.__stdSeries, self.__locationSeries, self.__turbulentLocationSeries, self.__heatMapSeries]
+                  self.__filteredSeries, self.__stdSeries, self.__exceedsSeries, self.__locationSeries, self.__turbulentLocationSeries, self.__heatMapSeries, self.__kdeExceedsSeries]
         toDumpName = [ms.OCCURRENCE_DUMP, ms.INDENT_MAPPING, ms.BAR_IVV_DUMP, ms.INTERVAL_DUMP,
-                        ms.FILTERED_DUMP, ms.STD_DUMP, ms.LOCATION_DUMP, ms.TURBULENCE_DUMP, ms.HEATMAP_DUMP]
+                        ms.FILTERED_DUMP, ms.STD_DUMP, ms.EXCEEDS_DUMP, ms.LOCATION_DUMP, ms.TURBULENCE_DUMP, ms.HEATMAP_DUMP, ms.KDE_EXCEEDS_DUMP]
         for index in range(len(toDump)):
             if not toDump[index]:
                 continue
             self.executor.submit(self.__dumpData, toDump[index], toDumpName[index])
             toDump[index] = []
 
-        gc.collect()
 
     def __dumpData(self, data: List[Any], name: str):
         self.logger.debug("Dumping and freeing memory for", name)
@@ -318,6 +329,10 @@ class Mode_S(QObject):
         return self.__rawSeries
     def __std(self):
         return self.__stdSeries
+    def __exceeds(self):
+        return self.__exceedsSeries
+    def __kdeExceeds(self):
+        return self.__kdeExceedsSeries
     def __filtered(self):
         return self.__filteredSeries
     def __interval(self):
@@ -333,10 +348,12 @@ class Mode_S(QObject):
     identMap                = Property("QVariantMap", __identMapping,       notify = identificationMapped)
     rawSeries               = Property("QVariantList", __raw,               notify = plotRawReady)
     stdSeries               = Property("QVariantList", __std,               notify = plotStdReady)
+    exceedSeries            = Property("QVariantList", __exceeds,           notify = plotExceedsReady)
     heatMapSeries           = Property("QVariantList", __heatMap,           notify = plotHeatMapReady)
     filteredSeries          = Property("QVariantList", __filtered,          notify = plotFilteredReady)
     intervalSeries          = Property("QVariantList", __interval,          notify = plotIntervalReady)
     locationSeries          = Property("QVariantList", __location,          notify = plotLocationReady)
+    kdeExceedSeries         = Property("QVariantList", __kdeExceeds,        notify = plotKDEExceedsReady)
     occurrenceSeries        = Property("QVariantList", __occurrence,        notify = plotOccurrenceReady)
     turbulentLocationSeries = Property("QVariantList", __turbulentLocation, notify = plotTurbulentReady)
 

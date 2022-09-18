@@ -8,6 +8,7 @@ import concurrent.futures
 from scipy.signal import medfilt
 from collections import Counter
 from typing import Any, List, Dict, Union
+from sklearn.neighbors import KernelDensity
 
 from logger import Logger
 from constants import ENGINE_CONSTANTS, MODE_S_CONSTANTS, LOGGER_CONSTANTS
@@ -101,11 +102,12 @@ class Engine:
 
     def compute(self, usePlotter=True) -> None:
         self.logger.info("Starting Engine")
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [0/9]")
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [0/11]")
         if not self.data:
             self.logger.debug("Using Dump DB")
             dumpDB = self.__loadDBfromDump()
             if not dumpDB: 
+                self.logger.progress(LOGGER_CONSTANTS.ENGINE, LOGGER_CONSTANTS.END_PROGRESS_BAR)
                 raise EngineError("Engine has no data to compute")
             else:
                 self.data = dumpDB
@@ -135,7 +137,7 @@ class Engine:
                 lineSeriesOccurrence = Analysis.getLineSeriesDataPointOccurrences(dataPoints)
                 yield lineSeriesOccurrence
 
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [1/9]")
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [1/11]")
 
         allAddresses = self.prepareOccurrencesForAddresses("addresses")
         mostPointAddresses = allAddresses[:4]
@@ -152,7 +154,7 @@ class Engine:
         if not usePlotter:
             yield addressesToPlot
             
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [2/9]")
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [2/11]")
             
         data = self.prepareBarAndIvvAndTime(addressesToPlot)
 
@@ -165,7 +167,7 @@ class Engine:
                 lineSeriesBarIvv = Analysis.getLineSeriesBarAndIvv(data)
                 yield lineSeriesBarIvv
 
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [3/9]")
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [3/11]")
 
         if usePlotter:
             if activePlots["filtered"] and not activePlots["std"]:
@@ -183,7 +185,7 @@ class Engine:
                 lineSeriesInterval = Analysis.getLineSeriesSlidingInterval(slidingIntervals)
                 yield lineSeriesInterval
 
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [4/9]")
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [4/11]")
 
         if activePlots["std"]:
             self.prepareMedianFilter(data)
@@ -193,7 +195,7 @@ class Engine:
                 lineSeriesFilteredBarAndIvv = Analysis.getLineSeriesFilteredBarAndIvv(data)
                 yield lineSeriesFilteredBarAndIvv
 
-            self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [5/9]")
+            self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [5/11]")
 
             slidingIntervalForStd = self.prepareSlidingIntervalForStd(data) 
             if usePlotter:
@@ -208,7 +210,15 @@ class Engine:
                 lineSeriesStd = Analysis.getLineSeriesSlidingIntervalForStd(slidingIntervalForStd)
                 yield lineSeriesStd
 
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [6/9]")
+                self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [6/11]")
+
+                exceedingData = self.prepareExceedingData(slidingIntervalForStd)
+                self.logger.info("Getting lineSeries for Exceeding data")
+                lineSeriesExceeds = Analysis.getLineSeriesForExceeds(exceedingData)
+                yield lineSeriesExceeds
+                
+
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [7/11]")
 
         if activePlots["location"]:
             location = self.prepareLocation(addressesToPlot)
@@ -220,7 +230,7 @@ class Engine:
                 lineSeriesLocation = Analysis.getLineSeriesLocation(location)
                 yield lineSeriesLocation
 
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [7/9]")
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [8/11]")
 
         if activePlots["heat_map"]:
             if not activePlots["filtered"] and not activePlots["std"]:
@@ -240,13 +250,19 @@ class Engine:
                 lineSeriesTurbulent = Analysis.getLineSeriesTurbulentLocation(heatMap)
                 yield lineSeriesTurbulent
                 
-                self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [8/9]")
+                self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [9/11]")
                 
                 self.logger.info("Getting lineSeries for heat map")
                 lineSeriesHeatMap = Analysis.getLineSeriesHeatMap(heatMap)
                 yield lineSeriesHeatMap
+                
+                self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [10/11]")
 
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [9/9]")
+                self.logger.info("Getting lineSeries for kde exceeds")
+                lineSeriesKDEExceeds = Analysis.getLineSeriesKDEExceeds()
+                yield lineSeriesKDEExceeds
+
+        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [11/11]")
 
         if not usePlotter:
             self.logger.success("Successfully computed")
@@ -262,7 +278,7 @@ class Engine:
         ms = MODE_S_CONSTANTS
         
         toLoadDump = [ms.OCCURRENCE_DUMP, ms.INDENT_MAPPING, ms.BAR_IVV_DUMP, ms.INTERVAL_DUMP,
-                      ms.FILTERED_DUMP, ms.STD_DUMP, ms.LOCATION_DUMP, ms.TURBULENCE_DUMP, ms.HEATMAP_DUMP]
+                      ms.FILTERED_DUMP, ms.STD_DUMP, ms.EXCEEDS_DUMP, ms.LOCATION_DUMP, ms.TURBULENCE_DUMP, ms.HEATMAP_DUMP, ms.KDE_EXCEEDS_DUMP]
         for dump in toLoadDump:
             try:
                 if not os.path.exists(dump): 
@@ -381,6 +397,28 @@ class Engine:
         executor.shutdown()
         return slidingIntervalForStd
 
+    def prepareExceedingData(self, data: List[Dict[str, Union[str, List[DATA]]]]) -> List[Dict[str, Union[str, List[WINDOW_DATA], float]]]:
+        self.logger.log("Computing exceeding data")
+        exceedingData = []
+        executor = self.__executor()
+        exceedingData__futures = [executor.submit(
+            self.__getExceedingDataPerAddress, addressData) for addressData in data]
+
+        for completedThread in concurrent.futures.as_completed(exceedingData__futures):
+            try:
+                exceedingDataPerAddress = completedThread.result()
+            except EngineError as e:
+                self.logger.warning(str(e))
+            except Exception as esc:
+                type, value, traceback = sys.exc_info()
+                self.logger.warning(
+                    "Error occurred while preparing exceeding data per addresses\n" + str(type) + "::" + str(value))
+            else:
+                if exceedingDataPerAddress: exceedingData.append(exceedingDataPerAddress)
+
+        executor.shutdown()
+        return exceedingData
+
     def prepareLocation(self, addresses: List[int] = []) -> List[Dict[str, Union[str, List[LOCATION_DATA]]]]:
         self.logger.log("Computing locations")
         allLocationData = []
@@ -455,7 +493,7 @@ class Engine:
             startIndex = index
             break
 
-        if not startIndex:
+        if startIndex is None:
             raise EngineError("Skipping address " + str(address) + " : Cannot be found")
 
         for index in range(startIndex, len(self.data)):
@@ -581,6 +619,7 @@ class Engine:
             barStds = [0, 0]
             ivvStds = [0, 0]
             
+        # From Paper
         arrayBarStds = np.array(barStds)
         arrayIvvStds = np.array(ivvStds)
         diffStds = arrayBarStds - arrayIvvStds
@@ -593,6 +632,46 @@ class Engine:
         #     addressData["address"]) + ". Points Count: " + str(len(slidingIntervalsForStd["points"])))
 
         return slidingIntervalsForStd
+
+    def __getExceedingDataPerAddress(self, addressData: Dict[str, Union[str, List[WINDOW_DATA]]]) -> Dict[str, Union[str, Dict[int, int]]]:
+        exceedingData: Dict[str, Union[str, Dict[int, int]]] = {
+            "address": addressData["address"],
+            "identification": addressData.get("identification"),
+            "distribution": {
+                "0": 0, "10": 0, "20": 0, "30": 0, "40": 0, "50": 0, "60": 0, "70": 0, "80": 0, "90": 0, "100": 0
+            },
+            "smoothed": []
+        }
+        
+        threshold = addressData["threshold"]
+        
+        if threshold == 0:
+            self.logger.warning(f"No Threshold for address {addressData['address']}")
+            return exceedingData
+        
+        allDiffs = [point.bar - point.ivv for point in addressData["points"]]
+
+        exceeds = [100*(diff - threshold)/threshold for diff in allDiffs if diff >= threshold]
+        
+        if not exceeds:
+            return exceedingData
+        
+        exceedingPercentageGroup = []
+
+        for exceedingPercentage in exceeds:
+            percentage = next((dist for dist in exceedingData["distribution"] if int(dist) <= exceedingPercentage < int(dist) + 10), "100")
+            exceedingData["distribution"][percentage] += 1
+            exceedingPercentageGroup.append(percentage)
+
+        exceedsShape = np.array(exceedingPercentageGroup).reshape(-1, 1)
+        Xs = np.linspace(0, 100, num=1000).reshape(-1, 1)
+        
+        kde = KernelDensity(kernel="gaussian", bandwidth=self.kdeBW).fit(exceedsShape)
+        density = np.exp(kde.score_samples(Xs))
+
+        exceedingData["smoothed"] = density.tolist()
+
+        return exceedingData
 
     def __getHeatPointsForAddress(self, addressData: Dict[str, Union[str, List[WINDOW_DATA], float]] = {}) -> Dict[str, Union[str,List[LOCATION_DATA]]]:
         heatPointsForAddress: List[str, List[LOCATION_DATA]] = []
@@ -612,7 +691,7 @@ class Engine:
             startIndex = index
             break
 
-        if not startIndex:
+        if startIndex is None:
             raise EngineError("Skipping address " + str(addressData["address"]) + " : Invalid bar or ivv stds for heat map")
 
         for index in range(startIndex, len(self.data)):
@@ -656,7 +735,7 @@ class Engine:
             latitude = self.data[index]["latitude"]
             
             heatPointsForAddress.append(
-                LOCATION_DATA(rawTime, longitude, latitude)
+                LOCATION_DATA(time, longitude, latitude)
             )
             
         if allTimes: closestTimes.insert(0, min(allTimes))

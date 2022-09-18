@@ -178,12 +178,15 @@ Frame {
             onAddressClicked: (address) => {
                 plotView.preparePlotsForAddress(address)
             }
+
+            onKdeClicked: (latitude, longitude, bandwidth) => {
+                plotView.prepareKDEExceedZone(latitude, longitude, bandwidth)
+            }
         }
 
         MPlots {
             id: plotView
             property bool isCurrentView: SwipeView.isCurrentItem
-
         }
     }
 }

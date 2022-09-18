@@ -11,10 +11,10 @@ Popup {
     property string identification: "IDENTIFICATION"
     property string address: "address"
     property color flightColor: "blue"
-    property int datapoints: -69
+    property var datapoints: -69
     property string displayText: "Data points"
     property bool turbulentFlight: false
-    property bool showButton: true
+    property bool buttonShowGraph: true
 
     property var control: parent
     property var mHeight: {Math.max((4/15) * parent.height, 275)}
@@ -113,12 +113,11 @@ Popup {
             id: buttonDelegate
             z:1
 
-            visible: rootPopup.showButton
             Layout.alignment: Qt.AlignHCenter | Qt.AlignBottom
             Layout.bottomMargin: 10
 
             width:50
-            img_src: "qrc:/img/noise.png"
+            img_src: rootPopup.buttonShowGraph ? "qrc:/img/noise.png" : "qrc:/img/gaussian-function.png"
             mFont: Constants.FONT_SMALL
             mDefaultColor: Constants.GLASSY_BLACK_BACKGROUND
             mHoverColor: Constants.FOREGROUND_COLOR
@@ -130,6 +129,15 @@ Popup {
             onClicked: {
                 verticalMenuBar.selectMenu("noise")
                 verticalMenuBar.clicked("noise")
+                if (rootPopup.buttonShowGraph) {
+                    if (rootPopup.turbulentFlight) {
+                        plotView.switchToSTD()
+                    } else {
+                        plotView.switchToRaw()
+                    }
+                } else {
+                    plotView.switchToKDE()
+                }
                 rootPopup.close()
             }
         }

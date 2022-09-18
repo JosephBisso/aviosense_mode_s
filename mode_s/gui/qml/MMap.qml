@@ -27,6 +27,7 @@ Frame {
 
     signal done()
     signal addressClicked(int address)
+    signal kdeClicked(double latitude, double longitude, double bandwidth)
 
     function stopBackgroundLoading() {
         locationUpdater.counter = 0
@@ -186,13 +187,14 @@ Frame {
 
         function zoneKDEClicked(kdeZone) {
             mapElementInfo.identification = `${kdeZone.centerLatitude.toFixed(2)}N, ${kdeZone.centerLongitude.toFixed(2)}E`
-            mapElementInfo.address = `Bandwidth: ${kdeZone.bw}`
+            mapElementInfo.address = `Offset: +/-${(kdeZone.bw / 2).toFixed(2)}`
             mapElementInfo.flightColor = kdeZone.color
-            mapElementInfo.displayText = `KDE (tat.)\t: ${kdeZone.kde_e.toFixed(2)}\nKDE (%max)\t`
-            mapElementInfo.datapoints = kdeZone.kde_normed.toFixed(2) * 100
+            mapElementInfo.displayText = "KDE"
+            mapElementInfo.datapoints = kdeZone.kde_e.toFixed(2)
             mapElementInfo.turbulentFlight = true
-            mapElementInfo.showButton = false
+            mapElementInfo.buttonShowGraph = false
             mapElementInfo.open()
+            rootFrame.kdeClicked(kdeZone.centerLatitude, kdeZone.centerLongitude, kdeZone.bw)
         }
 
         function showPolyline(polyline) {
@@ -208,7 +210,7 @@ Frame {
             mapElementInfo.displayText = "Data points"
             mapElementInfo.datapoints = polyline.path.length
             mapElementInfo.turbulentFlight = turbulent
-            mapElementInfo.showButton = true
+            mapElementInfo.buttonShowGraph = true
             mapElementInfo.open()
         }
 

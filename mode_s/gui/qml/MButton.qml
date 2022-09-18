@@ -56,7 +56,7 @@ Rectangle {
 
     Timer {
         id: enabled_timer
-        interval: 2000
+        interval: 1500
         repeat: false
         triggeredOnStart: false
 
