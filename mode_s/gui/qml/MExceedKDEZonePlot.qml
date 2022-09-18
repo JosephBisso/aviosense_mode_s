@@ -43,8 +43,8 @@ ChartView {
         kdeExceedChart.removeAllSeries()
         for (let addressData of exceedsPerAddress) {
             let lineSeries = kdeExceedChart.createSeries(ChartView.LineSeries, `address ${addressData.address} (T ${addressData.start.toFixed(1)} - ${addressData.end.toFixed(1)})`, xAxis, yAxis)
-            let r = Math.random(), g = Math.random(), b = Math.random()
-            lineSeries.color = Qt.rgba(r, g, 1, 1)
+            let r = Math.random() % 0.4, g = Math.random(), b = Math.random() 
+            lineSeries.color = Qt.rgba(r, g, b, 1)
             lineSeries.width = 4
             lineSeries.style = Qt.DashLine
             for (let xi = 0; xi < addressData.smoothed.length; xi++) {

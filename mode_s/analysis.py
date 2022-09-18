@@ -295,7 +295,7 @@ class Analysis:
                         abs(allSegments[j]["latitude"] - allKDEZoneCenter.latitude()), 
                         abs(allSegments[j]["longitude"] - allKDEZoneCenter.longitude())
                     )
-                    if widthIncrease > 0:
+                    if widthIncrease > 0 and 0.5 * (sum(allKDEZones["widthIncrease"]) + abs(Analysis.KDE_BAND_WIDTH/2 - widthIncrease)) <= Analysis.KDE_BAND_WIDTH/2:
                         allKDEZones["widthIncrease"].append(abs(Analysis.KDE_BAND_WIDTH/2 - widthIncrease))
             
             usedIIndex.append(i)
