@@ -109,7 +109,7 @@ Frame {
         Loader {
             id: rawPlotLoader
             readonly property var addressData: __mode_s.addressRawSeries
-            active: (plotSwipe.currentAddress == addressData["address"] && (plotSwipe.mode == Constants.LOCATION || plotFrame.isCurrentView) ) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+            active: plotSwipe.currentAddress == addressData["address"] && (plotSwipe.mode == Constants.LOCATION ||( plotFrame.isCurrentView && (SwipeView.isPreviousItem  ||  SwipeView.isCurrentItem || SwipeView.isNextItem)))
             visible: true
             asynchronous: true
             sourceComponent: Component {
@@ -132,7 +132,7 @@ Frame {
         Loader {
             id: filteredPlotLoader
             readonly property var addressData: __mode_s.addressFilteredSeries
-            active: (plotSwipe.currentAddress == addressData["address"] && plotFrame.isCurrentView) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+            active: plotSwipe.currentAddress == addressData["address"] && (plotFrame.isCurrentView && (SwipeView.isPreviousItem  || SwipeView.isCurrentItem || SwipeView.isNextItem))
             visible: status == Loader.Ready
             asynchronous: true
             sourceComponent: Component {
@@ -168,7 +168,7 @@ Frame {
         Loader {
             id: intervallPlotLoader
             readonly property var addressData: __mode_s.addressIntervalSeries
-            active: (plotSwipe.currentAddress == addressData["address"] && plotFrame.isCurrentView) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+            active: plotSwipe.currentAddress == addressData["address"] && (plotFrame.isCurrentView && (SwipeView.isPreviousItem  || SwipeView.isCurrentItem || SwipeView.isNextItem))
             visible: status == Loader.Ready
             asynchronous: true
             sourceComponent: Component {
@@ -190,7 +190,7 @@ Frame {
         Loader {
             id: stdPlotLoader
             readonly property var addressData: __mode_s.addressStdSeries
-            active: (plotSwipe.currentAddress == addressData["address"] && (plotSwipe.mode == Constants.TURBULENCE || plotFrame.isCurrentView )) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+            active: plotSwipe.currentAddress == addressData["address"] && (plotSwipe.mode == Constants.TURBULENCE || (plotFrame.isCurrentView  && (SwipeView.isPreviousItem  ||  SwipeView.isCurrentItem || SwipeView.isNextItem)))
             visible: true
             asynchronous: true
             sourceComponent: Component {
@@ -246,7 +246,7 @@ Frame {
         Loader {
             id: exceedPlotLoader
             readonly property var addressData: __mode_s.addressExceedSeries
-            active: (plotSwipe.currentAddress == addressData["address"] && (plotSwipe.mode == Constants.TURBULENCE || plotFrame.isCurrentView)) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+            active: plotSwipe.currentAddress == addressData["address"] && (plotSwipe.mode == Constants.TURBULENCE || (plotFrame.isCurrentView  && (SwipeView.isPreviousItem  ||  SwipeView.isCurrentItem || SwipeView.isNextItem)))
             visible: true
             asynchronous: true
             sourceComponent: Component {
@@ -272,7 +272,7 @@ Frame {
         Loader {
             id: kdeExceedPlotLoader
             readonly property var zoneData: __mode_s.zoneKdeExceedSeries
-            active: (plotSwipe.kdeZoneLatitude == zoneData["latitude"] && plotSwipe.kdeZoneLongitude == zoneData["longitude"]) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+            active: (plotSwipe.kdeZoneLatitude == zoneData["latitude"] && plotSwipe.kdeZoneLongitude == zoneData["longitude"]) || (plotFrame.isCurrentView  && SwipeView.isCurrentItem)
             visible: true
             asynchronous: true
             sourceComponent: Component {

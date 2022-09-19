@@ -66,14 +66,15 @@ class Logger(QObject):
         self.logged.emit("<p style='color:greenyellow;'>SUCCESS: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + " ".join([str(msg) for msg in args]) + "</p>\n")
             
     def info(self, *args):
-        time = datetime.now()
-        with open(self.outputFile, "a") as output:
-            output.write(str(datetime.now()) + ":: INFO\t::\t" + " ".join([str(msg) for msg in args]) + "\n")
-
         if LOGGER_CONSTANTS.PROGRESS_BAR in args[0]:
             clean_args = args[0].replace(LOGGER_CONSTANTS.PROGRESS_BAR , "")
             self.progress(clean_args)
             return
+        
+        time = datetime.now()
+        with open(self.outputFile, "a") as output:
+            output.write(str(datetime.now()) + ":: INFO\t::\t" + " ".join([str(msg) for msg in args]) + "\n")
+
             
         if self.terminal or self.verbose:
             print(colors.CYAN + "INFO\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: ", *args, colors.ENDC)

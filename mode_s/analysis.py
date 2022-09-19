@@ -14,8 +14,7 @@ class Analysis:
     KDE_BAND_WIDTH: int = 0.5
     POINT_RADIUS = 10000
     
-    SLIDING_INTERVAL_PER_STD = []
-    KDE_ZONE_EXCEEDS = {}
+    KDE_ZONE_DATA: List[Dict[str, Union[float, List[Dict[str, float]]]]] = []
     KDE_ZONE_IDS = 0
 
     def setKDEBandwidth(bandwidth:int = 0.5):
@@ -105,8 +104,6 @@ class Analysis:
         return lineSeries
 
     def getLineSeriesSlidingIntervalForStd(plotData: List[Dict[str, Union[str, List[WINDOW_DATA]]]]) -> List[Dict[str, List[int]]]:
-        Analysis.SLIDING_INTERVAL_PER_STD = plotData
-        Analysis.KDE_ZONE_EXCEEDS = {}
         lineSeries = []
         for index in range(len(plotData)):
             addressSeries = {
@@ -164,6 +161,7 @@ class Analysis:
         return lineSeries
 
     def getLineSeriesHeatMap(heatMap: List[Dict[str, Union[str, List[LOCATION_DATA]]]]) -> List[Dict[str, List[int]]]:
+        Analysis.KDE_ZONE_DATA = []
         lineSeries = []
         
         allLongitudes = []
@@ -324,82 +322,21 @@ class Analysis:
             allKDEZones["segments"] = [allSegments[i]]
             allKDEZones["widthIncrease"] = [0]
             
-        return lineSeries
-    
-    def getLineSeriesKDEExceeds():
-        return Analysis.KDE_ZONE_EXCEEDS
+        return lineSeries, Analysis.KDE_ZONE_DATA
     
     def __createKDEZone(target: List[Dict[str, float]], zone: Dict[str, str], zoneData: Dict[int, Dict[str, float]]):
         target.append(zone)
         
-        zoneAddresses = list(zoneData.keys())
         zoneID = str(zone["zoneID"])
-        kdeZone: Dict[str, Union[float, List[Dict[str, float]]]] = {
+
+        Analysis.KDE_ZONE_DATA.append({
             "zoneID": zoneID,
+            "zoneData": zoneData,
             "latitude": zone["latitude"],
             "longitude": zone["longitude"],
             "exceedsPerAddress": [],
-            "kde":[]
-        }
-        
-        maxX = 1000
-
-        allExceedingData = []
-        
-        for addressData in Analysis.SLIDING_INTERVAL_PER_STD:
-            if addressData["address"] not in zoneAddresses: continue
-
-            exceedingData: Dict[str, Union[str, Dict[int, int]]] = {
-                "address": addressData["address"],
-                "identification": addressData.get("identification"),
-                "start": zoneData[addressData["address"]]["start"],
-                "end": zoneData[addressData["address"]]["end"],
-                "smoothed": []
-            }
-
-            threshold = addressData["threshold"]
-
-            if threshold == 0:
-                continue
-
-            actualAddress = addressData["address"]
-
-            allDiffs = [point.bar - point.ivv for point in addressData["points"] if zoneData[actualAddress]["start"] <= point.window <= zoneData[actualAddress]["end"]]
-
-            if not allDiffs:
-                continue
-            
-            exceeds = [100*(diff - threshold)/threshold for diff in allDiffs if diff >= threshold]
-
-            if not exceeds:
-                continue
-            
-            exceedingPercentageGroup = []
-            sizeRatio = 10
-
-            for exceedingPercentage in exceeds:
-                percentage = next((dist for dist in [0,10,20,30,40,50,60,70,80,90,100] if dist <= exceedingPercentage < dist + 10), 100)
-                exceedingPercentageGroup.append(percentage/sizeRatio)
-
-            exceedsShape = np.array(exceedingPercentageGroup).reshape(-1, 1)
-            Xs = np.linspace(0, 100/sizeRatio, num=maxX).reshape(-1, 1)
-
-            kde = KernelDensity(kernel="gaussian",bandwidth=Analysis.KDE_BAND_WIDTH).fit(exceedsShape)
-            density = np.exp(kde.score_samples(Xs))
-            norm = np.linalg.norm(density)
-
-            exceedingData["smoothed"] = density.tolist()
-            kdeZone["exceedsPerAddress"].append(exceedingData)
-
-            allExceedingData.append({"densities": (density/norm).tolist(), "norm": float(norm)})
-
-
-
-        globalDensity = [sum(component["densities"][i] * component["norm"] for component in allExceedingData) for i in range(maxX)]
-
-        kdeZone["kde"] = globalDensity
-        Analysis.KDE_ZONE_EXCEEDS[zoneID] = kdeZone
-
+            "kde": []
+        })
 
     def __getAddressSeries(addressLocation: Dict[str, Union[str, List[LOCATION_DATA]]]) -> Dict[str, Union[int, List[List[QtPositioning.QGeoCoordinate]]]]:
         addressSeries: Dict[str, Union[int, List[Dict[float, float]]]] = {

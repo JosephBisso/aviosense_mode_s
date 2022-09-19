@@ -261,13 +261,13 @@ class Engine:
                     self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [9/11]")
                     
                     self.logger.info("Getting lineSeries for heat map")
-                    lineSeriesHeatMap = Analysis.getLineSeriesHeatMap(heatMap)
+                    lineSeriesHeatMap, allKdeZoneData = Analysis.getLineSeriesHeatMap(heatMap)
                     yield lineSeriesHeatMap
                     
                     self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [10/11]")
 
-                    self.logger.info("Getting lineSeries for kde exceeds")
-                    lineSeriesKDEExceeds = Analysis.getLineSeriesKDEExceeds()
+                    lineSeriesKDEExceeds = self.generateKDEZone(allKdeZoneData, slidingIntervalForStd)
+                    self.logger.info("Yielding lineSeries for kde exceeds")
                     yield lineSeriesKDEExceeds
 
             self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [11/11]")
@@ -499,6 +499,36 @@ class Engine:
                 heatPoints.extend(heatPointsPerAddress)
                 
         return heatPoints
+    
+    def generateKDEZone(self, allKdeZone: List[Dict[str, Union[float, List[Dict[str, float]]]]], slidingIntervallForStd: List[Dict[str, Union[str, List[WINDOW_DATA]]]] = []) -> Dict[str, Dict[str, Union[str, List[float]]]]:
+        self.logger.log("Generating KDE Zone")
+        lineSeriesKDEExceeds = {}
+        
+        kdeZone__futures = []
+        maxProcesses = min(len(allKdeZone), multiprocessing.cpu_count())
+        addressesPerProcess = int(len(allKdeZone) / maxProcesses)
+        for i in range(maxProcesses):
+            startIndex = i*addressesPerProcess
+            endIndex = startIndex + addressesPerProcess if i < maxProcesses - 1 else None
+            pack = allKdeZone[startIndex: endIndex]
+            if not pack:
+                continue
+            kdeZone__futures.append(self.pExecutor.submit(
+                process.getKDEExceeds, pack, slidingIntervallForStd, self.kdeBW))
+
+        for completedThread in concurrent.futures.as_completed(kdeZone__futures):
+            try:
+                kdeExceedData = completedThread.result()
+            except AssertionError as e:
+                self.logger.warning(str(e))
+            except Exception as esc:
+                type, value, traceback = sys.exc_info()
+                self.logger.critical(
+                    "Error occurred while computing kde zone exceeds\n" + str(type) + "::" + str(value))
+            else:
+                lineSeriesKDEExceeds.update(kdeExceedData)
+
+        return lineSeriesKDEExceeds
 
     def __executor(self) -> concurrent.futures.ThreadPoolExecutor:
         ex = concurrent.futures.ThreadPoolExecutor(

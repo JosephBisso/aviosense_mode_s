@@ -40,7 +40,7 @@ MapRectangle {
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: {
-            console.log("Clicked kde_e Zone ", centerLatitude, "°N", centerLongitude, "°W :: ", kde_e, " >> ", kde_normed)
+            console.log("Clicked kde_e Zone ", centerLatitude, "N", centerLongitude, "W  <::> ", "kde:", kde_e, " Normed: ", kde_normed)
             kdeZone.parent.zoneKDEClicked(kdeZone)
         }
     }

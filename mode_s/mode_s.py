@@ -216,9 +216,9 @@ class Mode_S(QObject):
         future = self.executor.submit(self.__updateAddressPlots, address)
         future.add_done_callback(self.__backgroundThreadFinished)
 
-    @Slot(int)
+    @Slot(str)
     def prepareKDEZone(self, zoneID): 
-        future = self.executor.submit(self.__updateKDEZonePlots, str(zoneID))
+        future = self.executor.submit(self.__updateKDEZonePlots, zoneID)
         future.add_done_callback(self.__backgroundThreadFinished)
         
     @Slot(str)
@@ -350,26 +350,34 @@ class Mode_S(QObject):
 
     def __updateAddressPlots(self, address):
         self.waitUntilReady()
-        
-        self.logger.progress(LOGGER_CONSTANTS.PLOT, f"Preparing address {address} [0/5]")
-        self.__setAddressRaw(self.allAddressSeriesMap[address][MODE_S_CONSTANTS.BAR_IVV_SERIES])
+        if self.allAddressSeriesMap.get(address) is None:
+            self.logger.warning(f"Cannot update address {address}. Cannot find it")
+            return
+        try:
+            self.logger.progress(LOGGER_CONSTANTS.PLOT, f"Preparing address {address} [0/5]")
+            self.__setAddressRaw(self.allAddressSeriesMap[address][MODE_S_CONSTANTS.BAR_IVV_SERIES])
 
-        self.logger.progress(LOGGER_CONSTANTS.PLOT, f"Preparing address {address} [1/5]")
-        self.__setAddressFiltered(self.allAddressSeriesMap[address][MODE_S_CONSTANTS.FILTERED_SERIES])
+            self.logger.progress(LOGGER_CONSTANTS.PLOT, f"Preparing address {address} [1/5]")
+            self.__setAddressFiltered(self.allAddressSeriesMap[address][MODE_S_CONSTANTS.FILTERED_SERIES])
 
-        self.logger.progress(LOGGER_CONSTANTS.PLOT, f"Preparing address {address} [2/5]")
-        self.__setAddressInterval(self.allAddressSeriesMap[address][MODE_S_CONSTANTS.INTERVAL_SERIES])
+            self.logger.progress(LOGGER_CONSTANTS.PLOT, f"Preparing address {address} [2/5]")
+            self.__setAddressInterval(self.allAddressSeriesMap[address][MODE_S_CONSTANTS.INTERVAL_SERIES])
 
-        self.logger.progress(LOGGER_CONSTANTS.PLOT, f"Preparing address {address} [3/5]")
-        self.__setAddressStd(self.allAddressSeriesMap[address][MODE_S_CONSTANTS.STD_SERIES])
-        
-        self.logger.progress(LOGGER_CONSTANTS.PLOT, f"Preparing address {address} [4/5]")
-        self.__setAddressExceeds(self.allAddressSeriesMap[address][MODE_S_CONSTANTS.EXCEEDS_SERIES])
-
-        self.logger.progress(LOGGER_CONSTANTS.PLOT, LOGGER_CONSTANTS.END_PROGRESS_BAR)
+            self.logger.progress(LOGGER_CONSTANTS.PLOT, f"Preparing address {address} [3/5]")
+            self.__setAddressStd(self.allAddressSeriesMap[address][MODE_S_CONSTANTS.STD_SERIES])
+            
+            self.logger.progress(LOGGER_CONSTANTS.PLOT, f"Preparing address {address} [4/5]")
+            self.__setAddressExceeds(self.allAddressSeriesMap[address][MODE_S_CONSTANTS.EXCEEDS_SERIES])
+        except KeyError as ke:
+            self.logger.warning("Error while updating address plots::", str(ke))
+        finally:
+            self.logger.progress(LOGGER_CONSTANTS.PLOT, LOGGER_CONSTANTS.END_PROGRESS_BAR)
 
     def __updateKDEZonePlots(self, zoneID):
-        self.logger.progress(LOGGER_CONSTANTS.KDE_EXCEED, f"Preparing kdeZone")
+        if self.__kdeExceedsSeries.get(zoneID) is None:
+            self.logger.warning(f"Cannot update kde zone {zoneID}. Cannot find it")
+            return
+        self.logger.progress(LOGGER_CONSTANTS.KDE_EXCEED, f"Preparing kdeZone {zoneID}")
         self.__setZoneKdeExceedsSeries(self.__kdeExceedsSeries[zoneID])
         self.logger.progress(LOGGER_CONSTANTS.KDE_EXCEED, LOGGER_CONSTANTS.END_PROGRESS_BAR)
         
@@ -489,7 +497,7 @@ if __name__ == "__main__":
 
     if args.debug:
         debugger = QQmlDebuggingEnabler()
-        debugger.startTcpDebugServer(6969, mode=QQmlDebuggingEnabler.StartMode.WaitForClient)
+        # debugger.startTcpDebugServer(6969, mode=QQmlDebuggingEnabler.StartMode.WaitForClient)
     
     logger = Logger(args.terminal, args.verbose, args.debug)
     logger.info("Framework for automatic Mode-S data transfer & turbulence prediction")

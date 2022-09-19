@@ -8,6 +8,7 @@ ChartView {
     property var longitude: []
     property var exceedsPerAddress: []
     property var kde: []
+    animationOptions: ChartView.SeriesAnimations
 
     LineSeries {
         id: kdeSeries
@@ -43,7 +44,7 @@ ChartView {
         kdeExceedChart.removeAllSeries()
         for (let addressData of exceedsPerAddress) {
             let lineSeries = kdeExceedChart.createSeries(ChartView.LineSeries, `A ${addressData.address} (T ${addressData.start.toFixed(1)} - ${addressData.end.toFixed(1)})`, xAxis, yAxis)
-            let r = Math.random() % 0.6, g = Math.random(), b = Math.random() 
+            let r = Math.random() % 0.75, g = Math.random(), b = Math.random() 
             lineSeries.color = Qt.rgba(r, g, b, 1)
             lineSeries.width = 4
             lineSeries.style = Qt.DashLine

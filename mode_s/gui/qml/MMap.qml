@@ -27,7 +27,7 @@ Frame {
 
     signal done()
     signal addressClicked(int address, string mode)
-    signal kdeClicked(double latitude, double longitude, double bandwidth, int zoneID)
+    signal kdeClicked(double latitude, double longitude, double bandwidth, string zoneID)
 
     function stopBackgroundLoading(progressID) {
         switch (progressID) {
