@@ -27,6 +27,9 @@ class Database:
     filterOn: bool = False 
     data: List[Dict[str, Union[str, int]]] = []  
     executors: List[concurrent.futures.ThreadPoolExecutor] = []
+    pExecutor = concurrent.futures.ProcessPoolExecutor(
+        max_workers=multiprocessing.cpu_count()
+    )
     
     addresses: List[int] = []
     usedAddresses: List[int] = []
@@ -152,47 +155,45 @@ class Database:
         # option={..., "limit":50000}
         self.logger.debug("Getting attributes", ", ".join(attrib for attrib in attributes), "from Database")
         allResults = []
-        with concurrent.futures.ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
-            dbName = None
-            try:
-                queries = self.__generateQueries(attributes, options) 
-                threadedQueries = []
-                queriesPerProcess = int(len(queries) / multiprocessing.cpu_count())
-                for i in range(multiprocessing.cpu_count()):
-                    DB_CONSTANTS.CONNECTIONS_TOTAL += 1
-                    startIndex = i*queriesPerProcess
-                    endIndex = startIndex + queriesPerProcess if i < multiprocessing.cpu_count() - 1 else None
-                    pack = queries[startIndex : endIndex]
-                    if not pack:
-                        continue
-                    threadedQueries.append(executor.submit(background.query, pack, attributes, self.knownIdents, DB_CONSTANTS.CONNECTIONS_TOTAL))
-                    
-
-                for completedQuery in concurrent.futures.as_completed(threadedQueries):
-                    try:
-                        results, dbName = completedQuery.result()
-                    except ConnectionError as de:
-                        self.logger.critical("Error occurred while getting attributes " + str(attributes))
-                        self.logger.critical(str(de))
-                    except Exception as esc:
-                        self.logger.warning("Error occurred while getting attributes " + str(attributes) + "\nERROR: " + str(esc))
-                    else:
-                        allResults.extend(results)
-                    finally:
-                        if dbName:
-                            QtSql.QSqlDatabase.removeDatabase(dbName)
-
+        dbName = None
+        try:
+            queries = self.__generateQueries(attributes, options) 
+            threadedQueries = []
+            maxProcesses = min(len(queries), multiprocessing.cpu_count())
+            queriesPerProcess = int(len(queries) / maxProcesses)
+            for i in range(maxProcesses):
+                DB_CONSTANTS.CONNECTIONS_TOTAL += 1
+                startIndex = i*queriesPerProcess
+                endIndex = None if i == maxProcesses - 1 else startIndex + queriesPerProcess
+                pack = queries[startIndex : endIndex]
+                if not pack:
+                    continue
+                threadedQueries.append(self.pExecutor.submit(background.query, pack, attributes, self.knownIdents, DB_CONSTANTS.CONNECTIONS_TOTAL))
+                
+            for completedQuery in concurrent.futures.as_completed(threadedQueries):
                 try:
-                    limit = options["limit"]
-                except KeyError:
-                    limit = self.limit
-                        
-                if len(allResults) < int(limit): self.logger.warning("Query executed. Results lower than expected (" + str(len(allResults)) + " < " + str(limit) + ")")
-                else: self.logger.success("Query successfully executed.")
+                    results, dbName = completedQuery.result()
+                except ConnectionError as de:
+                    self.logger.critical("Error occurred while getting attributes " + str(attributes))
+                    self.logger.critical(str(de))
+                except Exception as esc:
+                    self.logger.warning("Error occurred while getting attributes " + str(attributes) + "\nERROR: " + str(esc))
+                else:
+                    allResults.extend(results)
+                finally:
+                    if dbName:
+                        QtSql.QSqlDatabase.removeDatabase(dbName)
 
-            except DatabaseError as de:
-                self.logger.critical(str(de))
-                return []
+            limit = options.get("limit") or self.limit
+                    
+            if len(allResults) < int(limit): self.logger.warning("Query executed. Results lower than expected (" + str(len(allResults)) + " < " + str(limit) + ")")
+            else: self.logger.success("Query successfully executed.")
+
+        except DatabaseError as de:
+            self.logger.critical(str(de))
+            return []
+        # finally:
+        #     self.pExecutor.shutdown()
             
         return allResults
     
@@ -262,7 +263,7 @@ class Database:
         ex = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="database_workerThread")
         self.executors.append(ex)
         return ex
-    
+
     def __testDBConnection(self):
         db = QtSql.QSqlDatabase.addDatabase("QMYSQL", "testDB")
         self.__setUp(db)

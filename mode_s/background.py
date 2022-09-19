@@ -23,7 +23,6 @@ def query(queries: List[str], elements: List[str] = [], knownIdents: Dict[str,st
     q.setForwardOnly(True)
     
     absentColumns = [column for column in DB_CONSTANTS.USED_COLUMNS if column not in elements]
-    emptyEntry = {abs: None for abs in absentColumns}
 
     for query in queries:
         if not q.exec_(query):
@@ -31,7 +30,7 @@ def query(queries: List[str], elements: List[str] = [], knownIdents: Dict[str,st
                 "Could not execute query: " + q.lastQuery() + " on " + name + " ERROR:: " + q.lastError().text())
 
         while q.next():
-            entry = emptyEntry
+            entry = {abs: None for abs in absentColumns}
             for el in elements:
                 value = q.value(el)
                 if isinstance(value, str):
@@ -40,9 +39,9 @@ def query(queries: List[str], elements: List[str] = [], knownIdents: Dict[str,st
                     entry[el] = value.toMSecsSinceEpoch() * 10**6
                 else:
                     entry[el] = value
-            if knownIdents:
-                if knownIdents.get(entry["address"]):
-                    entry["identification"] = knownIdents[entry["address"]]
+                    
+            if knownIdents and knownIdents.get(entry["address"]):
+                entry["identification"] = knownIdents[entry["address"]]
 
             allQueriesResults.append(entry)
         
