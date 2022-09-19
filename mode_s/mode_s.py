@@ -3,6 +3,7 @@ import os
 import sys
 import argparse
 import json
+import multiprocessing
 import concurrent.futures
 from collections import namedtuple
 from typing import Any, Dict, NamedTuple, List
@@ -395,8 +396,15 @@ if __name__ == "__main__":
     logger.info("Framework for automatic Mode-S data transfer & turbulence prediction")
     logger.debug(args)
     
+    modeSProcessExecutor = concurrent.futures.ProcessPoolExecutor(
+        max_workers=multiprocessing.cpu_count()
+    )
+
     db = Database(logger=logger)
     modeSEngine = ModeSEngine.Engine(logger=logger)
+    
+    db.setProcessExecutor(modeSProcessExecutor)
+    modeSEngine.setProcessExecutor(modeSProcessExecutor)
 
     qInstallMessageHandler(qt_message_handler)
     

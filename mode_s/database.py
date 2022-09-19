@@ -27,9 +27,7 @@ class Database:
     filterOn: bool = False 
     data: List[Dict[str, Union[str, int]]] = []  
     executors: List[concurrent.futures.ThreadPoolExecutor] = []
-    pExecutor = concurrent.futures.ProcessPoolExecutor(
-        max_workers=multiprocessing.cpu_count()
-    )
+    pExecutor: concurrent.futures.ProcessPoolExecutor = None
     
     addresses: List[int] = []
     usedAddresses: List[int] = []
@@ -62,6 +60,9 @@ class Database:
 
         executor.shutdown()
         return started
+    
+    def setProcessExecutor(self, ex: concurrent.futures.ProcessPoolExecutor):
+        self.pExecutor = ex
         
     def getData(self) -> List[Dict[str, Union[str, int]]]:
         return self.data

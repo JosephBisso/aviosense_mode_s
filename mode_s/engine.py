@@ -1,15 +1,18 @@
 
+import multiprocessing
 import sys
 import os
 import json
 import statistics
-import numpy as np
 import concurrent.futures
-from scipy.signal import medfilt
 from collections import Counter
 from typing import Any, List, Dict, Union
+
+import numpy as np
+from scipy.signal import medfilt
 from sklearn.neighbors import KernelDensity
 
+import background
 from logger import Logger
 from constants import ENGINE_CONSTANTS, MODE_S_CONSTANTS, LOGGER_CONSTANTS
 from constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
@@ -27,6 +30,7 @@ class Engine:
     plots: Dict[str, bool] = {}
 
     executors: List[concurrent.futures.Executor] = []
+    pExecutor: concurrent.futures.ProcessPoolExecutor = None
 
     gui = False
     plotAddresses: List[int] = []
@@ -37,6 +41,9 @@ class Engine:
 
     def __init__(self, logger: Logger):
         self.logger: Logger = logger
+
+    def setProcessExecutor(self, ex: concurrent.futures.ProcessPoolExecutor):
+        self.pExecutor = ex
 
     def cancel(self) -> True:
         for ex in self.executors:
@@ -317,22 +324,30 @@ class Engine:
     def prepareBarAndIvvAndTime(self, addresses:List[int] = []) -> List[Dict[str, Union[str, List[DATA]]]]:
         self.logger.log("Computing bar, ivv and time")
         plotData = []
-        executor = self.__executor()
-        addressData__futures = [executor.submit(self.__getDataForAddress, address) for address in addresses]
-
+        
+        addressData__futures = []
+        maxProcesses = min(len(addresses), multiprocessing.cpu_count())
+        addressesPerProcess = int(len(addresses) / maxProcesses)
+        for i in range(maxProcesses):
+            startIndex = i*addressesPerProcess
+            endIndex = startIndex + addressesPerProcess if i < maxProcesses - 1 else None
+            pack = addresses[startIndex : endIndex]
+            if not pack:
+                continue
+            addressData__futures.append(self.pExecutor.submit(background.getRawData, pack, self.data))
+            
         for completedThread in concurrent.futures.as_completed(addressData__futures):
             try:
                 addressData = completedThread.result()
-            except EngineError as e:
+            except AssertionError as e:
                 self.logger.warning(str(e))
             except Exception as esc:
                 type, value, traceback = sys.exc_info()
-                self.logger.warning(
-                    "Error occurred while computing data for addresses\n" + str(type) + "::" + str(value))
+                self.logger.critical(
+                    "Error occurred while computing raw data for addresses\n" + str(type) + "::" + str(value))
             else:
-                plotData.append(addressData)
+                plotData.extend(addressData)
         
-        executor.shutdown()
         return plotData
 
     def prepareMedianFilter(self, data: List[Dict[str, Union[str, List[DATA]]]]) -> None:
@@ -348,7 +363,7 @@ class Engine:
                 self.logger.warning(str(e))
             except Exception as esc:
                 type, value, traceback = sys.exc_info()
-                self.logger.warning(
+                self.logger.critical(
                     "Error occurred while filtering data for addresses\n" + str(type) + "::" + str(value))
 
         executor.shutdown()
@@ -367,7 +382,7 @@ class Engine:
                 self.logger.warning(str(e))
             except Exception as esc:
                 type, value, traceback = sys.exc_info()
-                self.logger.warning(
+                self.logger.critical(
                     "Error occurred while preparing sliding intervals for addresses\n" + str(type) + "::" + str(value))
             else:
                 if slidingIntervalForAddress: slidingIntervals.append(slidingIntervalForAddress)
@@ -389,7 +404,7 @@ class Engine:
                 self.logger.warning(str(e))
             except Exception as esc:
                 type, value, traceback = sys.exc_info()
-                self.logger.warning(
+                self.logger.critical(
                     "Error occurred while preparing sliding interval for std per addresses\n" + str(type) + "::" + str(value))
             else:
                 if slidingIntervalForStdPerAddress: slidingIntervalForStd.append(slidingIntervalForStdPerAddress)
@@ -411,7 +426,7 @@ class Engine:
                 self.logger.warning(str(e))
             except Exception as esc:
                 type, value, traceback = sys.exc_info()
-                self.logger.warning(
+                self.logger.critical(
                     "Error occurred while preparing exceeding data per addresses\n" + str(type) + "::" + str(value))
             else:
                 if exceedingDataPerAddress: exceedingData.append(exceedingDataPerAddress)
@@ -451,22 +466,30 @@ class Engine:
     def prepareHeatMap(self, slidingIntervallForStd: List[Dict[str, Union[str, List[WINDOW_DATA], float]]] = []) -> List[Dict[str, Union[str, List[LOCATION_DATA]]]]:
         self.logger.log("Computing heat map")
         heatPoints: List[Dict[str, Union[str, List[LOCATION_DATA]]]] = []
-        executor = self.__executor()
-        heatPoints__future = [executor.submit(
-            self.__getHeatPointsForAddress, addressData) for addressData in slidingIntervallForStd]
+        
+        heatPoints__future = []
+        maxProcesses = min(len(slidingIntervallForStd), multiprocessing.cpu_count())
+        addressDataPerProcess = int(len(slidingIntervallForStd) / maxProcesses)
+        for i in range(maxProcesses):
+            startIndex = i*addressDataPerProcess
+            endIndex = startIndex + addressDataPerProcess if i < maxProcesses - 1 else None
+            pack = slidingIntervallForStd[startIndex : endIndex]
+            if not pack:
+                continue
+            heatPoints__future.append(self.pExecutor.submit(background.getHeatPoints, pack, self.data))
+
         for completedThread in concurrent.futures.as_completed(heatPoints__future):
             try:
                 heatPointsPerAddress = completedThread.result()
-            except EngineError as e:
+            except AssertionError as e:
                 self.logger.warning(str(e))
             except Exception as esc:
                 type, value, traceback = sys.exc_info()
-                self.logger.warning(
+                self.logger.critical(
                     "Error occurred while preparing heatmap per addresses\n" + str(type) + "::" + str(value))
             else:
-                heatPoints.append(heatPointsPerAddress)
+                heatPoints.extend(heatPointsPerAddress)
                 
-        executor.shutdown()
         return heatPoints
 
     def __executor(self) -> concurrent.futures.ThreadPoolExecutor:

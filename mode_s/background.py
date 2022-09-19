@@ -1,7 +1,9 @@
 from PySide2 import QtSql
-from typing import List, Dict, Union
-from constants import DB_CONSTANTS
 from PySide2.QtCore import QDateTime
+
+from typing import List, Dict, Union
+
+from constants import DB_CONSTANTS, DATA, LOCATION_DATA, WINDOW_DATA
 
 def query(queries: List[str], elements: List[str] = [], knownIdents: Dict[str,str]={}, query_id:int = 0) -> List[Dict[str, Union[int, str]]]:
     name = "db_process_" + str(query_id)
@@ -51,3 +53,153 @@ def query(queries: List[str], elements: List[str] = [], knownIdents: Dict[str,st
     db.close()
 
     return allQueriesResults, name
+
+def getRawData(addresses: List[int], data: List[Dict[str, Union[str, float]]] = []) -> List[Dict[str, Union[str, List[DATA]]]]:
+    results = []
+    startIndexes = {address:None for address in addresses}
+
+    for index in range(len(data)):
+        if data[index]["address"] in startIndexes:
+            if startIndexes.get(data[index]["address"]) is None:
+                startIndexes[data[index]["address"]] = index
+
+        if not 0 in startIndexes.values() and all(startIndexes.values()):
+            break
+        elif 0 in startIndexes.values():
+            allIndexesFound = True
+            for value in startIndexes.values():
+                if value is None: 
+                    allIndexesFound = False
+                    break
+            if allIndexesFound:
+                break
+    
+    for address in addresses:
+        addressData: Dict[str, Union[str, List[int]]] = {
+            "address": address,
+            "points": []
+        }
+
+        identification = None
+        bars = []
+        ivvs = []
+        times = []
+
+        startIndex = startIndexes[address]
+
+        if startIndex is None:
+            raise AssertionError("Skipping address " +
+                                str(address) + " : Cannot be found")
+
+        identification = data[index].get("identification")
+
+        for index in range(startIndex, len(data)):
+            if data[index]["bar"] is None or data[index]["ivv"] is None:
+                continue
+            if data[index]["address"] != address:
+                break
+            bars.append(data[index]["bar"])
+            ivvs.append(data[index]["ivv"])
+            times.append(data[index]["timestamp"])
+
+        if not times:
+            raise AssertionError("Skipping address " +
+                                str(address) + " : No valid entry")
+
+        startTime = min(times)
+        addressData["points"] = [
+            DATA((times[i] - startTime)*10**-9, bars[i], ivvs[i]) for i in range(len(times))]
+        addressData["points"].sort(key=lambda el: el.time)
+        addressData["identification"] = identification
+
+        results.append(addressData)
+
+    return results
+
+
+def getHeatPoints(addressDataList: List[Dict[str, Union[str, List[WINDOW_DATA]]]] = [], data: List[Dict[str, Union[str, float]]] = []) -> List[Dict[str, Union[str,List[LOCATION_DATA]]]]:
+    results = []
+    startIndexes = {address: None for address in [addressData["address"] for addressData in addressDataList]}
+
+    for index in range(len(data)):
+        if data[index]["address"] in startIndexes:
+            if startIndexes.get(data[index]["address"]) is None:
+                startIndexes[data[index]["address"]] = index
+
+        if not 0 in startIndexes.values() and all(startIndexes.values()):
+            break
+        elif 0 in startIndexes.values():
+            allIndexesFound = True
+            for value in startIndexes.values():
+                if value is None:
+                    allIndexesFound = False
+                    break
+            if allIndexesFound:
+                break
+
+    for addressData in addressDataList:
+        heatPointsForAddress: List[str, List[LOCATION_DATA]] = []
+        
+        turbulentSlidingWindows = [point.window for point in addressData["points"] if point.bar - point.ivv > addressData["threshold"]]
+        turbulentSlidingWindows.sort()
+        
+        times = []
+
+        startIndex = startIndexes[addressData["address"]]
+
+        if startIndex is None:
+            raise AssertionError("Skipping address " + str(addressData["address"]) + " : Invalid bar or ivv stds for heat map")
+
+        for index in range(startIndex, len(data)):
+            if data[index]["address"] != addressData["address"]:
+                break
+            times.append(data[index]["timestamp"])
+            
+        if not times:
+            raise AssertionError("Skipping address " + str(addressData["address"]) + " : not times for heat map")
+
+        startTime = min(times)
+
+        foundLongitude = False
+        foundWindow = False
+        closestTimes = []
+        allTimes = []
+        for index in range(startIndex, len(data)):
+            if data[index]["longitude"] is None or data[index]["latitude"] is None:
+                continue
+            if data[index]["address"] != addressData["address"]:
+                break
+
+            foundLongitude = True
+
+            rawTime = data[index]["timestamp"]
+            time = (rawTime - startTime)*10**-9
+            time /= 60
+            allTimes.append(time)
+
+            windows = None
+            for window in turbulentSlidingWindows:
+                if time > window: continue
+                windows = window
+                break
+            
+            if not windows: break
+            
+            foundWindow = True
+            if time < windows - 1: 
+                closestTimes.append(time)
+                continue
+            
+            longitude = data[index]["longitude"]
+            latitude = data[index]["latitude"]
+            
+            heatPointsForAddress.append(
+                LOCATION_DATA(time, longitude, latitude)
+            )
+            
+        if allTimes: closestTimes.insert(0, min(allTimes))
+        
+
+        results.append({"address": addressData["address"], "identification": addressData.get("identification"),  "points": heatPointsForAddress})
+        
+    return results
