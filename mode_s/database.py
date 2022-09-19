@@ -5,7 +5,7 @@ import multiprocessing
 import concurrent.futures
 from typing import List, Dict, Union
 
-import background
+import process
 from logger import Logger
 from constants import DB_CONSTANTS, LOGGER_CONSTANTS
 
@@ -169,7 +169,7 @@ class Database:
                 pack = queries[startIndex : endIndex]
                 if not pack:
                     continue
-                threadedQueries.append(self.pExecutor.submit(background.query, pack, attributes, self.knownIdents, DB_CONSTANTS.CONNECTIONS_TOTAL))
+                threadedQueries.append(self.pExecutor.submit(process.query, pack, attributes, self.knownIdents, DB_CONSTANTS.CONNECTIONS_TOTAL))
                 
             for completedQuery in concurrent.futures.as_completed(threadedQueries):
                 try:

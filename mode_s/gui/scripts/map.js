@@ -79,7 +79,8 @@ function prepareKDE(target, listPoint) {
             "longitude": listPoint[i].longitude,
             "normedKDE": listPoint[i].normedKDE,
             "kde": listPoint[i].kde,
-            "bandwidth": listPoint[i].bandwidth
+            "bandwidth": listPoint[i].bandwidth,
+            "kdeZoneID": listPoint[i].zoneID
         }
 
         target.append(kdePoint)

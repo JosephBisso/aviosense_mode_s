@@ -29,13 +29,13 @@ Column {
         id: statusConnection
         target: __mode_s
         function onProgressed(progressID, msg) {
-            let deleting = false
+            let deleting = msg.includes(Constants.END_PROGRESS_BAR)
+
             for (let i = 0; i < statusElements.count; i++) {
                 if (!statusElements.get(i)) {continue}
                 if (statusElements.get(i).progressID == progressID) {
                     if (msg.includes(Constants.END_PROGRESS_BAR)) {
                         statusElements.remove(i, 1)
-                        deleting = true
                         continue
                     }
                     let cleanMsg = msg.replace(statusElements.get(i).progressID, "")
@@ -66,6 +66,10 @@ Column {
                 case Constants.ID_KDE:
                     color = "cyan"
                     break
+                case Constants.ID_KDE_EXCEED:
+                case Constants.ID_PLOT:
+                    color = "gold"
+                    break
                 default:
                     color = "dodgerBlue"
                     break
@@ -95,6 +99,10 @@ Column {
                 return "power_button"
             case Constants.MODE_S:
                 return "home"
+            case Constants.ID_PLOT:
+                return "noise"
+            case Constants.ID_KDE_EXCEED:
+                return "gaussian-function"
             default:
                 return "settings"
         }

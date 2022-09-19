@@ -27,7 +27,7 @@ Frame {
 
     signal done()
     signal addressClicked(int address, string mode)
-    signal kdeClicked(double latitude, double longitude, double bandwidth)
+    signal kdeClicked(double latitude, double longitude, double bandwidth, int zoneID)
 
     function stopBackgroundLoading(progressID) {
         switch (progressID) {
@@ -258,7 +258,7 @@ Frame {
             mapElementInfo.turbulentFlight = true
             mapElementInfo.buttonShowGraph = false
             mapElementInfo.open()
-            rootFrame.kdeClicked(kdeZone.centerLatitude, kdeZone.centerLongitude, kdeZone.bw)
+            rootFrame.kdeClicked(kdeZone.centerLatitude, kdeZone.centerLongitude, kdeZone.bw, kdeZone.zoneID)
         }
 
         function showPolyline(polyline) {
@@ -353,6 +353,7 @@ Frame {
             centerLatitude: latitude
             centerLongitude: longitude
             bw: bandwidth
+            zoneID: kdeZoneID
         }
 
         onObjectAdded: {

@@ -10,6 +10,7 @@ MapRectangle {
     property double centerLatitude : 0
     property double centerLongitude : 0
     property double bw : 0.5
+    property int zoneID : 0
 
     property bool hovered : rectangleMouseArea.containsMouse 
 

@@ -179,8 +179,8 @@ Frame {
                 plotView.preparePlotsForAddress(address, mode)
             }
 
-            onKdeClicked: (latitude, longitude, bandwidth) => {
-                plotView.prepareKDEExceedZone(latitude, longitude, bandwidth)
+            onKdeClicked: (latitude, longitude, bandwidth, zoneID) => {
+                plotView.prepareKDEExceedZone(latitude, longitude, bandwidth, zoneID)
             }
         }
 

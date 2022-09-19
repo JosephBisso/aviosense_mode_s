@@ -16,6 +16,7 @@ from PySide2 import QtPositioning
 
 sys.path.append(os.getcwd())
 
+import process
 from logger import Logger
 from database import Database
 from constants import *
@@ -116,6 +117,8 @@ class Mode_S(QObject):
     plotHeatMapReady    = Signal()
     plotKDEExceedsReady = Signal()
 
+    executor: concurrent.futures.ThreadPoolExecutor = None
+    pExecutor: concurrent.futures.ProcessPoolExecutor = None
     backgroundFutures: List[concurrent.futures.Future] = []
     
     __occurrenceSeries        = []
@@ -128,7 +131,18 @@ class Mode_S(QObject):
     __locationSeries          = []
     __turbulentLocationSeries = []
     __heatMapSeries           = []
-    __kdeExceedsSeries        = []
+    __kdeExceedsSeries        = {}
+    
+    __addressRawSeries        = []
+    __addressIntervalSeries   = []
+    __addressFilteredSeries   = []
+    __addressStdSeries        = []
+    __addressExceedsSeries    = []
+
+    __zoneKdeExceedsSeries    = {}
+    
+    allAddressSeriesMap     = {}
+    allSeriesMap            = {}
 
 
     def __init__(self, db: Database, msEngine: ModeSEngine.Engine, logger: Logger):
@@ -144,7 +158,10 @@ class Mode_S(QObject):
         self.executor = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="modeS_workerThread")
 
         self.plot(fromDump=True)
-    
+
+    def setProcessExecutor(self, ex: concurrent.futures.ProcessPoolExecutor):
+        self.pExecutor = ex
+
     @Slot(str, result=None)
     def updateDBFilter(self, dbJson: str): 
         self.computingStarted.emit()
@@ -195,6 +212,16 @@ class Mode_S(QObject):
         self.computingFinished.emit()
 
     @Slot(str)
+    def prepareAddress(self, address): 
+        future = self.executor.submit(self.__updateAddressPlots, address)
+        future.add_done_callback(self.__backgroundThreadFinished)
+
+    @Slot(int)
+    def prepareKDEZone(self, zoneID): 
+        future = self.executor.submit(self.__updateKDEZonePlots, str(zoneID))
+        future.add_done_callback(self.__backgroundThreadFinished)
+        
+    @Slot(str)
     def __log(self, log: str):
         self.logged.emit(log)
 
@@ -239,7 +266,7 @@ class Mode_S(QObject):
 
     def __plotting(self, **params):
         try: 
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [0/12]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [0/5]")
             if params.get("fromDump"):
                 results = self.engine.loadDump()
             else:
@@ -250,49 +277,44 @@ class Mode_S(QObject):
             computedAddresses = next(results)
             self.__identMap = computedAddresses if params.get("fromDump") else self.db.getMapping(computedAddresses)
             self.identificationMapped.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [1/12]")
+            self.allAddressSeriesMap = {str(address): {} for address in computedAddresses}
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [1/5]")
 
             self.plotOccurrenceReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [2/12]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [2/5]")
 
             self.__rawSeries = next(results)
-            self.plotRawReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [3/12]")
-
             self.__intervalSeries = next(results)
-            self.plotIntervalReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [4/12]")
-
             self.__filteredSeries = next(results)
-            self.plotFilteredReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [5/12]")
-
             self.__stdSeries = next(results)
-            self.plotStdReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [6/12]")
-
             self.__exceedsSeries = next(results)
-            self.plotExceedsReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [7/12]")
+
+            self.logger.progress(LOGGER_CONSTANTS.PLOT, "Getting all Addresses series Map")
+            self.__updateAllSeriesMap()
+            allAddressSeriesMap__future = self.pExecutor.submit(process.getAllAddressSeriesMap, self.allSeriesMap, 
+                self.allAddressSeriesMap,[
+                    MODE_S_CONSTANTS.BAR_IVV_SERIES, MODE_S_CONSTANTS.INTERVAL_SERIES, 
+                    MODE_S_CONSTANTS.FILTERED_SERIES,MODE_S_CONSTANTS.STD_SERIES, MODE_S_CONSTANTS.EXCEEDS_SERIES
+                ]
+            )
+            allAddressSeriesMap__future.add_done_callback(self.__updateAllAddressSeriesMap)
+            self.backgroundFutures.append(allAddressSeriesMap__future)
 
             self.__locationSeries = next(results)
             self.plotLocationReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [8/12]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [3/5]")
 
             self.__turbulentLocationSeries = next(results)
             self.plotTurbulentReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [9/12]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [4/5]")
 
             self.__heatMapSeries = next(results)
             self.plotHeatMapReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S,"Sending plot data [10/12]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S,"Sending plot data [5/5]")
 
             self.__kdeExceedsSeries = next(results)
-            self.plotKDEExceedsReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S,"Sending plot data [11/12]")
-
-
-            self.logger.success("Done computing")
+            
+            self.logger.success("Done plotting")
             
             while next(results, None) is not None:
                 pass
@@ -300,12 +322,59 @@ class Mode_S(QObject):
             self.__dumpAll()
 
         except ModeSEngine.EngineError as err:
-            self.logger.warning("Error Occurred: Mode_s plotting::", str(err))
-        finally:            
+            self.logger.warning("Engine Error Occurred: Mode_s plotting::", str(err))
+        except Exception as esc:
+            type, value, traceback = sys.exc_info()
+            self.logger.critical(
+                "Error Occurred: Mode_s plotting::\n" + str(type) + "::" + str(value))
+            self.logger.critical("Error raised at Frame:", traceback.tb_frame)
+        finally:
             self.logger.progress(LOGGER_CONSTANTS.MODE_S, LOGGER_CONSTANTS.END_PROGRESS_BAR)
 
+    def __updateAllAddressSeriesMap(self, future: concurrent.futures.Future, displayAddress = None):
+        allAddressSeriesMap = {}
+        try:
+            allAddressSeriesMap = future.result()
+        except Exception as esc:
+            type, value, traceback = sys.exc_info()
+            self.logger.critical(
+                "Error Occurred while updating all addresses series map:: \n" + str(type) + "::" + str(value))
+        else:
+            self.allAddressSeriesMap = allAddressSeriesMap
+            self.logger.debug("Length of allAddressSeriesMap: ", len(self.allAddressSeriesMap))
+            if displayAddress:
+                self.__updateAddressPlots(displayAddress)
+        finally:
+            self.logger.progress(LOGGER_CONSTANTS.PLOT, LOGGER_CONSTANTS.END_PROGRESS_BAR)
+            
+
+    def __updateAddressPlots(self, address):
+        self.waitUntilReady()
+        
+        self.logger.progress(LOGGER_CONSTANTS.PLOT, f"Preparing address {address} [0/5]")
+        self.__setAddressRaw(self.allAddressSeriesMap[address][MODE_S_CONSTANTS.BAR_IVV_SERIES])
+
+        self.logger.progress(LOGGER_CONSTANTS.PLOT, f"Preparing address {address} [1/5]")
+        self.__setAddressFiltered(self.allAddressSeriesMap[address][MODE_S_CONSTANTS.FILTERED_SERIES])
+
+        self.logger.progress(LOGGER_CONSTANTS.PLOT, f"Preparing address {address} [2/5]")
+        self.__setAddressInterval(self.allAddressSeriesMap[address][MODE_S_CONSTANTS.INTERVAL_SERIES])
+
+        self.logger.progress(LOGGER_CONSTANTS.PLOT, f"Preparing address {address} [3/5]")
+        self.__setAddressStd(self.allAddressSeriesMap[address][MODE_S_CONSTANTS.STD_SERIES])
+        
+        self.logger.progress(LOGGER_CONSTANTS.PLOT, f"Preparing address {address} [4/5]")
+        self.__setAddressExceeds(self.allAddressSeriesMap[address][MODE_S_CONSTANTS.EXCEEDS_SERIES])
+
+        self.logger.progress(LOGGER_CONSTANTS.PLOT, LOGGER_CONSTANTS.END_PROGRESS_BAR)
+
+    def __updateKDEZonePlots(self, zoneID):
+        self.logger.progress(LOGGER_CONSTANTS.KDE_EXCEED, f"Preparing kdeZone")
+        self.__setZoneKdeExceedsSeries(self.__kdeExceedsSeries[zoneID])
+        self.logger.progress(LOGGER_CONSTANTS.KDE_EXCEED, LOGGER_CONSTANTS.END_PROGRESS_BAR)
+        
     def __dumpAll(self):
-        self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Dumping Data [12/12]")
+        self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Dumping Data")
 
         ms = MODE_S_CONSTANTS
         if self.engine.data:
@@ -329,42 +398,72 @@ class Mode_S(QObject):
         self.logger.debug("Dumping and freeing memory for", name)
         with open(name, "w") as dumpF:
             json.dump(data, dumpF, indent = 2, default=lambda coord: {"longitude":coord.longitude() ,"latitude": coord.latitude()})
-            
+    
+    def __updateAllSeriesMap(self):
+        self.allSeriesMap = {
+            MODE_S_CONSTANTS.STD_SERIES:        self.__stdSeries,
+            MODE_S_CONSTANTS.EXCEEDS_SERIES:    self.__exceedsSeries,
+            MODE_S_CONSTANTS.BAR_IVV_SERIES:    self.__rawSeries,
+            MODE_S_CONSTANTS.INTERVAL_SERIES:   self.__intervalSeries,
+            MODE_S_CONSTANTS.FILTERED_SERIES:   self.__filteredSeries,
+        }
+        
     def __identMapping(self):
         return self.__identMap
     def __occurrence(self):
         return self.__occurrenceSeries
     def __raw(self):
-        return self.__rawSeries
-    def __std(self):
-        return self.__stdSeries
-    def __exceeds(self):
-        return self.__exceedsSeries
-    def __kdeExceeds(self):
-        return self.__kdeExceedsSeries
+        return self.__addressRawSeries
     def __filtered(self):
-        return self.__filteredSeries
+        return self.__addressFilteredSeries
     def __interval(self):
-        return self.__intervalSeries
+        return self.__addressIntervalSeries
+    def __std(self):
+        return self.__addressStdSeries
+    def __exceeds(self):
+        return self.__addressExceedsSeries
     def __location(self):
         return self.__locationSeries
     def __turbulentLocation(self):
         return self.__turbulentLocationSeries
     def __heatMap(self):
         return self.__heatMapSeries
+    def __kdeExceeds(self):
+        return self.__zoneKdeExceedsSeries
+    
+    def __setAddressRaw(self, addressData):
+        self.__addressRawSeries = addressData
+        self.plotRawReady.emit()
+    def __setAddressFiltered(self, addressData):
+        self.__addressFilteredSeries = addressData
+        self.plotFilteredReady.emit()
+    def __setAddressInterval(self, addressData):
+        self.__addressIntervalSeries = addressData
+        self.plotIntervalReady.emit()
+    def __setAddressStd(self, addressData):
+        self.__addressStdSeries = addressData
+        self.plotStdReady.emit()
+    def __setAddressExceeds(self, addressData):
+        self.__addressExceedsSeries = addressData
+        self.plotExceedsReady.emit()
+
+    def __setZoneKdeExceedsSeries(self, zoneData):
+        self.__zoneKdeExceedsSeries = zoneData
+        self.plotKDEExceedsReady.emit()
+
         
     
-    identMap                = Property("QVariantMap", __identMapping,       notify = identificationMapped)
-    rawSeries               = Property("QVariantList", __raw,               notify = plotRawReady)
-    stdSeries               = Property("QVariantList", __std,               notify = plotStdReady)
-    exceedSeries            = Property("QVariantList", __exceeds,           notify = plotExceedsReady)
-    heatMapSeries           = Property("QVariantList", __heatMap,           notify = plotHeatMapReady)
-    filteredSeries          = Property("QVariantList", __filtered,          notify = plotFilteredReady)
-    intervalSeries          = Property("QVariantList", __interval,          notify = plotIntervalReady)
-    locationSeries          = Property("QVariantList", __location,          notify = plotLocationReady)
-    kdeExceedSeries         = Property("QVariantList", __kdeExceeds,        notify = plotKDEExceedsReady)
-    occurrenceSeries        = Property("QVariantList", __occurrence,        notify = plotOccurrenceReady)
-    turbulentLocationSeries = Property("QVariantList", __turbulentLocation, notify = plotTurbulentReady)
+    identMap                = Property("QVariantMap" , __identMapping,       notify = identificationMapped)
+    occurrenceSeries        = Property("QVariantList", __occurrence,         notify = plotOccurrenceReady)
+    addressRawSeries        = Property("QVariantMap" , __raw,                notify = plotRawReady)
+    addressStdSeries        = Property("QVariantMap" , __std,                notify = plotStdReady)
+    addressExceedSeries     = Property("QVariantMap" , __exceeds,            notify = plotExceedsReady)
+    addressFilteredSeries   = Property("QVariantMap" , __filtered,           notify = plotFilteredReady)
+    addressIntervalSeries   = Property("QVariantMap" , __interval,           notify = plotIntervalReady)
+    locationSeries          = Property("QVariantList", __location,           notify = plotLocationReady)
+    turbulentLocationSeries = Property("QVariantList", __turbulentLocation,  notify = plotTurbulentReady)
+    heatMapSeries           = Property("QVariantList", __heatMap,            notify = plotHeatMapReady)
+    zoneKdeExceedSeries     = Property("QVariantMap" , __kdeExceeds,         notify = plotKDEExceedsReady)
 
 
 if __name__ == "__main__":
@@ -390,27 +489,28 @@ if __name__ == "__main__":
 
     if args.debug:
         debugger = QQmlDebuggingEnabler()
-        # debugger.startTcpDebugServer(6969, mode=QQmlDebuggingEnabler.StartMode.WaitForClient)
+        debugger.startTcpDebugServer(6969, mode=QQmlDebuggingEnabler.StartMode.WaitForClient)
     
     logger = Logger(args.terminal, args.verbose, args.debug)
     logger.info("Framework for automatic Mode-S data transfer & turbulence prediction")
     logger.debug(args)
     
-    modeSProcessExecutor = concurrent.futures.ProcessPoolExecutor(
+    processPoolExecutor = concurrent.futures.ProcessPoolExecutor(
         max_workers=multiprocessing.cpu_count()
     )
 
     db = Database(logger=logger)
     modeSEngine = ModeSEngine.Engine(logger=logger)
     
-    db.setProcessExecutor(modeSProcessExecutor)
-    modeSEngine.setProcessExecutor(modeSProcessExecutor)
+    db.setProcessExecutor(processPoolExecutor)
+    modeSEngine.setProcessExecutor(processPoolExecutor)
 
     qInstallMessageHandler(qt_message_handler)
     
     if not args.terminal:
         engine = QQmlApplicationEngine()
         mode_s = Mode_S(db, modeSEngine, logger)
+        mode_s.setProcessExecutor(processPoolExecutor)
         engine.rootContext().setContextProperty("__mode_s", mode_s)
         engine.load(QUrl("qrc:/qml/main.qml"))
         if not engine.rootObjects():

@@ -15,7 +15,8 @@ class Analysis:
     POINT_RADIUS = 10000
     
     SLIDING_INTERVAL_PER_STD = []
-    KDE_ZONE_EXCEEDS = []
+    KDE_ZONE_EXCEEDS = {}
+    KDE_ZONE_IDS = 0
 
     def setKDEBandwidth(bandwidth:int = 0.5):
         Analysis.KDE_BAND_WIDTH = bandwidth
@@ -105,7 +106,7 @@ class Analysis:
 
     def getLineSeriesSlidingIntervalForStd(plotData: List[Dict[str, Union[str, List[WINDOW_DATA]]]]) -> List[Dict[str, List[int]]]:
         Analysis.SLIDING_INTERVAL_PER_STD = plotData
-        Analysis.KDE_ZONE_EXCEEDS = []
+        Analysis.KDE_ZONE_EXCEEDS = {}
         lineSeries = []
         for index in range(len(plotData)):
             addressSeries = {
@@ -306,6 +307,9 @@ class Analysis:
             
             kdeZone["bandwidth"] = Analysis.KDE_BAND_WIDTH + sum(allKDEZones["widthIncrease"]) 
             
+            Analysis.KDE_ZONE_IDS += 1
+            kdeZone["zoneID"] = Analysis.KDE_ZONE_IDS
+            
             kdeZoneTime = {}
             for segment in allKDEZones["segments"]:
                 for address in segment["zoneTimes"]:
@@ -329,7 +333,9 @@ class Analysis:
         target.append(zone)
         
         zoneAddresses = list(zoneData.keys())
+        zoneID = str(zone["zoneID"])
         kdeZone: Dict[str, Union[float, List[Dict[str, float]]]] = {
+            "zoneID": zoneID,
             "latitude": zone["latitude"],
             "longitude": zone["longitude"],
             "exceedsPerAddress": [],
@@ -392,7 +398,7 @@ class Analysis:
         globalDensity = [sum(component["densities"][i] * component["norm"] for component in allExceedingData) for i in range(maxX)]
 
         kdeZone["kde"] = globalDensity
-        Analysis.KDE_ZONE_EXCEEDS.append(kdeZone)
+        Analysis.KDE_ZONE_EXCEEDS[zoneID] = kdeZone
 
 
     def __getAddressSeries(addressLocation: Dict[str, Union[str, List[LOCATION_DATA]]]) -> Dict[str, Union[int, List[List[QtPositioning.QGeoCoordinate]]]]:

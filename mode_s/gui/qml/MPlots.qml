@@ -42,11 +42,13 @@ Frame {
     }   
 
     function preparePlotsForAddress(address, mode) {
+        __mode_s.prepareAddress(address)
         plotSwipe.currentAddress = address
         plotSwipe.mode = mode
     }
 
-    function prepareKDEExceedZone(latitude, longitude, bandwidth) {
+    function prepareKDEExceedZone(latitude, longitude, bandwidth, zoneID) {
+        __mode_s.prepareKDEZone(zoneID)
         plotSwipe.kdeZoneLatitude = latitude
         plotSwipe.kdeZoneLongitude = longitude
         plotSwipe.kdeZoneBandwidth = bandwidth
@@ -104,34 +106,56 @@ Frame {
             }
         }
 
-        SwipeView {
-            id: rawPlots
-            interactive: false
-
-            function showCurrentAddress(indexOfLoadedItem) {
-                setCurrentIndex(indexOfLoadedItem)
+        Loader {
+            id: rawPlotLoader
+            readonly property var addressData: __mode_s.addressRawSeries
+            active: (plotSwipe.currentAddress == addressData["address"] && (plotSwipe.mode == Constants.LOCATION || plotFrame.isCurrentView) ) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+            visible: true
+            asynchronous: true
+            sourceComponent: Component {
+                id: rawPlotComponent
+                MRawPlot {
+                    id: rawPlot
+                    title: "Bar & Ivv for Address " + addressData["address"]
+                    bar: addressData["bar"]
+                    ivv: addressData["ivv"]
+                    time: addressData["time"]
+                    address: addressData["address"]
+                    identification: addressData["identification"]
+                    titleFont: Constants.FONT_MEDIUM
+                    titleColor: Constants.FONT_COLOR
+                    theme: ChartView.ChartThemeBlueIcy
+                }
             }
+        }
 
-            Repeater {
-                id: rawPlotRepeater
-                model: __mode_s.rawSeries
-                delegate: Loader {
-                    id: rawPlotLoader
-                    active: (plotSwipe.currentAddress == modelData["address"] && (plotSwipe.mode == Constants.LOCATION || plotFrame.isCurrentView) ) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
-                    visible: true
-                    asynchronous: true
-                    onLoaded: rawPlots.showCurrentAddress(SwipeView.index)
-
-                    sourceComponent: Component {
-                        id: rawPlotComponent
-                        MRawPlot {
-                            id: rawPlot
-                            title: "Bar & Ivv for Address " + modelData["address"]
-                            bar: modelData["bar"]
-                            ivv: modelData["ivv"]
+        Loader {
+            id: filteredPlotLoader
+            readonly property var addressData: __mode_s.addressFilteredSeries
+            active: (plotSwipe.currentAddress == addressData["address"] && plotFrame.isCurrentView) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+            visible: status == Loader.Ready
+            asynchronous: true
+            sourceComponent: Component {
+                Column {
+                    id: filteredColumn
+                    property alias repeater: nestedRepeater
+                    Repeater {
+                        id: nestedRepeater
+                        model: addressData["points"]
+                        property string address: addressData["address"]
+                        property string identification: addressData["identification"]
+                        delegate: MFilteredPlot {
+                            id: filteredPlot
+                            width: filteredColumn.width
+                            height: filteredColumn.height / 2
+                            title: "Filtered Bar & Ivv for Address " + nestedRepeater.address
+                            dataSet: modelData["dataSet"]
+                            raw: modelData["raw"]
+                            filtered: modelData["filtered"]
                             time: modelData["time"]
-                            address: modelData["address"]
-                            identification: modelData["identification"]
+                            address: nestedRepeater.address
+                            identification: nestedRepeater.identification
+
                             titleFont: Constants.FONT_MEDIUM
                             titleColor: Constants.FONT_COLOR
                             theme: ChartView.ChartThemeBlueIcy
@@ -141,79 +165,74 @@ Frame {
             }
         }
 
-        SwipeView {
-            id: filteredPlots
-            property bool isNeighbor: SwipeView.isPreviousItem || SwipeView.isNextItem || SwipeView.isCurrentItem 
-            function showCurrentAddress(indexOfLoadedItem) {
-                setCurrentIndex(indexOfLoadedItem)
-            }
+        Loader {
+            id: intervallPlotLoader
+            readonly property var addressData: __mode_s.addressIntervalSeries
+            active: (plotSwipe.currentAddress == addressData["address"] && plotFrame.isCurrentView) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+            visible: status == Loader.Ready
+            asynchronous: true
+            sourceComponent: Component {
+                MIntervalPlot {
+                    id: intervalPlot
+                    title: "Sliding Intervall for Address " + addressData["address"]
+                    points: addressData["points"]
+                    windows: addressData["windows"]
+                    address: addressData["address"]
+                    identification: addressData["identification"]
 
-            Repeater {
-                id: filteredPlotRepeater
-                model: __mode_s.filteredSeries
-
-                delegate: Loader {
-                    id: filteredPlotLoader
-                    active: (plotSwipe.currentAddress == modelData["address"] && plotFrame.isCurrentView && filteredPlots.isNeighbor) || (plotFrame.isCurrentView && filteredPlots.isNeighbor && SwipeView.isCurrentItem)
-                    visible: status == Loader.Ready
-                    asynchronous: true
-                    onLoaded: filteredPlots.showCurrentAddress(SwipeView.index)
-                    sourceComponent: Component {
-                        Column {
-                            id: filteredColumn
-                            property alias repeater: nestedRepeater
-                            Repeater {
-                                id: nestedRepeater
-                                model: modelData["points"]
-                                property string address: modelData["address"]
-                                property string identification: modelData["identification"]
-                                delegate: MFilteredPlot {
-                                    id: filteredPlot
-                                    width: filteredColumn.width
-                                    height: filteredColumn.height / 2
-                                    title: "Filtered Bar & Ivv for Address " + nestedRepeater.address
-                                    dataSet: modelData["dataSet"]
-                                    raw: modelData["raw"]
-                                    filtered: modelData["filtered"]
-                                    time: modelData["time"]
-                                    address: nestedRepeater.address
-                                    identification: nestedRepeater.identification
-
-                                    titleFont: Constants.FONT_MEDIUM
-                                    titleColor: Constants.FONT_COLOR
-                                    theme: ChartView.ChartThemeBlueIcy
-                                }
-                            }
-                        }
-                    }
+                    titleFont: Constants.FONT_MEDIUM
+                    titleColor: Constants.FONT_COLOR
+                    theme: ChartView.ChartThemeBlueIcy
                 }
             }
         }
 
-        SwipeView {
-            id: intervallPlots
-
-            function showCurrentAddress(indexOfLoadedItem) {
-                setCurrentIndex(indexOfLoadedItem)
-            }
-            Repeater {
-                id: intervalPlotRepeater
-                model: __mode_s.intervalSeries
-
-                delegate: Loader {
-                    id: intervallPlotLoader
-                    active: (plotSwipe.currentAddress == modelData["address"] && plotFrame.isCurrentView) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
-                    visible: status == Loader.Ready
-                    asynchronous: true
-                    onLoaded: intervallPlots.showCurrentAddress(SwipeView.index)
-                    sourceComponent: Component {
-                        MIntervalPlot {
-                            id: intervalPlot
-                            title: "Sliding Intervall for Address " + modelData["address"]
-                            points: modelData["points"]
+        Loader {
+            id: stdPlotLoader
+            readonly property var addressData: __mode_s.addressStdSeries
+            active: (plotSwipe.currentAddress == addressData["address"] && (plotSwipe.mode == Constants.TURBULENCE || plotFrame.isCurrentView )) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+            visible: true
+            asynchronous: true
+            sourceComponent: Component {
+                Row {
+                    id: stdRows
+                    property alias repeater: stdNestedRepeater
+                    Repeater {
+                        id: stdNestedRepeater
+                        model: addressData["points"]
+                        property string address: addressData["address"]
+                        property string identification: addressData["identification"]
+                        delegate: MSTDPlot {
+                            id: stdPlot
+                            width: stdRows.width / 2
+                            height: stdRows.height 
+                            address: stdNestedRepeater.address
+                            identification: stdNestedRepeater.identification
+                            std: modelData["dataSet"] == "STD"
+                            title: {
+                                let root = "Std Bar & Ivv for Address " + stdNestedRepeater.address
+                                if (!stdPlot.std) {
+                                    return "Diff " + root
+                                }
+                                return root
+                            }
+                            bar: {
+                                if (stdPlot.std) {return modelData["bar"]}
+                                else {return []}
+                            }
+                            ivv: {
+                                if (stdPlot.std) {return modelData["ivv"]}
+                                else {return []}
+                            }
+                            diff: {
+                                if (!stdPlot.std) {return modelData["diff"]}
+                                else {return []}
+                            }
+                            threshold: {
+                                if (!stdPlot.std) {return modelData["threshold"]}
+                                else {return -69}
+                            }
                             windows: modelData["windows"]
-                            address: modelData["address"]
-                            identification: modelData["identification"]
 
                             titleFont: Constants.FONT_MEDIUM
                             titleColor: Constants.FONT_COLOR
@@ -224,144 +243,52 @@ Frame {
             }
         }
 
-        SwipeView {
-            id: stdPlots
-
-            function showCurrentAddress(indexOfLoadedItem) {
-                setCurrentIndex(indexOfLoadedItem)
-            }
-            Repeater {
-                id: stdPlotRepeater
-                model: __mode_s.stdSeries
-                delegate: Loader {
-                    id: stdPlotLoader
-                    active: (plotSwipe.currentAddress == modelData["address"] && (plotSwipe.mode == Constants.TURBULENCE || plotFrame.isCurrentView )) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
-                    visible: true
-                    asynchronous: true
-                    onLoaded: stdPlots.showCurrentAddress(SwipeView.index)
-                    sourceComponent: Component {
-                        Row {
-                            id: stdRows
-                            property alias repeater: stdNestedRepeater
-                            Repeater {
-                                id: stdNestedRepeater
-                                model: modelData["points"]
-                                property string address: modelData["address"]
-                                property string identification: modelData["identification"]
-                                delegate: MSTDPlot {
-                                    id: stdPlot
-                                    width: stdRows.width / 2
-                                    height: stdRows.height 
-                                    address: stdNestedRepeater.address
-                                    identification: stdNestedRepeater.identification
-                                    std: modelData["dataSet"] == "STD"
-                                    title: {
-                                        let root = "Std Bar & Ivv for Address " + stdNestedRepeater.address
-                                        if (!stdPlot.std) {
-                                            return "Diff " + root
-                                        }
-                                        return root
-                                    }
-                                    bar: {
-                                        if (stdPlot.std) {return modelData["bar"]}
-                                        else {return []}
-                                    }
-                                    ivv: {
-                                        if (stdPlot.std) {return modelData["ivv"]}
-                                        else {return []}
-                                    }
-                                    diff: {
-                                        if (!stdPlot.std) {return modelData["diff"]}
-                                        else {return []}
-                                    }
-                                    threshold: {
-                                        if (!stdPlot.std) {return modelData["threshold"]}
-                                        else {return -69}
-                                    }
-                                    windows: modelData["windows"]
-
-                                    titleFont: Constants.FONT_MEDIUM
-                                    titleColor: Constants.FONT_COLOR
-                                    theme: ChartView.ChartThemeBlueIcy
-                                }
-                            }
-                        }
-                    }
+        Loader {
+            id: exceedPlotLoader
+            readonly property var addressData: __mode_s.addressExceedSeries
+            active: (plotSwipe.currentAddress == addressData["address"] && (plotSwipe.mode == Constants.TURBULENCE || plotFrame.isCurrentView)) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+            visible: true
+            asynchronous: true
+            sourceComponent: Component {
+                MExceedPlot {
+                    id: exceedPlot
+                    title: "Threshold exceeds Distribution for Address " + addressData["address"]
+                    address: addressData["address"]
+                    identification: addressData["identification"]
+                    distribution: addressData["distribution"]
+                    smoothed: addressData["smoothed"]
+                    
+                    distChart.titleFont: Constants.FONT_MEDIUM
+                    distChart.titleColor: Constants.FONT_COLOR
+                    distChart.theme: ChartView.ChartThemeBlueIcy
+                    
+                    smoothChart.titleFont: Constants.FONT_MEDIUM
+                    smoothChart.titleColor: Constants.FONT_COLOR
+                    smoothChart.theme: ChartView.ChartThemeBlueIcy
                 }
             }
         }
 
-        SwipeView {
-            id: exceedPlots
+        Loader {
+            id: kdeExceedPlotLoader
+            readonly property var zoneData: __mode_s.zoneKdeExceedSeries
+            active: (plotSwipe.kdeZoneLatitude == zoneData["latitude"] && plotSwipe.kdeZoneLongitude == zoneData["longitude"]) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
+            visible: true
+            asynchronous: true
+            sourceComponent: Component {
+                MExceedKDEZonePlot {
+                    id: kdeExceedPlot
+                    title: `KDE for Zone ${zoneData.latitude.toFixed(2)}N, ${zoneData.longitude.toFixed(2)}E, Offset: +/-${(plotSwipe.kdeZoneBandwidth / 2).toFixed(2)}`
+                    latitude: zoneData["latitude"]
+                    longitude: zoneData["longitude"]
+                    exceedsPerAddress: zoneData["exceedsPerAddress"]
+                    kde: zoneData["kde"]
 
-            function showCurrentAddress(indexOfLoadedItem) {
-                setCurrentIndex(indexOfLoadedItem)
-            }
-            Repeater {
-                id: exceedPlotRepeater
-                model: __mode_s.exceedSeries
-
-                delegate: Loader {
-                    id: exceedPlotLoader
-                    active: (plotSwipe.currentAddress == modelData["address"] && (plotSwipe.mode == Constants.TURBULENCE || plotFrame.isCurrentView)) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
-                    visible: true
-                    asynchronous: true
-                    onLoaded: exceedPlots.showCurrentAddress(SwipeView.index)
-                    sourceComponent: Component {
-                        MExceedPlot {
-                            id: exceedPlot
-                            title: "Threshold exceeds Distribution for Address " + modelData["address"]
-                            address: modelData["address"]
-                            identification: modelData["identification"]
-                            distribution: modelData["distribution"]
-                            smoothed: modelData["smoothed"]
-                            
-                            distChart.titleFont: Constants.FONT_MEDIUM
-                            distChart.titleColor: Constants.FONT_COLOR
-                            distChart.theme: ChartView.ChartThemeBlueIcy
-                            
-                            smoothChart.titleFont: Constants.FONT_MEDIUM
-                            smoothChart.titleColor: Constants.FONT_COLOR
-                            smoothChart.theme: ChartView.ChartThemeBlueIcy
-                        }
-                    }
+                    titleFont: Constants.FONT_MEDIUM
+                    titleColor: Constants.FONT_COLOR
+                    theme: ChartView.ChartThemeBlueIcy
                 }
             }
         }
-
-        SwipeView {
-            id: kdeExceedPlots
-
-            function showCurrentAddress(indexOfLoadedItem) {
-                setCurrentIndex(indexOfLoadedItem)
-            }
-            Repeater {
-                id: kdeExceedPlotRepeater
-                model: __mode_s.kdeExceedSeries
-
-                delegate: Loader {
-                    id: kdeExceedPlotLoader
-                    active: (plotSwipe.kdeZoneLatitude == modelData["latitude"] && plotSwipe.kdeZoneLongitude == modelData["longitude"]) || (plotFrame.isCurrentView && SwipeView.isCurrentItem)
-                    visible: true
-                    asynchronous: true
-                    onLoaded: kdeExceedPlots.showCurrentAddress(SwipeView.index)
-                    sourceComponent: Component {
-                        MExceedKDEZonePlot {
-                            id: kdeExceedPlot
-                            title: `KDE for Zone ${modelData.latitude.toFixed(2)}N, ${modelData.longitude.toFixed(2)}E, Offset: +/-${(plotSwipe.kdeZoneBandwidth / 2).toFixed(2)}`
-                            latitude: modelData["latitude"]
-                            longitude: modelData["longitude"]
-                            exceedsPerAddress: modelData["exceedsPerAddress"]
-                            kde: modelData["kde"]
-
-                            titleFont: Constants.FONT_MEDIUM
-                            titleColor: Constants.FONT_COLOR
-                            theme: ChartView.ChartThemeBlueIcy
-                        }
-                    }
-                }
-            }
-        }
-
     }
 }

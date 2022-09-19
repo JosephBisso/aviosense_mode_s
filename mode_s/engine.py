@@ -12,7 +12,7 @@ import numpy as np
 from scipy.signal import medfilt
 from sklearn.neighbors import KernelDensity
 
-import background
+import process
 from logger import Logger
 from constants import ENGINE_CONSTANTS, MODE_S_CONSTANTS, LOGGER_CONSTANTS
 from constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
@@ -108,177 +108,185 @@ class Engine:
         #     json.dump(self.data, dbd)
 
     def compute(self, usePlotter=True) -> None:
-        self.logger.info("Starting Engine")
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [0/11]")
-        if not self.data:
-            self.logger.debug("Using Dump DB")
-            dumpDB = self.__loadDBfromDump()
-            if not dumpDB: 
-                self.logger.progress(LOGGER_CONSTANTS.ENGINE, LOGGER_CONSTANTS.END_PROGRESS_BAR)
-                raise EngineError("Engine has no data to compute")
-            else:
-                self.data = dumpDB
-        if usePlotter and not any(self.plots.values()):
-            return
+        try:
+            self.logger.info("Starting Engine")
+            self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [0/11]")
+            if not self.data:
+                self.logger.debug("Using Dump DB")
+                dumpDB = self.__loadDBfromDump()
+                if not dumpDB: 
+                    self.logger.progress(LOGGER_CONSTANTS.ENGINE, LOGGER_CONSTANTS.END_PROGRESS_BAR)
+                    raise EngineError("Engine has no data to compute")
+                else:
+                    self.data = dumpDB
+            if usePlotter and not any(self.plots.values()):
+                return
 
-        activePlots = self.plots
-
-        if not usePlotter:
-            from analysis import Analysis
-            Analysis.setKDEBandwidth(self.kdeBW)
-            activePlots = {plot: True for plot in ENGINE_CONSTANTS.PLOTS}
-        else:
-            from plotter import Plotter
-            Plotter.updateUsedMedianFilter(self.medianN)
-            Plotter.setKDEBandwidth(self.kdeBW)
-
-        plotted = []
-
-        if activePlots["occurrence"]:
-            dataPoints = self.prepareOccurrencesForAddresses()
-            if usePlotter:
-                self.logger.info("Plotting occurrence on addresses")
-                plotted.append(Plotter.plotDataPointOccurrences(occurrences=dataPoints))
-            else:
-                self.logger.info("Getting lineSeries for  occurrence on addresses")
-                lineSeriesOccurrence = Analysis.getLineSeriesDataPointOccurrences(dataPoints)
-                yield lineSeriesOccurrence
-
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [1/11]")
-
-        allAddresses = self.prepareOccurrencesForAddresses("addresses")
-        mostPointAddresses = allAddresses[:4]
-        if self.plotAddresses:
-            addressesToPlot = self.plotAddresses
-        elif self.plotAll or not usePlotter:
-            addressesToPlot = allAddresses
-        else:
-            addressesToPlot = mostPointAddresses
-
-        if len(addressesToPlot) < 5: self.logger.info("Working with following addresses: " + str(addressesToPlot))
-        else: self.logger.info("Working with " + str(len(addressesToPlot)) + " addresses")
-
-        if not usePlotter:
-            yield addressesToPlot
-            
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [2/11]")
-            
-        data = self.prepareBarAndIvvAndTime(addressesToPlot)
-
-        if activePlots["bar_ivv"]:
-            if usePlotter:
-                self.logger.info("Plotting bar and ivv on time")
-                plotted.append(Plotter.plotBarAndIvv(data))
-            else:
-                self.logger.info("Getting lineSeries for raw bar & ivv")
-                lineSeriesBarIvv = Analysis.getLineSeriesBarAndIvv(data)
-                yield lineSeriesBarIvv
-
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [3/11]")
-
-        if usePlotter:
-            if activePlots["filtered"] and not activePlots["std"]:
-                self.prepareMedianFilter(data)
-                self.logger.info("Plotting filtered bar and ivv on time")
-                plotted.append(Plotter.plotFilteredBarAndIvv(data))
-
-        if activePlots["interval"]:
-            slidingIntervals = self.prepareSlidingInterval(data)
-            if usePlotter:
-                self.logger.info("Plotting sliding Intervals")
-                plotted.append(Plotter.plotSlidingInterval(slidingIntervals))
-            else:
-                self.logger.info("Getting lineSeries for sliding interval")
-                lineSeriesInterval = Analysis.getLineSeriesSlidingInterval(slidingIntervals)
-                yield lineSeriesInterval
-
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [4/11]")
-
-        if activePlots["std"]:
-            self.prepareMedianFilter(data)
+            activePlots = self.plots
 
             if not usePlotter:
-                self.logger.info("Getting line series for filtered bar and ivv on time")
-                lineSeriesFilteredBarAndIvv = Analysis.getLineSeriesFilteredBarAndIvv(data)
-                yield lineSeriesFilteredBarAndIvv
+                from analysis import Analysis
+                Analysis.setKDEBandwidth(self.kdeBW)
+                activePlots = {plot: True for plot in ENGINE_CONSTANTS.PLOTS}
+            else:
+                from plotter import Plotter
+                Plotter.updateUsedMedianFilter(self.medianN)
+                Plotter.setKDEBandwidth(self.kdeBW)
 
-            self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [5/11]")
+            plotted = []
 
-            slidingIntervalForStd = self.prepareSlidingIntervalForStd(data) 
-            if usePlotter:
-                if activePlots["filtered"]:
-                    self.logger.info("Plotting filtered data and standard deviations")
-                    plotted.append(Plotter.plotFilteredAndStd(filteredData=data, stdData=slidingIntervalForStd))
+            if activePlots["occurrence"]:
+                dataPoints = self.prepareOccurrencesForAddresses()
+                if usePlotter:
+                    self.logger.info("Plotting occurrence on addresses")
+                    plotted.append(Plotter.plotDataPointOccurrences(occurrences=dataPoints))
                 else:
-                    self.logger.info("Plotting standard deviations")
-                    plotted.append(Plotter.plotSlidingIntervalForStd(slidingIntervalForStd))
+                    self.logger.info("Getting lineSeries for  occurrence on addresses")
+                    lineSeriesOccurrence = Analysis.getLineSeriesDataPointOccurrences(dataPoints)
+                    yield lineSeriesOccurrence
+
+            self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [1/11]")
+
+            allAddresses = self.prepareOccurrencesForAddresses("addresses")
+            mostPointAddresses = allAddresses[:4]
+            if self.plotAddresses:
+                addressesToPlot = self.plotAddresses
+            elif self.plotAll or not usePlotter:
+                addressesToPlot = allAddresses
             else:
-                self.logger.info("Getting lineSeries for sliding interval for Std")
-                lineSeriesStd = Analysis.getLineSeriesSlidingIntervalForStd(slidingIntervalForStd)
-                yield lineSeriesStd
+                addressesToPlot = mostPointAddresses
 
-                self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [6/11]")
+            if len(addressesToPlot) < 5: self.logger.info("Working with following addresses: " + str(addressesToPlot))
+            else: self.logger.info("Working with " + str(len(addressesToPlot)) + " addresses")
 
-                exceedingData = self.prepareExceedingData(slidingIntervalForStd)
-                self.logger.info("Getting lineSeries for Exceeding data")
-                lineSeriesExceeds = Analysis.getLineSeriesForExceeds(exceedingData)
-                yield lineSeriesExceeds
+            if not usePlotter:
+                yield addressesToPlot
                 
+            self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [2/11]")
+                
+            data = self.prepareBarAndIvvAndTime(addressesToPlot)
 
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [7/11]")
+            if activePlots["bar_ivv"]:
+                if usePlotter:
+                    self.logger.info("Plotting bar and ivv on time")
+                    plotted.append(Plotter.plotBarAndIvv(data))
+                else:
+                    self.logger.info("Getting lineSeries for raw bar & ivv")
+                    lineSeriesBarIvv = Analysis.getLineSeriesBarAndIvv(data)
+                    yield lineSeriesBarIvv
 
-        if activePlots["location"]:
-            location = self.prepareLocation(addressesToPlot)
+            self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [3/11]")
+
             if usePlotter:
-                self.logger.info("Plotting location")
-                plotted.append(Plotter.plotLocation(location))
-            else:
-                self.logger.info("Getting lineSeries for location")
-                lineSeriesLocation = Analysis.getLineSeriesLocation(location)
-                yield lineSeriesLocation
+                if activePlots["filtered"] and not activePlots["std"]:
+                    self.prepareMedianFilter(data)
+                    self.logger.info("Plotting filtered bar and ivv on time")
+                    plotted.append(Plotter.plotFilteredBarAndIvv(data))
 
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [8/11]")
+            if activePlots["interval"]:
+                slidingIntervals = self.prepareSlidingInterval(data)
+                if usePlotter:
+                    self.logger.info("Plotting sliding Intervals")
+                    plotted.append(Plotter.plotSlidingInterval(slidingIntervals))
+                else:
+                    self.logger.info("Getting lineSeries for sliding interval")
+                    lineSeriesInterval = Analysis.getLineSeriesSlidingInterval(slidingIntervals)
+                    yield lineSeriesInterval
 
-        if activePlots["heat_map"]:
-            if not activePlots["filtered"] and not activePlots["std"]:
+            self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [4/11]")
+
+            if activePlots["std"]:
                 self.prepareMedianFilter(data)
-            if not activePlots["std"]:
-                slidingIntervalForStd = self.prepareSlidingIntervalForStd(data)
-            if not activePlots["location"]:
+
+                if not usePlotter:
+                    self.logger.info("Getting line series for filtered bar and ivv on time")
+                    lineSeriesFilteredBarAndIvv = Analysis.getLineSeriesFilteredBarAndIvv(data)
+                    yield lineSeriesFilteredBarAndIvv
+
+                self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [5/11]")
+
+                slidingIntervalForStd = self.prepareSlidingIntervalForStd(data) 
+                if usePlotter:
+                    if activePlots["filtered"]:
+                        self.logger.info("Plotting filtered data and standard deviations")
+                        plotted.append(Plotter.plotFilteredAndStd(filteredData=data, stdData=slidingIntervalForStd))
+                    else:
+                        self.logger.info("Plotting standard deviations")
+                        plotted.append(Plotter.plotSlidingIntervalForStd(slidingIntervalForStd))
+                else:
+                    self.logger.info("Getting lineSeries for sliding interval for Std")
+                    lineSeriesStd = Analysis.getLineSeriesSlidingIntervalForStd(slidingIntervalForStd)
+                    yield lineSeriesStd
+
+                    self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [6/11]")
+
+                    exceedingData = self.prepareExceedingData(slidingIntervalForStd)
+                    self.logger.info("Getting lineSeries for Exceeding data")
+                    lineSeriesExceeds = Analysis.getLineSeriesForExceeds(exceedingData)
+                    yield lineSeriesExceeds
+                    
+
+            self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [7/11]")
+
+            if activePlots["location"]:
                 location = self.prepareLocation(addressesToPlot)
+                if usePlotter:
+                    self.logger.info("Plotting location")
+                    plotted.append(Plotter.plotLocation(location))
+                else:
+                    self.logger.info("Getting lineSeries for location")
+                    lineSeriesLocation = Analysis.getLineSeriesLocation(location)
+                    yield lineSeriesLocation
+
+            self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [8/11]")
+
+            if activePlots["heat_map"]:
+                if not activePlots["filtered"] and not activePlots["std"]:
+                    self.prepareMedianFilter(data)
+                if not activePlots["std"]:
+                    slidingIntervalForStd = self.prepareSlidingIntervalForStd(data)
+                if not activePlots["location"]:
+                    location = self.prepareLocation(addressesToPlot)
+                    
+                heatMap = self.prepareHeatMap(slidingIntervalForStd)
                 
-            heatMap = self.prepareHeatMap(slidingIntervalForStd)
-            
-            if usePlotter:
-                self.logger.info("Plotting heat map")
-                plotted.append(Plotter.plotHeatMap(heatMap=heatMap, rawLocation=location))
+                if usePlotter:
+                    self.logger.info("Plotting heat map")
+                    plotted.append(Plotter.plotHeatMap(heatMap=heatMap, rawLocation=location))
+                else:
+                    self.logger.info("Getting lineSeries for turbulent location")
+                    lineSeriesTurbulent = Analysis.getLineSeriesTurbulentLocation(heatMap)
+                    yield lineSeriesTurbulent
+                    
+                    self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [9/11]")
+                    
+                    self.logger.info("Getting lineSeries for heat map")
+                    lineSeriesHeatMap = Analysis.getLineSeriesHeatMap(heatMap)
+                    yield lineSeriesHeatMap
+                    
+                    self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [10/11]")
+
+                    self.logger.info("Getting lineSeries for kde exceeds")
+                    lineSeriesKDEExceeds = Analysis.getLineSeriesKDEExceeds()
+                    yield lineSeriesKDEExceeds
+
+            self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [11/11]")
+
+            if not usePlotter:
+                self.logger.success("Successfully computed")
+            elif all(plotted):
+                self.logger.success("Successfully plotted")
             else:
-                self.logger.info("Getting lineSeries for turbulent location")
-                lineSeriesTurbulent = Analysis.getLineSeriesTurbulentLocation(heatMap)
-                yield lineSeriesTurbulent
-                
-                self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [9/11]")
-                
-                self.logger.info("Getting lineSeries for heat map")
-                lineSeriesHeatMap = Analysis.getLineSeriesHeatMap(heatMap)
-                yield lineSeriesHeatMap
-                
-                self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [10/11]")
+                self.logger.warning("Error while plotting")
 
-                self.logger.info("Getting lineSeries for kde exceeds")
-                lineSeriesKDEExceeds = Analysis.getLineSeriesKDEExceeds()
-                yield lineSeriesKDEExceeds
+        except Exception as exc:
+            type, value, traceback = sys.exc_info()
+            self.logger.critical("Error Occurred: Engine Compute::\n" + str(type) + "::" + str(value))
+            self.logger.critical("Error raised at Frame:", traceback.tb_frame)
+            raise EngineError("Computing failed because of the exception:", str(exc))
 
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, "Computing [11/11]")
-
-        if not usePlotter:
-            self.logger.success("Successfully computed")
-        elif all(plotted):
-            self.logger.success("Successfully plotted")
-        else:
-            self.logger.warning("Error while plotting")
-
-        self.logger.progress(LOGGER_CONSTANTS.ENGINE, LOGGER_CONSTANTS.END_PROGRESS_BAR)
+        finally:
+            self.logger.progress(LOGGER_CONSTANTS.ENGINE, LOGGER_CONSTANTS.END_PROGRESS_BAR)
         
     def loadDump(self):
         self.logger.info("Loading Dump")
@@ -334,7 +342,7 @@ class Engine:
             pack = addresses[startIndex : endIndex]
             if not pack:
                 continue
-            addressData__futures.append(self.pExecutor.submit(background.getRawData, pack, self.data))
+            addressData__futures.append(self.pExecutor.submit(process.getRawData, pack, self.data))
             
         for completedThread in concurrent.futures.as_completed(addressData__futures):
             try:
@@ -476,7 +484,7 @@ class Engine:
             pack = slidingIntervallForStd[startIndex : endIndex]
             if not pack:
                 continue
-            heatPoints__future.append(self.pExecutor.submit(background.getHeatPoints, pack, self.data))
+            heatPoints__future.append(self.pExecutor.submit(process.getHeatPoints, pack, self.data))
 
         for completedThread in concurrent.futures.as_completed(heatPoints__future):
             try:

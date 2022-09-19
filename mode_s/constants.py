@@ -1,4 +1,4 @@
-from typing import NamedTuple
+from typing import NamedTuple, List
 import os
 
 class ENGINE_CONSTANTS:
@@ -41,6 +41,19 @@ class MODE_S_CONSTANTS:
     if not os.path.exists(APP_DUMP_PATH):
         os.mkdir(APP_DUMP_PATH)
 
+    STD_SERIES: str           = "std"
+    EXCEEDS_SERIES: str       = "exceeds"
+    HEATMAP_SERIES: str       = "heatmap"
+    BAR_IVV_SERIES: str       = "bar_ivv"
+    INTERVAL_SERIES: str      = "interval"
+    FILTERED_SERIES: str      = "filtered"
+    LOCATION_SERIES: str      = "location"
+    TURBULENCE_SERIES: str    = "turbulence"
+    OCCURRENCE_SERIES: str    = "occurrence"
+    KDE_EXCEEDS_SERIES: str   = "kde_exceeds"
+    ALL_SERIES: List[str] = [STD_SERIES, EXCEEDS_SERIES, HEATMAP_SERIES, BAR_IVV_SERIES, INTERVAL_SERIES,
+                             FILTERED_SERIES, LOCATION_SERIES, TURBULENCE_SERIES, OCCURRENCE_SERIES, KDE_EXCEEDS_SERIES]
+
     STD_DUMP: str           = os.path.join(APP_DUMP_PATH, "std.dump.json")
     EXCEEDS_DUMP: str       = os.path.join(APP_DUMP_PATH, "exceeds.dump.json")
     HEATMAP_DUMP: str       = os.path.join(APP_DUMP_PATH, "heatmap.dump.json")
@@ -59,6 +72,8 @@ class LOGGER_CONSTANTS:
     ENGINE:str              = "ID_EGN"
     MODE_S:str              = "ID_MDS"
     DATABASE:str            = "ID_DTB"
+    PLOT:str                = "ID_PLT"
+    KDE_EXCEED:str          = "ID_KDX"
     PROGRESS_BAR:str        = "[==>]"
     END_PROGRESS_BAR:str    = "[==|]"
 
