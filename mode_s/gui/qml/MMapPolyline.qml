@@ -17,7 +17,7 @@ MapPolyline {
     MouseArea {
         anchors.fill: parent
         hoverEnabled: true
-        cursorShape: Qt.CrossCursor
+        cursorShape: Qt.PointingHandCursor
         onEntered: show()
         onExited: reset()
         onClicked: {

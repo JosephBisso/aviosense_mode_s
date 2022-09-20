@@ -56,6 +56,23 @@ Rectangle {
         }
     }
 
+    MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.ArrowCursor
+        z: -1
+        acceptedButtons: Qt.NoButton
+        hoverEnabled: true
+        onEntered: {
+            rootMenuBar.opacity = 1
+            fadeTimer.stop()
+        }
+
+        onExited: {
+            fadeTimer.start()
+        }
+    }
+
+
     ColumnLayout {
         spacing: 20
         anchors.centerIn: parent
@@ -80,15 +97,6 @@ Rectangle {
                 onClicked: {
                     rootMenuBar.selectMenu(menuName)
                     rootMenuBar.clicked(name)
-                }
-
-                onMouseEnter: {
-                    rootMenuBar.opacity = 1
-                    fadeTimer.stop()
-                }
-
-                onMouseOut: {
-                    fadeTimer.start()
                 }
             }
         }

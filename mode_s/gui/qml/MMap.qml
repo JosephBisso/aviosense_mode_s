@@ -83,7 +83,7 @@ Frame {
 
     Timer {
         id: locationLoader
-        interval: 10000
+        interval: 11500
         running: false
         repeat: true
         triggeredOnStart: false
@@ -97,9 +97,10 @@ Frame {
             run(locationLoader)
         }
     }
+    
     Timer {
         id: turbulentLoader
-        interval: 1500
+        interval: 2000
         running: false
         repeat: true
         triggeredOnStart: false
@@ -116,7 +117,7 @@ Frame {
 
     Timer {
         id: kdeLoader
-        interval: 1000
+        interval: 1250
         running: false
         repeat: true
         triggeredOnStart: false
@@ -192,6 +193,17 @@ Frame {
                 name: "osm.mapping.providersrepository.address"
                 value: "http://maps-redirect.qt.io/osm/5.6/"
             }
+        }
+
+        MouseArea{
+            anchors.fill: parent
+            z: -1
+            cursorShape: Qt.OpenHandCursor
+            hoverEnabled: true
+            onPressed: cursorShape = Qt.ClosedHandCursor
+            onCanceled: cursorShape = Qt.ClosedHandCursor
+            onPositionChanged: cursorShape = Qt.OpenHandCursor
+            onReleased: cursorShape = Qt.OpenHandCursor
         }
 
         onActualAddressChanged: markPolyline(actualAddress)

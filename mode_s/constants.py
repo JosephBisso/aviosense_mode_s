@@ -14,15 +14,26 @@ class DB_CONSTANTS:
     USED_COLUMNS = ["identification", "address", "timestamp",
                      "latitude", "longitude",  "bar", "ivv"]
 
+    # Old
     # HOSTNAME = "airdata.skysquitter.com"
     # DATABASE_NAME = "db_airdata"
     # USER_NAME = "tubs"
     # PASSWORD = "ue73f5dn"
+    # TABLE_NAME = "tbl_mode_s"
 
+    # New
+    # HOSTNAME = "tubs.skysquitter.com"
+    # DATABASE_NAME = "db_airdata"
+    # USER_NAME = "tubs"
+    # PASSWORD = "DILAB-2022"
+    # TABLE_NAME = "tbl_tubs"
+
+    # For Local Use Only
     HOSTNAME = None
     DATABASE_NAME = "local_mode_s"
     USER_NAME = "root"
     PASSWORD = "BisbiDb2022?"
+    TABLE_NAME = "tbl_mode_s"
 
     CONNECTIONS_TOTAL = 0
 

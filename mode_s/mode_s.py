@@ -12,7 +12,7 @@ from typing import Any, Dict, NamedTuple, List
 from PySide2.QtQml import QQmlApplicationEngine, QQmlDebuggingEnabler
 from PySide2.QtCore import *
 from PySide2.QtWidgets import QApplication
-from PySide2 import QtPositioning
+from PySide2.QtGui import QIcon
 
 sys.path.append(os.getcwd())
 
@@ -148,7 +148,7 @@ class Mode_S(QObject):
     
     allAddressSeriesMap       = {}
     allPlotSeriesMap          = {}
-    allMapPlotSeriesMap      = {}
+    allMapPlotSeriesMap       = {}
     
 
 
@@ -406,8 +406,8 @@ class Mode_S(QObject):
     def __updateAllAddressSeriesMap(self, future: concurrent.futures.Future, displayAddress = None):
         allAddressSeriesMap = {}
         try:
-            self.logger.debug("Length of allAddressSeriesMap: ", len(allAddressSeriesMap))
             allAddressSeriesMap = future.result()
+            self.logger.debug("Length of allAddressSeriesMap: ", len(allAddressSeriesMap))
         except Exception as esc:
             type, value, traceback = sys.exc_info()
             self.logger.critical(
@@ -583,6 +583,7 @@ if __name__ == "__main__":
     app.setOrganizationName("TU Braunschweig")
     app.setOrganizationDomain("tu-braunschweig.de")
     app.setApplicationName("Mode_S Analysis")
+    app.setWindowIcon(QIcon(":/img/mode_s.png"))
 
     if args.debug:
         debugger = QQmlDebuggingEnabler()

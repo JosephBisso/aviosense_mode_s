@@ -64,7 +64,7 @@ Frame {
             id: suggestionPopup
 
             onItemSelected: (address) => {
-                plotView.preparePlotsForAddress(address)
+                plotView.preparePlotsForAddress(address, mapView.mode)
                 mapView.showAddress(address)
             }
         }

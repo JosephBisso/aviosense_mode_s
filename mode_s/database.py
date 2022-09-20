@@ -44,7 +44,7 @@ class Database:
     
     def start(self) -> bool:
         self.logger.info("Starting database")
-        self.logger.progress(LOGGER_CONSTANTS.DATABASE, "Starting Database Connector...")
+        self.logger.progress(LOGGER_CONSTANTS.DATABASE, "Starting Database Connector")
         started = True
         executor = self.__executor()
         try:

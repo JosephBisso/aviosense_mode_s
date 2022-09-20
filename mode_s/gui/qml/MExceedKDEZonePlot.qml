@@ -19,6 +19,7 @@ ChartView {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor
         z: -1
+        acceptedButtons: Qt.NoButton
     }
     
     LineSeries {

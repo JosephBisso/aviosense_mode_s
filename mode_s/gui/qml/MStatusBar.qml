@@ -21,7 +21,6 @@ Column {
         NumberAnimation {properties: "x, y"; duration: 250}
     }
 
-
     ListModel {
         id: statusElements
     }
@@ -121,6 +120,13 @@ Column {
             border {
                 width: Constants.BORDER_WIDTH
                 color: progressColor
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.ArrowCursor
+                z: -1
+                acceptedButtons: Qt.NoButton
             }
 
             RowLayout {
