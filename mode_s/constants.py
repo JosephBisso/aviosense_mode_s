@@ -74,6 +74,9 @@ class LOGGER_CONSTANTS:
     DATABASE:str            = "ID_DTB"
     PLOT:str                = "ID_PLT"
     KDE_EXCEED:str          = "ID_KDX"
+    LOCATION: str           = "ID_LOC"
+    TURBULENT: str          = "ID_TRB"
+    KDE: str                = "ID_KDE"
     PROGRESS_BAR:str        = "[==>]"
     END_PROGRESS_BAR:str    = "[==|]"
 

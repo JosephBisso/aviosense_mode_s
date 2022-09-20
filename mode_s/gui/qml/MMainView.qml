@@ -162,16 +162,12 @@ Frame {
             Connections {
                 target: __mode_s
 
-                function onPlotLocationReady() {
+                function onAllMapPlotsReady() {
+                    console.log("Filling Map")
                     mapView.update(Constants.LOCATION)
-                }
-
-                function onPlotTurbulentReady() {
                     mapView.update(Constants.TURBULENCE)
-                }
-
-                function onPlotHeatMapReady() {
                     mapView.update(Constants.KDE)
+
                 }
             }
 

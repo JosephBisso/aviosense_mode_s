@@ -9,13 +9,13 @@ import "qrc:/scripts/util.js" as Util
 Column {
     id: statusBar
     width: Math.max((1/4) * parent.width, 475)
-    height: implicitHeight + 5
+    height: implicitHeight + 10
     spacing: 2
     clip: true
     visible: !busyIndicator.visible
 
     move: Transition {
-        NumberAnimation {properties: "x, y"; duration: 250}
+        NumberAnimation {properties: "x, y"; duration: 150}
     }
     add: Transition {
         NumberAnimation {properties: "x, y"; duration: 250}

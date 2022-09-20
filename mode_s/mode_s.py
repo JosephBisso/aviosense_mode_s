@@ -108,13 +108,14 @@ class Mode_S(QObject):
     identificationMapped= Signal()
     plotOccurrenceReady = Signal()
     plotRawReady        = Signal()
-    plotStdReady        = Signal()
-    plotExceedsReady    = Signal()
     plotFilteredReady   = Signal()
     plotIntervalReady   = Signal()
+    plotStdReady        = Signal()
+    plotExceedsReady    = Signal()
     plotLocationReady   = Signal()
     plotTurbulentReady  = Signal()
     plotHeatMapReady    = Signal()
+    allMapPlotsReady    = Signal()
     plotKDEExceedsReady = Signal()
 
     executor: concurrent.futures.ThreadPoolExecutor = None
@@ -128,10 +129,10 @@ class Mode_S(QObject):
     __filteredSeries          = []
     __stdSeries               = []
     __exceedsSeries           = []
+    __kdeExceedsSeries        = {}
     __locationSeries          = []
     __turbulentLocationSeries = []
     __heatMapSeries           = []
-    __kdeExceedsSeries        = {}
     
     __addressRawSeries        = []
     __addressIntervalSeries   = []
@@ -141,8 +142,14 @@ class Mode_S(QObject):
 
     __zoneKdeExceedsSeries    = {}
     
-    allAddressSeriesMap     = {}
-    allSeriesMap            = {}
+    __partialLocationSeries   = []
+    __partialTurbulentSeries  = []
+    __partialHeatMapSeries    = []
+    
+    allAddressSeriesMap       = {}
+    allPlotSeriesMap          = {}
+    allMapPlotSeriesMap      = {}
+    
 
 
     def __init__(self, db: Database, msEngine: ModeSEngine.Engine, logger: Logger):
@@ -155,7 +162,7 @@ class Mode_S(QObject):
         self.dbFilterUpdated.connect(self.actualizeDB)
         self.engineFilterUpdated.connect(self.compute)
         self.readyToPlot.connect(self.plot)
-        self.executor = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="modeS_workerThread")
+        self.executor = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="modeS_workerThread", max_workers=10)
 
         self.plot(fromDump=True)
 
@@ -220,6 +227,78 @@ class Mode_S(QObject):
     def prepareKDEZone(self, zoneID): 
         future = self.executor.submit(self.__updateKDEZonePlots, zoneID)
         future.add_done_callback(self.__backgroundThreadFinished)
+
+    @Slot(str, int, int, result=int)
+    def preparePartialSeries(self, locationType, counter, maxLength): 
+        ms = MODE_S_CONSTANTS
+        endSlice = 0
+        partialList = []
+        stop = False
+        progressID = LOGGER_CONSTANTS.LOCATION
+        setter = self.__setPartialLocationSeries
+        try:
+            series = []
+            actualSegmentLength = 0
+            
+            if locationType in [ms.LOCATION_SERIES, ms.TURBULENCE_SERIES]:
+                if locationType == ms.TURBULENCE_SERIES:
+                    progressID = LOGGER_CONSTANTS.TURBULENT
+                    setter = self.__setPartialTurbulentSeries
+                    
+                series = self.allMapPlotSeriesMap[locationType]
+                if len(series) == 0:
+                    raise AssertionError(f"Skipping Loading of {locationType} Series because it is empty.")
+
+                actualSegmentLength = len(series[counter]["segments"])
+                endSlice = counter + 1
+                
+                while(endSlice < len(series) and actualSegmentLength + len(series[endSlice]["segments"]) < maxLength):
+                    actualSegmentLength += len(series[endSlice]["segments"])
+                    endSlice += 1
+                    
+                partialList = series[counter:endSlice]
+                
+            elif locationType == "kde":
+                progressID = LOGGER_CONSTANTS.KDE
+                setter = self.__setPartialHeatMapSeries
+                series = self.allMapPlotSeriesMap[ms.HEATMAP_SERIES]
+                if len(series) == 0:
+                    raise AssertionError(f"Skipping {locationType} Series because it is empty.")
+
+                actualSegmentLength = maxLength
+                endSlice = counter + maxLength
+                
+                partialList = series[counter:endSlice]
+
+            else:
+                raise AssertionError (f"Cannot prepare Partial Series for unknown location type {locationType}")
+
+            self.logger.progress(progressID, f"Loading {locationType} Data [{counter}/{len(series) - 1}]")
+            self.logger.debug(f"Loading {actualSegmentLength} {locationType} elements")
+            
+            stop = endSlice >= len(series) - 1
+
+        except AssertionError as ae:
+            self.logger.warning(str(ae))
+            stop = True
+            
+        except Exception as ecx:
+            type, value, traceback = sys.exc_info()
+            self.logger.warning(
+                f"Error Occurred: Mode_s prepare partial series for type {locationType}::\n" + str(type) + "::" + str(value))
+            self.logger.warning("Error raised at Frame:", traceback.tb_frame)
+
+            stop = True
+            
+        finally:
+            if stop:
+                self.logger.progress(progressID, LOGGER_CONSTANTS.END_PROGRESS_BAR)
+                endSlice = -1
+            else:
+                setter(partialList)
+                
+            return endSlice
+            
         
     @Slot(str)
     def __log(self, log: str):
@@ -266,7 +345,7 @@ class Mode_S(QObject):
 
     def __plotting(self, **params):
         try: 
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [0/5]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending data [0/2]")
             if params.get("fromDump"):
                 results = self.engine.loadDump()
             else:
@@ -278,20 +357,20 @@ class Mode_S(QObject):
             self.__identMap = computedAddresses if params.get("fromDump") else self.db.getMapping(computedAddresses)
             self.identificationMapped.emit()
             self.allAddressSeriesMap = {str(address): {} for address in computedAddresses}
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [1/5]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending data [1/2]")
 
             self.plotOccurrenceReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [2/5]")
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, LOGGER_CONSTANTS.END_PROGRESS_BAR)
 
             self.__rawSeries = next(results)
             self.__intervalSeries = next(results)
             self.__filteredSeries = next(results)
             self.__stdSeries = next(results)
             self.__exceedsSeries = next(results)
+            self.__updateAllPlotSeriesMap()
 
             self.logger.progress(LOGGER_CONSTANTS.PLOT, "Getting all Addresses series Map")
-            self.__updateAllSeriesMap()
-            allAddressSeriesMap__future = self.pExecutor.submit(process.getAllAddressSeriesMap, self.allSeriesMap, 
+            allAddressSeriesMap__future = self.pExecutor.submit(process.getAllAddressSeriesMap, self.allPlotSeriesMap, 
                 self.allAddressSeriesMap,[
                     MODE_S_CONSTANTS.BAR_IVV_SERIES, MODE_S_CONSTANTS.INTERVAL_SERIES, 
                     MODE_S_CONSTANTS.FILTERED_SERIES,MODE_S_CONSTANTS.STD_SERIES, MODE_S_CONSTANTS.EXCEEDS_SERIES
@@ -301,17 +380,10 @@ class Mode_S(QObject):
             self.backgroundFutures.append(allAddressSeriesMap__future)
 
             self.__locationSeries = next(results)
-            self.plotLocationReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [3/5]")
-
             self.__turbulentLocationSeries = next(results)
-            self.plotTurbulentReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Sending plot data [4/5]")
-
             self.__heatMapSeries = next(results)
-            self.plotHeatMapReady.emit()
-            self.logger.progress(LOGGER_CONSTANTS.MODE_S,"Sending plot data [5/5]")
-
+            self.__updateAllLocationSeriesMap()
+            
             self.__kdeExceedsSeries = next(results)
             
             self.logger.success("Done plotting")
@@ -407,14 +479,22 @@ class Mode_S(QObject):
         with open(name, "w") as dumpF:
             json.dump(data, dumpF, indent = 2, default=lambda coord: {"longitude":coord.longitude() ,"latitude": coord.latitude()})
     
-    def __updateAllSeriesMap(self):
-        self.allSeriesMap = {
+    def __updateAllPlotSeriesMap(self):
+        self.allPlotSeriesMap = {
             MODE_S_CONSTANTS.STD_SERIES:        self.__stdSeries,
             MODE_S_CONSTANTS.EXCEEDS_SERIES:    self.__exceedsSeries,
             MODE_S_CONSTANTS.BAR_IVV_SERIES:    self.__rawSeries,
             MODE_S_CONSTANTS.INTERVAL_SERIES:   self.__intervalSeries,
             MODE_S_CONSTANTS.FILTERED_SERIES:   self.__filteredSeries,
         }
+        
+    def __updateAllLocationSeriesMap(self):
+        self.allMapPlotSeriesMap = {
+            MODE_S_CONSTANTS.LOCATION_SERIES:       self.__locationSeries,
+            MODE_S_CONSTANTS.TURBULENCE_SERIES:     self.__turbulentLocationSeries,
+            MODE_S_CONSTANTS.HEATMAP_SERIES:        self.__heatMapSeries
+        }
+        self.allMapPlotsReady.emit()
         
     def __identMapping(self):
         return self.__identMap
@@ -431,11 +511,11 @@ class Mode_S(QObject):
     def __exceeds(self):
         return self.__addressExceedsSeries
     def __location(self):
-        return self.__locationSeries
+        return self.__partialLocationSeries
     def __turbulentLocation(self):
-        return self.__turbulentLocationSeries
+        return self.__partialTurbulentSeries
     def __heatMap(self):
-        return self.__heatMapSeries
+        return self.__partialHeatMapSeries
     def __kdeExceeds(self):
         return self.__zoneKdeExceedsSeries
     
@@ -459,6 +539,15 @@ class Mode_S(QObject):
         self.__zoneKdeExceedsSeries = zoneData
         self.plotKDEExceedsReady.emit()
 
+    def __setPartialLocationSeries(self, locationData):
+        self.__partialLocationSeries = locationData
+        self.plotLocationReady.emit()
+    def __setPartialTurbulentSeries(self, locationData):
+        self.__partialTurbulentSeries = locationData
+        self.plotTurbulentReady.emit()
+    def __setPartialHeatMapSeries(self, heatMapData):
+        self.__partialHeatMapSeries = heatMapData
+        self.plotHeatMapReady.emit()
         
     
     identMap                = Property("QVariantMap" , __identMapping,       notify = identificationMapped)
@@ -468,9 +557,9 @@ class Mode_S(QObject):
     addressExceedSeries     = Property("QVariantMap" , __exceeds,            notify = plotExceedsReady)
     addressFilteredSeries   = Property("QVariantMap" , __filtered,           notify = plotFilteredReady)
     addressIntervalSeries   = Property("QVariantMap" , __interval,           notify = plotIntervalReady)
-    locationSeries          = Property("QVariantList", __location,           notify = plotLocationReady)
-    turbulentLocationSeries = Property("QVariantList", __turbulentLocation,  notify = plotTurbulentReady)
-    heatMapSeries           = Property("QVariantList", __heatMap,            notify = plotHeatMapReady)
+    partialLocationSeries   = Property("QVariantList", __location,           notify = plotLocationReady)
+    partialTurbulentSeries  = Property("QVariantList", __turbulentLocation,  notify = plotTurbulentReady)
+    partialHeatMapSeries    = Property("QVariantList", __heatMap,            notify = plotHeatMapReady)
     zoneKdeExceedSeries     = Property("QVariantMap" , __kdeExceeds,         notify = plotKDEExceedsReady)
 
 

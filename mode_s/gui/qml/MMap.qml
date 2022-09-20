@@ -8,9 +8,9 @@ import "qrc:/scripts/constants.js" as Constants
 
 Frame {
     id: rootFrame
-    property var location: __mode_s.locationSeries
-    property var turbulentLocation: __mode_s.turbulentLocationSeries
-    property var kde: __mode_s.heatMapSeries
+    property var location: __mode_s.partialLocationSeries
+    property var turbulentLocation: __mode_s.partialTurbulentSeries
+    property var kde: __mode_s.partialHeatMapSeries
 
     property string mode: Constants.LOCATION
     property bool locationView: rootFrame.mode !== Constants.KDE
@@ -63,27 +63,27 @@ Frame {
             case Constants.LOCATION:
                 if(location.length > 0) {
                     locationGroup.clear()
-                    locationLoader.start()
                 }
+                locationLoader.start()
                 break
             case Constants.TURBULENCE:
                 if(turbulentLocation.length > 0) {
                     turbulentGroup.clear()
-                    turbulentLoader.start()
                 }
+                turbulentLoader.start()
                 break
             case Constants.KDE:
                 if(turbulentLocation.length > 0) {
                     kdeGroup.clear()
-                    kdeLoader.start()
                 }
+                kdeLoader.start()
                 break
         }
     }
 
     Timer {
         id: locationLoader
-        interval: 15000
+        interval: 10000
         running: false
         repeat: true
         triggeredOnStart: false
@@ -93,14 +93,13 @@ Frame {
         property var source: location
         property var target: locationGroup
         property string sourceStr: "location"
-        property string progressString: "Loading All Routes"
         onTriggered: {
             run(locationLoader)
         }
     }
     Timer {
         id: turbulentLoader
-        interval: 2000
+        interval: 1500
         running: false
         repeat: true
         triggeredOnStart: false
@@ -109,8 +108,7 @@ Frame {
         property int maxSegmentLength: 20
         property var source: turbulentLocation
         property var target: turbulentGroup
-        property string sourceStr: "turbulent"
-        property string progressString: "Loading All Turbulent Routes"
+        property string sourceStr: "turbulence"
         onTriggered: {
             run(turbulentLoader)
         }
@@ -118,7 +116,7 @@ Frame {
 
     Timer {
         id: kdeLoader
-        interval: 1500
+        interval: 1000
         running: false
         repeat: true
         triggeredOnStart: false
@@ -128,38 +126,23 @@ Frame {
         property var source: kde
         property var target: kdeGroup
         property string sourceStr: "kde"
-        property string progressString: "Loading All KDE Zones"
         onTriggered: {
-            run(kdeLoader, true)
+            run(kdeLoader)
         }
     }
 
-    function run(t, kde=false) {
-        console.info(Constants.PROGRESS_BAR, t.progressID, `${t.progressString} [${t.counter}/${t.source.length - 1}]`)
-        let endSlice = 0
-        let partialList = []
+    function run(timer) {
+        let endSlice = __mode_s.preparePartialSeries(timer.sourceStr, timer.counter, timer.maxSegmentLength)
+        let partialList = timer.source
 
-        if (kde) {
-            endSlice = t.counter + t.maxSegmentLength
-            partialList = t.source.slice(t.counter, endSlice )
-        } else {
-            let actualSegmentLength = t.source[t.counter].segments.length
-            endSlice = t.counter + 1
-            while (endSlice <= t.source.length - 1 && actualSegmentLength + t.source[endSlice].segments.length < t.maxSegmentLength) {
-                actualSegmentLength += t.source[endSlice].segments.length
-                endSlice++
-            }
-            console.log(`Loading ${actualSegmentLength} ${t.sourceStr} elements`)
-            partialList = t.source.slice(t.counter, endSlice)
+        if (endSlice < 0) {
+            timer.counter = 0
+            timer.stop()
+            return
         }
-        
-        mapWorker.sendMessage({"type": t.sourceStr, "target": t.target, "listPoint": partialList})
-        t.counter = endSlice
-        if (t.counter >= t.source.length - 1) {
-            console.info(Constants.PROGRESS_BAR, t.progressID, Constants.END_PROGRESS_BAR)
-            t.counter = 0
-            t.stop()
-        }
+
+        timer.counter = endSlice
+        mapWorker.sendMessage({"type": timer.sourceStr, "target": timer.target, "listPoint": partialList})
     }
     
     MMenuBar {

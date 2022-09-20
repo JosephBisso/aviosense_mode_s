@@ -3,7 +3,7 @@ WorkerScript.onMessage = function (message) {
         case "location":
             showLocation(message.target, message.listPoint)
             break;
-        case "turbulent":
+        case "turbulence":
             prepareTurbulentLocation(message.target, message.listPoint)
             break;
         case "kde":

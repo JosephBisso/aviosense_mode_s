@@ -94,7 +94,7 @@ Frame {
 
     Timer {
         id: plotBackgroundLoader
-        interval: 3000
+        interval: 3500
         repeat: true
         running: false
         triggeredOnStart: false

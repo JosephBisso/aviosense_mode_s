@@ -29,6 +29,7 @@ Frame {
             rootSearchBar.opacity = 0.4
         }
     }
+    Behavior on opacity {NumberAnimation {duration: 150}}
 
     RowLayout {
         clip: true

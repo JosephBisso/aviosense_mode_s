@@ -7,8 +7,12 @@ import "qrc:/scripts/constants.js" as Constants
 
 ApplicationWindow {
     id: rootWindow
-    width: 960
-    height: 720
+    x: windowsSettings.value("rootX", 0)
+    y: windowsSettings.value("rootY", 0)
+    width: windowsSettings.value("rootWidth", 960)
+    height: windowsSettings.value("rootHeight", 720)
+
+
     minimumWidth: 960
     minimumHeight: 720
     visible: true
@@ -21,6 +25,14 @@ ApplicationWindow {
 
     Component.onCompleted: {
         __mode_s.startDatabase()
+    }
+
+    Component.onDestruction: {
+        console.info("Saving Configurations for Root Window ...")
+        windowsSettings.setValue("rootX", rootWindow.x)
+        windowsSettings.setValue("rootY", rootWindow.y)
+        windowsSettings.setValue("rootWidth", rootWindow.width)
+        windowsSettings.setValue("rootHeight", rootWindow.height)
     }
 
     MSideBar {
@@ -47,10 +59,13 @@ ApplicationWindow {
         }
     }
 
-
-
     Settings {
         id: appSettings
         category: "parameters"
+    }
+
+    Settings {
+        id: windowsSettings
+        category: "windows"
     }
 }

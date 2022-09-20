@@ -14,6 +14,13 @@ ChartView {
     signal addressHovered(string address, string identification, string start, string end, double r, double g, double b)
     signal resetHovered()
 
+
+    MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        z: -1
+    }
+    
     LineSeries {
         id: kdeSeries
         name: "KDE"
