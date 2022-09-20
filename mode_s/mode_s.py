@@ -334,6 +334,7 @@ class Mode_S(QObject):
     def __updateAllAddressSeriesMap(self, future: concurrent.futures.Future, displayAddress = None):
         allAddressSeriesMap = {}
         try:
+            self.logger.debug("Length of allAddressSeriesMap: ", len(allAddressSeriesMap))
             allAddressSeriesMap = future.result()
         except Exception as esc:
             type, value, traceback = sys.exc_info()
@@ -341,7 +342,6 @@ class Mode_S(QObject):
                 "Error Occurred while updating all addresses series map:: \n" + str(type) + "::" + str(value))
         else:
             self.allAddressSeriesMap = allAddressSeriesMap
-            self.logger.debug("Length of allAddressSeriesMap: ", len(self.allAddressSeriesMap))
             if displayAddress:
                 self.__updateAddressPlots(displayAddress)
         finally:

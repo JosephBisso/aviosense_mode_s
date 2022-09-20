@@ -3,10 +3,11 @@ import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
 import QtCharts 2.15
 import QtQml 2.15
-import "qrc:/scripts/Constants.js" as Constants
+import "qrc:/scripts/constants.js" as Constants
 
 Frame {
     id: plotFrame
+    property bool isCurrentView: false
     property alias swipe: plotSwipe
 
     background: Rectangle {
@@ -42,16 +43,23 @@ Frame {
     }   
 
     function preparePlotsForAddress(address, mode) {
-        __mode_s.prepareAddress(address)
-        plotSwipe.currentAddress = address
+        if (plotSwipe.currentAddress != address) {
+            __mode_s.prepareAddress(address)   
+            plotSwipe.currentAddress = address
+        }
         plotSwipe.mode = mode
+        if(plotFrame.isCurrentView){plotBackgroundLoader.startLoading()}
     }
 
     function prepareKDEExceedZone(latitude, longitude, bandwidth, zoneID) {
-        __mode_s.prepareKDEZone(zoneID)
-        plotSwipe.kdeZoneLatitude = latitude
-        plotSwipe.kdeZoneLongitude = longitude
-        plotSwipe.kdeZoneBandwidth = bandwidth
+        if (plotSwipe.kdeZoneLatitude != latitude && plotSwipe.kdeZoneLongitude != longitude
+                && plotSwipe.kdeZoneBandwidth != bandwidth) {
+            __mode_s.prepareKDEZone(zoneID)
+            plotSwipe.kdeZoneLatitude = latitude
+            plotSwipe.kdeZoneLongitude = longitude
+            plotSwipe.kdeZoneBandwidth = bandwidth
+        }
+        if(plotFrame.isCurrentView){plotBackgroundLoader.startLoading()}
     }
 
     function switchToRaw() {
@@ -61,6 +69,10 @@ Frame {
     function switchToSTD() {
         menubar.selectMenu("STD")
         menubar.clicked("STD")
+    }
+    function switchToExceed() {
+        menubar.selectMenu("EXD")
+        menubar.clicked("EXD")
     }
     function switchToKDE() {
         menubar.selectMenu("KDE")
@@ -80,6 +92,45 @@ Frame {
         onClicked: (element) => {updateView(element)} 
     }
 
+    Timer {
+        id: plotBackgroundLoader
+        interval: 3000
+        repeat: true
+        running: false
+        triggeredOnStart: false
+        property var allLoader: [occurrenceLoader, rawPlotLoader, filteredPlotLoader, intervallPlotLoader, stdPlotLoader, exceedPlotLoader, kdeExceedPlotLoader]
+        property int counter: 0
+        onTriggered: {
+            console.info(Constants.PROGRESS_BAR, Constants.ID_PLOT, `Loading All Plots [${counter}/${allLoader.length}]`)
+            while(counter < allLoader.length - 1 && allLoader[counter].active) {counter++}
+            allLoader[counter++].backgroundLoading = true
+            if(counter >= allLoader.length) {
+                stopLoading()
+            }
+        }
+        function startLoading() {
+            counter = 0
+            resetAll()
+            start()
+        }
+        function stopLoading(reset = false) {
+            stop()
+            if (reset){resetAll()}
+            console.info(Constants.PROGRESS_BAR, Constants.ID_PLOT, Constants.END_PROGRESS_BAR)
+        }
+        function resetAll() {
+            console.log("resetting all background loading")
+            for (let i = 0; i < allLoader.length; i++) {
+                allLoader[i].backgroundLoading = false
+            }
+        }
+    }
+
+    onIsCurrentViewChanged: {
+        if(isCurrentView){plotBackgroundLoader.startLoading()}
+        else{plotBackgroundLoader.stopLoading(true)}
+    }
+
     SwipeView {
         id: plotSwipe
         property var currentAddress: ""
@@ -89,10 +140,12 @@ Frame {
         property double kdeZoneBandwidth: 0
 
         anchors.fill: parent
+        interactive: false
 
         Loader {
             id: occurrenceLoader
-            active: plotFrame.isCurrentView && (SwipeView.isCurrentItem || SwipeView.isPreviousItem)
+            property bool backgroundLoading: false
+            active: backgroundLoading || (plotFrame.isCurrentView && (SwipeView.isCurrentItem || SwipeView.isPreviousItem))
             visible: status == Loader.Ready
             asynchronous: true
             sourceComponent: Component {
@@ -109,7 +162,8 @@ Frame {
         Loader {
             id: rawPlotLoader
             readonly property var addressData: __mode_s.addressRawSeries
-            active: plotSwipe.currentAddress == addressData["address"] && (plotSwipe.mode == Constants.LOCATION ||( plotFrame.isCurrentView && (SwipeView.isPreviousItem  ||  SwipeView.isCurrentItem || SwipeView.isNextItem)))
+            property bool backgroundLoading: false
+            active: plotSwipe.currentAddress && (backgroundLoading || (plotSwipe.currentAddress == addressData["address"] && (plotSwipe.mode == Constants.LOCATION ||( plotFrame.isCurrentView && (SwipeView.isPreviousItem  ||  SwipeView.isCurrentItem || SwipeView.isNextItem)))))
             visible: true
             asynchronous: true
             sourceComponent: Component {
@@ -132,7 +186,8 @@ Frame {
         Loader {
             id: filteredPlotLoader
             readonly property var addressData: __mode_s.addressFilteredSeries
-            active: plotSwipe.currentAddress == addressData["address"] && (plotFrame.isCurrentView && (SwipeView.isPreviousItem  || SwipeView.isCurrentItem || SwipeView.isNextItem))
+            property bool backgroundLoading: false
+            active: plotSwipe.currentAddress && (backgroundLoading || (plotSwipe.currentAddress == addressData["address"] && (plotFrame.isCurrentView && (SwipeView.isPreviousItem  || SwipeView.isCurrentItem || SwipeView.isNextItem))))
             visible: status == Loader.Ready
             asynchronous: true
             sourceComponent: Component {
@@ -168,7 +223,8 @@ Frame {
         Loader {
             id: intervallPlotLoader
             readonly property var addressData: __mode_s.addressIntervalSeries
-            active: plotSwipe.currentAddress == addressData["address"] && (plotFrame.isCurrentView && (SwipeView.isPreviousItem  || SwipeView.isCurrentItem || SwipeView.isNextItem))
+            property bool backgroundLoading: false
+            active: plotSwipe.currentAddress && (backgroundLoading || (plotSwipe.currentAddress == addressData["address"] && (plotFrame.isCurrentView && (SwipeView.isPreviousItem  || SwipeView.isCurrentItem || SwipeView.isNextItem))))
             visible: status == Loader.Ready
             asynchronous: true
             sourceComponent: Component {
@@ -190,7 +246,8 @@ Frame {
         Loader {
             id: stdPlotLoader
             readonly property var addressData: __mode_s.addressStdSeries
-            active: plotSwipe.currentAddress == addressData["address"] && (plotSwipe.mode == Constants.TURBULENCE || (plotFrame.isCurrentView  && (SwipeView.isPreviousItem  ||  SwipeView.isCurrentItem || SwipeView.isNextItem)))
+            property bool backgroundLoading: false
+            active: plotSwipe.currentAddress && (backgroundLoading || (plotSwipe.currentAddress == addressData["address"] && (plotSwipe.mode == Constants.TURBULENCE || (plotFrame.isCurrentView  && (SwipeView.isPreviousItem  ||  SwipeView.isCurrentItem || SwipeView.isNextItem)))))
             visible: true
             asynchronous: true
             sourceComponent: Component {
@@ -246,7 +303,8 @@ Frame {
         Loader {
             id: exceedPlotLoader
             readonly property var addressData: __mode_s.addressExceedSeries
-            active: plotSwipe.currentAddress == addressData["address"] && (plotSwipe.mode == Constants.TURBULENCE || (plotFrame.isCurrentView  && (SwipeView.isPreviousItem  ||  SwipeView.isCurrentItem || SwipeView.isNextItem)))
+            property bool backgroundLoading: false
+            active: plotSwipe.currentAddress && (backgroundLoading || (plotSwipe.currentAddress == addressData["address"] && (plotSwipe.mode == Constants.TURBULENCE || (plotFrame.isCurrentView  && (SwipeView.isPreviousItem  ||  SwipeView.isCurrentItem || SwipeView.isNextItem)))))
             visible: true
             asynchronous: true
             sourceComponent: Component {
@@ -272,7 +330,8 @@ Frame {
         Loader {
             id: kdeExceedPlotLoader
             readonly property var zoneData: __mode_s.zoneKdeExceedSeries
-            active: (plotSwipe.kdeZoneLatitude == zoneData["latitude"] && plotSwipe.kdeZoneLongitude == zoneData["longitude"]) || (plotFrame.isCurrentView  && SwipeView.isCurrentItem)
+            property bool backgroundLoading: false
+            active: plotSwipe.kdeZoneBandwidth && (backgroundLoading || ((plotSwipe.kdeZoneLatitude == zoneData["latitude"] && plotSwipe.kdeZoneLongitude == zoneData["longitude"]) || (plotFrame.isCurrentView  && SwipeView.isCurrentItem)))
             visible: true
             asynchronous: true
             sourceComponent: Component {
@@ -288,6 +347,56 @@ Frame {
                     titleColor: Constants.FONT_COLOR
                     theme: ChartView.ChartThemeBlueIcy
                 }
+            }
+        }
+
+        Connections {
+            target: kdeExceedPlotLoader.item
+
+            function onAddressClicked(address) {
+                plotFrame.preparePlotsForAddress(address, Constants.TURBULENCE)
+                plotFrame.switchToExceed()
+            }
+
+            function onAddressHovered(address, identification, start, end , r, g, b) {
+                kdeAddressInfoShower.leColor = Qt.rgba(r,g,b,1)
+                kdeAddressInfoShower.startLoadingTimerFor(address, identification, start , end)
+            }
+
+            function onResetHovered(){
+                kdeAddressInfoShower.stop()
+            }
+        }
+
+        Timer {
+            id: kdeAddressInfoShower
+            interval: 1500
+            repeat: false
+            triggeredOnStart: false
+            property string address: ""
+            property string identification: ""
+            property string flightStart: ""
+            property string fligthEnd: ""
+            property color leColor: "pink"
+            onTriggered: {
+                mapElementInfo.identification = identification
+                mapElementInfo.address = address
+                mapElementInfo.flightColor = leColor
+                mapElementInfo.displayText = "Selected Area"
+                mapElementInfo.datapoints = `\nFrom ${flightStart} to ${fligthEnd} [min]`
+                mapElementInfo.turbulentFlight = true
+                mapElementInfo.buttonShowGraph = true
+                mapElementInfo.mode = Constants.TURBULENCE
+                mapElementInfo.open()
+                plotFrame.preparePlotsForAddress(address, Constants.TURBULENCE)
+            }
+
+            function startLoadingTimerFor(address, identification, start , end) {
+                kdeAddressInfoShower.address = address
+                kdeAddressInfoShower.identification = identification
+                kdeAddressInfoShower.flightStart = start
+                kdeAddressInfoShower.fligthEnd = end
+                kdeAddressInfoShower.start()
             }
         }
     }

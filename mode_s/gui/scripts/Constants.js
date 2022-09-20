@@ -60,5 +60,9 @@ const FONT_VERY_SMALL = Qt.font(
     }
 )
 
-const toUrl = (string) => {return new URL(string)}
-const transparentBy = (color, grad) => { return Qt.rgba(color.r, color.g, color.b, grad) }
+const FONT_VERY_2_SMALL = Qt.font(
+    {
+        bold: true,
+        pointSize: 10
+    }
+)

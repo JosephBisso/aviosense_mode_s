@@ -3,12 +3,13 @@ import QtQuick 2.15
 import QtQml.Models 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15
-import "qrc:/scripts/Constants.js" as Constants
+import "qrc:/scripts/constants.js" as Constants
+import "qrc:/scripts/util.js" as Util
 
 Column {
     id: statusBar
     width: Math.max((1/4) * parent.width, 475)
-    height: implicitHeight + 10
+    height: implicitHeight + 5
     spacing: 2
     clip: true
     visible: !busyIndicator.visible
@@ -113,9 +114,9 @@ Column {
         model: statusElements
         delegate: Rectangle {
             id: statusFrame
-            height: 55
+            height: 48
             width: Math.min(contentRow.width + 20, statusBar.width)
-            color: Constants.transparentBy(progressColor, 0.5)
+            color: Util.transparentBy(progressColor, 0.5)
             radius: 10
             border {
                 width: Constants.BORDER_WIDTH
@@ -136,7 +137,7 @@ Column {
                 MIMGButton {
                     id: statusButton
                     Layout.alignment: Qt.AlignVCenter
-                    width: 35
+                    width: 32
                     img_src: `qrc:/img/${img}.png`
                     mFont: Constants.FONT_SMALL
                     mDefaultColor: Constants.GLASSY_BLACK_BACKGROUND
@@ -155,14 +156,14 @@ Column {
                     id: statusMsg
                     Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                     text: message
-                    font: Constants.FONT_VERY_SMALL
+                    font: Constants.FONT_VERY_2_SMALL
                     color: "lightgrey"
                 }
                 MIMGButton {
                     id: closeButton
                     visible: progressID === Constants.ID_LOCATION
                     Layout.alignment: Qt.AlignVCenter
-                    width: 25
+                    width: 22
                     img_src: `qrc:/img/close.png`
                     mFont: Constants.FONT_SMALL
                     mDefaultColor: "red"

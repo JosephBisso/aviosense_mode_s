@@ -2,8 +2,8 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQml.Models 2.15
-
-import "qrc:/scripts/Constants.js" as Constants
+import "qrc:/scripts/constants.js" as Constants
+import "qrc:/scripts/util.js" as Util
 
 Popup {
     id: rootPopup
@@ -28,7 +28,7 @@ Popup {
     closePolicy: Popup.CloseOnPressOutside
 
     background: Rectangle {
-        color: Constants.transparentBy(rootPopup.flightColor, 0.2)
+        color: Util.transparentBy(rootPopup.flightColor, 0.2)
         radius: 10
         border {
             width: Constants.BORDER_WIDTH

@@ -3,7 +3,8 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQml 2.15
 import QtGraphicalEffects 1.15
-import "qrc:/scripts/Constants.js" as Constants
+import "qrc:/scripts/constants.js" as Constants
+import "qrc:/scripts/util.js" as Util
 
 Popup {
     id: rootPane
@@ -171,7 +172,7 @@ Popup {
         MButton {
             mText: "Cancel"
             property color leColor: "red"
-            mDefaultColor: Constants.transparentBy(leColor, 0.5)
+            mDefaultColor: Util.transparentBy(leColor, 0.5)
             mHoverColor: Qt.darker(mDefaultColor, 1.2)
             mTextColor: "white"
             Layout.alignment: Qt.AlignRight

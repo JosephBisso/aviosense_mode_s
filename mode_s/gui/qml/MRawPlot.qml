@@ -1,6 +1,6 @@
 import QtCharts 2.15
 import QtQml 2.15
-import "qrc:/scripts/plot.js" as PLT
+import "qrc:/scripts/util.js" as Util
 
 ChartView {
     id: chartView
@@ -9,21 +9,11 @@ ChartView {
     property var time: []
     property string address: ""
     property string identification: ""
+    animationOptions: ChartView.SeriesAnimations
 
-    axes: [
-        ValueAxis{
-            id: xAxis
-            min: 0
-            max: 10000
-            labelFormat:"%.0f ft/min"
-        },
-        ValueAxis{
-            id: yAxis
-            min: 0
-            max: 10000
-            labelFormat:"%.0f min"
-        }
-    ]
+    MZoomableArea {
+        control: chartView
+    }
 
     LineSeries {
         id: barSeries
@@ -31,6 +21,8 @@ ChartView {
         color: "blue"
         width: 1
         pointsVisible: true
+        axisX: xAxis
+        axisY: yAxis
     }
 
     LineSeries {
@@ -39,22 +31,39 @@ ChartView {
         color: "red"
         width: 1
         pointsVisible: true
+        axisX: ValueAxis{
+            id: xAxis
+            min: 0
+            max: 10000
+            tickCount: 10
+            labelFormat:"%.1f min"
+        }
+        axisY: ValueAxis{
+            id: yAxis
+            min: 0
+            max: 10000
+            tickCount: 10
+            labelFormat:"%d ft/min"
+        }
     }
 
     function update() {
         console.info("Displaying", title)
+        let maxBar = 0, maxIvv = 0, minBar = 0, minIvv = 0, maxTime = 0
         for (let index = 0; index < time.length; index++) {
             barSeries.append(time[index], bar[index])
             ivvSeries.append(time[index], ivv[index])
+
+            maxTime = Math.max(maxTime, time[index])
+            maxBar = Math.max(maxBar, bar[index])
+            maxIvv = Math.max(maxIvv, ivv[index])
+            minBar = Math.min(minBar, bar[index])
+            minIvv = Math.min(minIvv, ivv[index])
         }
-        let maxBar = Math.max.apply(null, bar)
-        let maxIvv = Math.max.apply(null, ivv)
-        let minBar = Math.min.apply(null, bar)
-        let minIvv = Math.min.apply(null, ivv)
-        xAxis.max = Math.max.apply(null, time)
-        yAxis.max = Math.max(maxBar, maxIvv)
-        xAxis.min = Math.min.apply(null, time)
-        yAxis.min = Math.min(maxBar, maxIvv)
+        xAxis.max = Util.nextMultipleOf5(maxTime)
+        yAxis.max = Util.nextMultipleOf5(Math.max(maxBar, maxIvv))
+        yAxis.min = Util.nextMultipleOf5(Math.min(minBar, minIvv), false)
+
         xAxis.applyNiceNumbers()
         yAxis.applyNiceNumbers()
     }

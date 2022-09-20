@@ -22,12 +22,22 @@ Column {
         height: exceedRow.height / 2
 
         title: exceedRow.title
+        animationOptions: ChartView.SeriesAnimations
 
         BarSeries {
             id: distributionSeries
             labelsPrecision: 1
-            axisX: BarCategoryAxis {id: barXAxis; categories: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]}
-            axisY: ValueAxis{id: yAxis; min: 0; max: 5}
+            axisX: BarCategoryAxis {
+                id: barXAxis
+                categories: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+                // labelFormat:"%d %%"
+            }
+            axisY: ValueAxis{
+                id: yAxis
+                min: 0
+                max: 5
+                labelFormat:"%d exceeds"
+            }
         }
     }
 
@@ -50,6 +60,7 @@ Column {
                 max: 100
                 tickCount: 10
                 lineVisible: true
+                labelFormat:"%d%% above"
             }
             axisY: ValueAxis{
                 id:rightAxis

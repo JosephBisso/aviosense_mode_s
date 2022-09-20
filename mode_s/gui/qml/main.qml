@@ -3,7 +3,7 @@ import QtQuick 2.15
 import Qt.labs.settings 1.0
 import QtQuick.Controls 2.15
 import QtQml.WorkerScript 2.15
-import "qrc:/scripts/Constants.js" as Constants
+import "qrc:/scripts/constants.js" as Constants
 
 ApplicationWindow {
     id: rootWindow

@@ -3,7 +3,8 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQml.Models 2.15
-import "qrc:/scripts/Constants.js" as Constants
+import "qrc:/scripts/constants.js" as Constants
+import "qrc:/scripts/util.js" as Util
 
 Drawer {
     id: rootSideBar
@@ -113,7 +114,7 @@ Drawer {
         img_src: "qrc:/img/sync_db.png"
         mFont: Constants.FONT_SMALL
         property color leColor: Constants.ACCENT_COLOR2
-        mDefaultColor: Constants.transparentBy(leColor, 0.5)
+        mDefaultColor: Util.transparentBy(leColor, 0.5)
         mHoverColor: Qt.darker(mDefaultColor, 1.3)
         mClickColor:Qt.rgba(Constants.ACCENT_COLOR1.r, Constants.ACCENT_COLOR1.g, Constants.ACCENT_COLOR1.b, 0.5)
         mTextColor: "white"
@@ -135,7 +136,7 @@ Drawer {
         img_src: "qrc:/img/power_button.png"
         mFont: Constants.FONT_SMALL
         property color leColor: "green"
-        mDefaultColor: Constants.transparentBy(leColor, 0.5)
+        mDefaultColor: Util.transparentBy(leColor, 0.5)
         mHoverColor: Qt.darker(mDefaultColor, 1.3)
         mClickColor:Qt.rgba(Constants.ACCENT_COLOR1.r, Constants.ACCENT_COLOR1.g, Constants.ACCENT_COLOR1.b, 0.5)
         mTextColor: "white"

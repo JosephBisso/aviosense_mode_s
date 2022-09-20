@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtGraphicalEffects 1.15
 
-import "qrc:/scripts/Constants.js" as Constants
+import "qrc:/scripts/constants.js" as Constants
 
 MButton {
     id: rootButton

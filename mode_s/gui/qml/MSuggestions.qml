@@ -2,8 +2,8 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQml.Models 2.15
-
-import "qrc:/scripts/Constants.js" as Constants
+import "qrc:/scripts/constants.js" as Constants
+import "qrc:/scripts/util.js" as Util
 
 Popup {
     id: rootPopup
@@ -19,7 +19,7 @@ Popup {
 
     background: Rectangle {
         property color leColor: "white"
-        color: Constants.transparentBy(leColor, 0.5)
+        color: Util.transparentBy(leColor, 0.5)
         radius: 10
         border {
             width: Constants.BORDER_WIDTH
@@ -100,7 +100,7 @@ Popup {
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
                         onContainsMouseChanged: {
-                            if (containsMouse) {item.color = Constants.transparentBy(leColor, 0.4)}
+                            if (containsMouse) {item.color = Util.transparentBy(leColor, 0.4)}
                             else {item.color = "transparent"}
                         }
                         onClicked: (event) => {

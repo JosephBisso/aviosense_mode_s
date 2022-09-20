@@ -4,7 +4,7 @@ import QtLocation 5.15
 import QtPositioning 5.15
 import Qt.labs.location 1.0
 import QtQml.Models 2.15
-import "qrc:/scripts/Constants.js" as Constants
+import "qrc:/scripts/constants.js" as Constants
 
 Frame {
     id: rootFrame
@@ -100,7 +100,7 @@ Frame {
     }
     Timer {
         id: turbulentLoader
-        interval: 1500
+        interval: 2000
         running: false
         repeat: true
         triggeredOnStart: false
@@ -118,7 +118,7 @@ Frame {
 
     Timer {
         id: kdeLoader
-        interval: 1000
+        interval: 1500
         running: false
         repeat: true
         triggeredOnStart: false
