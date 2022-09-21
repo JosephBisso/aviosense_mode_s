@@ -1,4 +1,3 @@
-# This Python file uses the following encoding: utf-8
 import os
 import sys
 import argparse
@@ -573,6 +572,7 @@ if __name__ == "__main__":
         import gui.qrc_gui
 
     if args.local:
+        #For Local Use only
         DB_CONSTANTS.HOSTNAME = False
         DB_CONSTANTS.DATABASE_NAME = "local_mode_s"
         DB_CONSTANTS.USER_NAME = "root"

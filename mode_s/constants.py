@@ -8,8 +8,8 @@ class ENGINE_CONSTANTS:
     MEDIAN_N = 1
     
 class DB_CONSTANTS:
-    VALID_DB_COLUMNS = ["id", "timestamp", "frame_hex_chars", "address", "downlink_format", "bds", "on_ground", "adsb_version", "altitude", "altitude_is_barometric", "nuc_p", "latitude", "longitude", "nuc_r", "true_track", "groundspeed", "vertical_rate", "gnss_height_diff_from_baro_alt", "identification",
-                        "category", "bds17_common_usage_gicb_capability_report", "bds50_roll_angle", "bds50_true_track_angle", "bds50_ground_speed", "bds50_track_angle_rate", "bds50_true_airspeed", "bds60_magnetic_heading", "bds60_indicated_airspeed", "bds60_mach", "bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"]
+    VALID_DB_COLUMNS = ["id", "timestamp", "address", "bds", "altitude", "latitude", "longitude", "ground_speed", "identification",
+                        "category", "roll_angle", "true_track_angle", "track_angle_rate", "true_airspeed", "magnetic_heading", "indicated_airspeed", "mach", "barometric_altitude_rate", "inertial_vertical_velocity"]
 
     USED_COLUMNS = ["identification", "address", "timestamp",
                      "latitude", "longitude",  "bar", "ivv"]
@@ -22,26 +22,28 @@ class DB_CONSTANTS:
     # TABLE_NAME = "tbl_mode_s"
 
     # New
-    # HOSTNAME = "tubs.skysquitter.com"
-    # DATABASE_NAME = "db_airdata"
-    # USER_NAME = "tubs"
-    # PASSWORD = "DILAB-2022"
-    # TABLE_NAME = "tbl_tubs"
+    HOSTNAME = "tubs.skysquitter.com"
+    DATABASE_NAME = "db_airdata"
+    USER_NAME = "tubs"
+    PASSWORD = "DILAB-2022"
+    TABLE_NAME = "tbl_tubs"
 
     # For Local Use Only
-    HOSTNAME = None
-    DATABASE_NAME = "local_mode_s"
-    USER_NAME = "root"
-    PASSWORD = "BisbiDb2022?"
-    TABLE_NAME = "tbl_mode_s"
+    # HOSTNAME = None
+    # DATABASE_NAME = "local_mode_s"
+    # USER_NAME = "root"
+    # PASSWORD = "BisbiDb2022?"
+    # TABLE_NAME = "tbl_mode_s"
 
     CONNECTIONS_TOTAL = 0
 
-    MAX_ROW_BEFORE_LONG_DURATION = 250000
-    PREFERRED_NUMBER_THREADS = 4
-    MAX_NUMBER_THREADS = 6
-    MIN_NUMBER_THREADS = 2
+    MAX_ROW_BEFORE_LONG_DURATION = 200000
+    PREFERRED_NUMBER_THREADS = 20
+    MAX_NUMBER_THREADS = 40
+    MIN_NUMBER_THREADS = 10
     
+    NO_IDENTIFICATION = "Unknown"
+    EMPTY_FILTER = "WHERE"
     
 class MODE_S_CONSTANTS:
     APP_DATA_PATH: str = os.path.join(os.path.expanduser("~"), ".mode_s")

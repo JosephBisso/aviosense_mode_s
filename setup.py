@@ -56,6 +56,22 @@ except:
     print('Error : scipy must be installed!')
     not_installed = not_installed + 'scipy '
 
+# sklearn
+try:
+    import sklearn
+    print('sklearn is found')
+except:
+    print('Error : sklearn must be installed!')
+    not_installed = not_installed + 'sklearn '
+
+# seaborn
+try:
+    import seaborn
+    print('seaborn is found')
+except:
+    print('Error : seaborn must be installed!')
+    not_installed = not_installed + 'seaborn '
+
 if not_installed != '':
     print('########################')
     print('####### WARNING ########')

@@ -16,7 +16,7 @@ ApplicationWindow {
     minimumWidth: 960
     minimumHeight: 720
     visible: true
-    title: qsTr("MODE_S Analysis")
+    title: qsTr("MODE_S Analysis | v1.0.0-beta")
 
     background: Rectangle {
         anchors.fill: parent

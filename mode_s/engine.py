@@ -1,9 +1,8 @@
-
 import multiprocessing
+
 import sys
 import os
 import json
-import statistics
 import concurrent.futures
 from collections import Counter
 from typing import Any, List, Dict, Union
@@ -667,11 +666,11 @@ class Engine:
                 bars.append(bars[0])
                 ivvs.append(ivvs[0])
             
-            barStd = statistics.stdev(bars)
-            ivvStd = statistics.stdev(ivvs)
+            barStd = np.std(np.array(bars, dtype="float64"))
+            ivvStd = np.std(np.array(ivvs, dtype="float64"))
             
             slidingIntervalsForStd["points"].append(WINDOW_DATA(
-                slidingWindows[windowIndex]/60, barStd, ivvStd))
+                slidingWindows[windowIndex]/60, float(barStd), float(ivvStd)))
 
             barStds.append(barStd)
             ivvStds.append(ivvStd)
@@ -681,13 +680,13 @@ class Engine:
             ivvStds = [0, 0]
             
         # From Paper
-        arrayBarStds = np.array(barStds)
-        arrayIvvStds = np.array(ivvStds)
+        arrayBarStds = np.array(barStds, dtype="float64")
+        arrayIvvStds = np.array(ivvStds, dtype="float64")
         diffStds = arrayBarStds - arrayIvvStds
         
         ddof = 1 if len(diffStds) > 1 else 0
         threshold = np.average(diffStds) + 1.2 * np.std(diffStds, ddof=ddof)
-        slidingIntervalsForStd["threshold"] = threshold
+        slidingIntervalsForStd["threshold"] = float(threshold)
         
         # self.logger.debug("Valid results for sliding interval for std for address " + str(
         #     addressData["address"]) + ". Points Count: " + str(len(slidingIntervalsForStd["points"])))

@@ -1,5 +1,5 @@
-from PySide2 import QtSql
 from PySide2.QtCore import QDateTime
+from PySide2 import QtSql
 
 import multiprocessing
 import concurrent.futures
@@ -24,7 +24,6 @@ class Database:
     
     limit: int = ROW_COUNT
     
-    filterOn: bool = False 
     data: List[Dict[str, Union[str, int]]] = []  
     executors: List[concurrent.futures.ThreadPoolExecutor] = []
     pExecutor: concurrent.futures.ProcessPoolExecutor = None
@@ -33,7 +32,9 @@ class Database:
     usedAddresses: List[int] = []
     knownIdents: Dict[str, int] = {}
 
-    strFilter: str = " "
+    strFilter: str = DB_CONSTANTS.EMPTY_FILTER
+    filterOn: bool = False 
+    filterDictList: List[str] = []
     
     backgroundFutures: List[concurrent.futures.Future] = []
     
@@ -50,6 +51,7 @@ class Database:
         try:
             self.__testDBConnection()
             rowCount__future = executor.submit(self.__getDBInformation)
+            rowCount__future.add_done_callback(self.__backgroundWorkFinished)
             self.backgroundFutures.append(rowCount__future)
             self.mapAddressIndent()
         except DatabaseError as de:
@@ -69,11 +71,15 @@ class Database:
     
     def getMapping(self, addresses:List[int]) -> Dict[int, str]:
         mapping = {}
+        unknownIdents = []
         for address in addresses:
             if self.knownIdents.get(address):
                 mapping[str(address)] = self.knownIdents[address]
             else:
-                self.logger.warning("No identification found for", address)
+                mapping[str(address)] = DB_CONSTANTS.NO_IDENTIFICATION
+                unknownIdents.append(address)
+
+        self.logger.warning("No identification found for: ", unknownIdents)
         return mapping 
     
     def cancel(self) -> True:
@@ -88,7 +94,8 @@ class Database:
     def setDatabaseParameters(self, **params):
         self.waitUntilReady()
         self.logger.info("Setting Database Parameters")
-        strFilter = " "
+        self.__resetFilter()
+        
         if params.get("limit"):
             if params["limit"] <= self.ROW_COUNT:
                 self.limit = params["limit"]
@@ -119,35 +126,29 @@ class Database:
         if params.get("duration_limit"):
             self.logger.log("Setting duration limit to", params["duration_limit"] ,"minutes")
             lastPossibleTimestamp = self.LAST_DB_UPDATE.addSecs(-params["duration_limit"] * 60).toString("yyyy-MM-dd hh:mm:ss")
-            strFilter += "tbl_mode_s.timestamp > '" + lastPossibleTimestamp + "'"
+            self.strFilter = self.__addFilter(f"{DB_CONSTANTS.TABLE_NAME}.timestamp >= '{lastPossibleTimestamp}'", attribute="timestamp")
             self.logger.debug("Last possible timestamp  " + lastPossibleTimestamp)
-            
 
-        if params.get("bds"):
-            strFilter += "tbl_mode_s.bds = " + params["bds"] + "AND"
-            self.logger.log("Setting bds to", params["bds"])
-        if params.get("latitude_minimal"):
-            strFilter += "tbl_mode_s.latitude > " + params["latitude_minimal"] + " AND "
-            self.logger.log("Setting minimal latitude to", params["latitude_minimal"])
-        if params.get("latitude_maximal"):
-            strFilter += "tbl_mode_s.latitude < " + params["latitude_maximal"] + " AND "
-            self.logger.log("Setting maximal latitude to", params["latitude_maximal"])
-        if params.get("longitude_minimal"):
-            strFilter += "tbl_mode_s.longitude > " + params["longitude_minimal"] + " AND "
-            self.logger.log("Setting minimal longitude to", params["longitude_minimal"])
-        if params.get("longitude_maximal"):
-            strFilter += "tbl_mode_s.longitude < " + params["longitude_maximal"] + " AND "
-            self.logger.log("Setting maximal longitude to", params["longitude_maximal"])
-        if params.get("id_minimal"):
-            strFilter += "tbl_mode_s.id > " + params["id_minimal"] + " AND "
-            self.logger.log("Setting minimal  to", params["id_minimal"])
-        if params.get("id_maximal"):
-            strFilter += "tbl_mode_s.id < " + params["id_maximal"] + " AND "
-            self.logger.log("Setting maximal  to", params["id_maximal"])
+        if params.get("latitude_min"):
+            self.strFilter = self.__addFilter(f"{DB_CONSTANTS.TABLE_NAME}.latitude >= {params['latitude_min']}", attribute="latitude")
+            self.logger.log("Setting minimal latitude to", params["latitude_min"])
+        if params.get("latitude_max"):
+            self.strFilter = self.__addFilter(f"{DB_CONSTANTS.TABLE_NAME}.latitude <= {params['latitude_max']}", attribute="latitude")
+            self.logger.log("Setting maximal latitude to", params["latitude_max"])
+        if params.get("longitude_min"):
+            self.strFilter = self.__addFilter(f"{DB_CONSTANTS.TABLE_NAME}.longitude >= {params['longitude_min']}", attribute="longitude")
+            self.logger.log("Setting minimal longitude to", params["longitude_min"])
+        if params.get("longitude_max"):
+            self.strFilter = self.__addFilter(f"{DB_CONSTANTS.TABLE_NAME}.longitude <= {params['longitude_max']}", attribute="longitude")
+            self.logger.log("Setting maximal longitude to", params["longitude_max"])
+        if params.get("id_min"):
+            self.strFilter = self.__addFilter(f"{DB_CONSTANTS.TABLE_NAME}.id >= {params['id_min']}", attribute="id")
+            self.logger.log("Setting minimal  to", params["id_min"])
+        if params.get("id_max"):
+            self.strFilter = self.__addFilter(f"{DB_CONSTANTS.TABLE_NAME}.id <=  {params['id_max']}", attribute="id")
+            self.logger.log("Setting maximal  to", params["id_max"])
             
-        self.filterOn = strFilter != " "
-        self.logger.debug("Setting query filter to: " + strFilter)
-        self.strFilter = strFilter
+        self.logger.info("Setting query filter to: " + self.strFilter)
 
     def resetFilter(self):
         self.filterOn = False
@@ -227,20 +228,20 @@ class Database:
         valid = True
         try:
             barAndIvv = self.getFromDB(["address", "timestamp", "bar", "ivv"], options={
-                                              "not_null_values": ["bds60_barometric_altitude_rate", "bds60_inertial_vertical_velocity"], "limit": int(int(self.limit) / 2)})
+                "not_null_values": ["barometric_altitude_rate", "inertial_vertical_velocity"], "limit": int(int(self.limit) / 2)})
             
             self.logger.progress(LOGGER_CONSTANTS.DATABASE, "Actualizing Database [1/2]")
             
             self.__updatedUsedAddresses(barAndIvv)
 
             latAndlon__future = executor.submit(self.getFromDB, ["address", "timestamp", "latitude", "longitude"], options={
-                                              "not_null_values": ["latitude", "longitude"], "limit": int(int(self.limit) / 2)})
-            
+                "not_null_values": ["latitude", "longitude"], "limit": int(int(self.limit) / 2)})
+
             self.data = barAndIvv
             self.data.extend(latAndlon__future.result())
 
             self.logger.progress(LOGGER_CONSTANTS.DATABASE, "Actualizing Database [2/2]")
-            self.logger.success("Data actualized. Size: " + str(len(self.data)))
+            self.logger.success(f"Data actualized. Size: {len(self.data)}")
 
             # import json 
             # with open("database.dump.json", "w") as dbd:
@@ -282,12 +283,12 @@ class Database:
         if DB_CONSTANTS.HOSTNAME: db.setHostName(DB_CONSTANTS.HOSTNAME)
 
     def __getDBRowCount(self):
-        count, dbName = self.__query("SELECT COUNT(*) AS rowCount FROM tbl_mode_s", ["rowCount"])
+        count, dbName = self.__query(f"SELECT COUNT(*) AS rowCount FROM {DB_CONSTANTS.TABLE_NAME}", ["rowCount"])
         self.ROW_COUNT = count[0]["rowCount"]
 
         if self.ROW_COUNT == 0:
-            raise DatabaseError("Row count of Table tbl_mode_s should not be 0 !")
-        self.logger.log("Row Count for table tbl_mode_s: " + str(self.ROW_COUNT))
+            raise DatabaseError(f"Row count of Table {DB_CONSTANTS.TABLE_NAME} should not be 0 !")
+        self.logger.log(f"Row Count for table {DB_CONSTANTS.TABLE_NAME}: " + str(self.ROW_COUNT))
 
         QtSql.QSqlDatabase.removeDatabase(dbName)
 
@@ -349,38 +350,28 @@ class Database:
 
         for index, attrib in enumerate(attributes):
             if attrib == "bar":
-                selectStr += "bds60_barometric_altitude_rate AS bar"
+                selectStr += "barometric_altitude_rate AS bar"
             elif attrib == "ivv":
-                selectStr += "bds60_inertial_vertical_velocity AS ivv"
+                selectStr += "inertial_vertical_velocity AS ivv"
             else:
                 if not attrib in DB_CONSTANTS.VALID_DB_COLUMNS:
                     raise DatabaseError(
-                        "Attribute: " + attrib + "not valid")
+                        "Attribute: " + attrib + " not valid")
                 selectStr += attrib
             selectStr += ", " if index < (len(attributes) - 1) else " "
 
-        whereStr = "WHERE"
-        try:
-            if options["default_filter_on"]:
-                whereStr += self.strFilter + " "
-        except KeyError:
-            if self.filterOn:
-                whereStr += self.strFilter + " "
+        whereStr = DB_CONSTANTS.EMPTY_FILTER
+        if options.get("default_filter_on") is not None or self.filterOn:
+            whereStr = self.__adaptDefaultFilter(*attributes)
         
         ident_run = False
-        try:
-            if len(options["not_null_values"]) > 0:
-                if "identification" in options["not_null_values"] and "address" in options["not_null_values"]:
-                    ident_run = True
-                    whereStr = " WHERE "
-                else:
-                    whereStr += " AND " if not whereStr == "WHERE" else " "
-
-                for index, attrib in enumerate(options["not_null_values"]):
-                    whereStr += attrib + " IS NOT NULL"
-                    whereStr += " AND " if index < (len(options["not_null_values"]) - 1) else " "
-        except KeyError:
-            pass
+        if options.get("not_null_values") is not None and len(options["not_null_values"]) > 0:
+            if "identification" in options["not_null_values"] and "address" in options["not_null_values"]:
+                ident_run = True
+                whereStr = DB_CONSTANTS.EMPTY_FILTER
+            
+            for index, attrib in enumerate(options["not_null_values"]):
+                whereStr = self.__addFilter(f"{attrib} IS NOT NULL", attribute=attrib, target=whereStr)
 
         try:
             limit = options["limit"] if int(options["limit"]) <= self.ROW_COUNT else self.ROW_COUNT
@@ -413,7 +404,31 @@ class Database:
                 orderStr += "ASC "
 
         self.logger.log(str(len(offsetStr))  + " sub queries for attributes", ", ".join(attrib for attrib in attributes))
-        queries = [(selectStr + " FROM tbl_mode_s " + whereStr + orderStr + offset) for offset in offsetStr]
+
+        # allUsedAddressFilter = []
+        # if self.usedAddresses and len(self.usedAddresses) >= numThread:
+        #     numAddressPerQuery = int(len(self.usedAddresses)/numThread)
+        #     for i in range(numThread):
+        #         startIndex = i*numAddressPerQuery
+        #         endIndex = None if i == numThread - 1 else startIndex + numAddressPerQuery
+        #         partialAddressList = self.usedAddresses[startIndex: endIndex]
+        #         addressFilter = self.__addFilter(" address IN (" + ",".join(
+        #             str(address) for address in partialAddressList) + ") ", target=whereStr)
+
+        #         allUsedAddressFilter.append(addressFilter)
+        #         if endIndex is None and rest > 0:
+        #             allUsedAddressFilter.append(addressFilter) #Adding duplicate
+    
+        # if allUsedAddressFilter:
+        #     queries = [(selectStr + f" FROM {DB_CONSTANTS.TABLE_NAME} " + usedAddressFilter + orderStr + offset) for  offset, usedAddressFilter in zip(offsetStr, allUsedAddressFilter)]
+        # else:
+            # queries = [(selectStr + f" FROM {DB_CONSTANTS.TABLE_NAME} " + whereStr + orderStr + offset) for offset in offsetStr]
+
+        queries = [(selectStr + f" FROM {DB_CONSTANTS.TABLE_NAME} " + whereStr + orderStr + offset) for offset in offsetStr]
+
+        for query in queries:
+            self.logger.debug(query)
+
         return queries
 
     def __actualizeKnownAddresses(self, future: concurrent.futures.Future):
@@ -438,22 +453,57 @@ class Database:
         for el in halfData:
             if el["address"] in self.usedAddresses: continue
             self.usedAddresses.append(el["address"])
-        self.filterOn = True 
-        strFilter = " address IN (" + ",".join(str(address) for address in self.usedAddresses) + ") "
-        if self.strFilter == " ": 
-            self.strFilter = strFilter + " "
-        else:
-            self.strFilter += " AND " + strFilter + " "
+            
+        if not self.usedAddresses:
+            self.logger.warning("No address to update")
+            return
+        
+        # self.strFilter = self.__addFilter(" address IN (" + ",".join(str(address)
+        #                  for address in self.usedAddresses) + ") ", attribute="address")
             
         self.logger.log("Updated database filter")
-        self.logger.debug("New filter is:" + self.strFilter)
+        self.logger.debug(f"New filter is: {self.strFilter}")
 
     def __getLattestDBTimeStamp(self):
         time = self.getFromDB( ["timestamp"], options = {"not_null_values": ["timestamp"], "limit": 1})
         self.LAST_DB_UPDATE = QDateTime.fromMSecsSinceEpoch(int(time[0]["timestamp"]) / 10**6)
         self.logger.log("Lattest database db_airdata update: " + self.LAST_DB_UPDATE.toString("yyyy-MM-dd hh:mm:ss"))
-        self.logger.progress(LOGGER_CONSTANTS.DATABASE, LOGGER_CONSTANTS.END_PROGRESS_BAR)
 
     def __getDBInformation(self):
         self.__getDBRowCount()
         self.__getLattestDBTimeStamp()
+
+    def __backgroundWorkFinished(self, future: concurrent.futures.Future):
+        future.result()
+        self.logger.progress(LOGGER_CONSTANTS.DATABASE, LOGGER_CONSTANTS.END_PROGRESS_BAR)
+
+    def __addFilter(self, filter, attribute=None, target=None):
+        if target is None:
+            self.filterOn = True
+            target = self.strFilter
+            self.filterDictList.append({"attribute": attribute, "filter": filter})
+
+        if target != DB_CONSTANTS.EMPTY_FILTER:
+            target += " AND "
+
+        target += f" {filter} "
+        
+        self.logger.debug(f"Adding filter for attribute {attribute}: {filter}")
+        
+        return target
+            
+    def __resetFilter(self):
+        self.strFilter = DB_CONSTANTS.EMPTY_FILTER
+        self.filterOn = False
+
+    def __adaptDefaultFilter(self, *attributes) -> str:
+        adaptedFilter = DB_CONSTANTS.EMPTY_FILTER
+        for filterDict in self.filterDictList:
+            if filterDict["attribute"] in attributes:
+                adaptedFilter = self.__addFilter(filter=filterDict["filter"], target=adaptedFilter)
+        if adaptedFilter == DB_CONSTANTS.EMPTY_FILTER:
+            self.logger.debug("No adapted filter")
+        
+        self.logger.debug(f"Using this adapted filter: {adaptedFilter}")
+        return adaptedFilter
+        
