@@ -47,6 +47,8 @@ def query(queries: List[str], elements: List[str] = [], knownIdents: Dict[str,st
                     
             if knownIdents and knownIdents.get(entry["address"]):
                 entry["identification"] = knownIdents[entry["address"]]
+            else:
+                entry["identification"] = DB_CONSTANTS.NO_IDENTIFICATION
 
             allQueriesResults.append(entry)
         

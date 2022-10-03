@@ -8,10 +8,10 @@ ListModel {
         option_type:"range"
     }
     ListElement {
-        option_name: "BDS"
-        option_value: "All"
-        option_id:"bds"
-        option_type:"range"
+        option_name: "Limit"
+        option_value: "3000000"
+        option_id:"limit"
+        option_type:"value"
     }
     ListElement {
         option_name: "Duration Limit"
@@ -20,27 +20,21 @@ ListModel {
         option_type:"value"
     }
     ListElement {
-        option_name: "ID"
-        option_value: "None"
-        option_id:"id"
-        option_type:"range"
-    }
-    ListElement {
         option_name: "Latitude"
         option_value: "None"
         option_id:"latitude"
         option_type:"range"
     }
     ListElement {
-        option_name: "Limit"
-        option_value: "3000000"
-        option_id:"limit"
-        option_type:"value"
-    }
-    ListElement {
         option_name: "Longitude"
         option_value: "None"
         option_id:"longitude"
+        option_type:"range"
+    }
+    ListElement {
+        option_name: "ID"
+        option_value: "None"
+        option_id:"id"
         option_type:"range"
     }
     ListElement {

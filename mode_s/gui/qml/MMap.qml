@@ -47,6 +47,7 @@ Frame {
         }
         console.info(Constants.PROGRESS_BAR, progressID, Constants.END_PROGRESS_BAR)
     }
+    
     function pauseBackgroundLoading() {
         locationLoader.stop()
         turbulentLoader.stop()
@@ -149,7 +150,6 @@ Frame {
     MMenuBar {
         id: menubar
         z: 1
-        width: 225
         anchors{
             bottom: parent.bottom
             horizontalCenter: parent.horizontalCenter

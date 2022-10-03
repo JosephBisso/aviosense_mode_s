@@ -1,4 +1,3 @@
-# This Python file uses the following encoding: utf-8
 import os
 import sys
 import argparse
@@ -573,11 +572,13 @@ if __name__ == "__main__":
         import gui.qrc_gui
 
     if args.local:
+        #For Local Use only
         DB_CONSTANTS.HOSTNAME = None
         DB_CONSTANTS.DATABASE_NAME = "local_mode_s"
         DB_CONSTANTS.USER_NAME = "root"
         DB_CONSTANTS.PASSWORD = "BisbiDb2022?"
         DB_CONSTANTS.TABLE_NAME = "tbl_mode_s"
+        
     
     sys.argv += ['--style', 'Fusion']
     app = QApplication(sys.argv)
@@ -595,7 +596,7 @@ if __name__ == "__main__":
     logger.debug(args)
     
     processPoolExecutor = concurrent.futures.ProcessPoolExecutor(
-        max_workers=multiprocessing.cpu_count()
+        max_workers=multiprocessing.cpu_count() + 1
     )
 
     db = Database(logger=logger)

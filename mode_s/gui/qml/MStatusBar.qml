@@ -167,7 +167,7 @@ Column {
                 }
                 MIMGButton {
                     id: closeButton
-                    visible: progressID === Constants.ID_LOCATION
+                    visible: [Constants.ID_LOCATION, Constants.ID_TURBULENT, Constants.ID_KDE].includes(progressID)
                     Layout.alignment: Qt.AlignVCenter
                     width: 22
                     img_src: `qrc:/img/close.png`
