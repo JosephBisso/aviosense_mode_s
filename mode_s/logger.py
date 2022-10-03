@@ -1,7 +1,9 @@
 import os
 from datetime import datetime
+import threading
 from PySide2.QtCore import *
 from constants import LOGGER_CONSTANTS
+import queue
 
 os.system("color")
 
@@ -26,45 +28,47 @@ class Logger(QObject):
         super(Logger, self).__init__(None)
         self.terminal = terminal
         self.verbose = verbose
-        self.debugging = debug
-        self.outputFile = os.path.join(os.getcwd(), "mode_s.log")
-        
-        if os.path.exists(self.outputFile):
-                os.remove(self.outputFile)
-        with open(self.outputFile, "w") as output:
-            output.write(str(datetime.now()) + ":: Starting MODE_S\n")
-            
+        self.debugging = debug     
+
+        self.queue = queue.Queue()
+        self.daemon = LoggerDaemon(self.queue)
+        self.daemon.start()
     
     def debug(self, *args):
         time = datetime.now()
-        with open(self.outputFile, "a") as output:
-            output.write(str(datetime.now()) + ":: DEBUG\t::\t" + " ".join([str(msg) for msg in args]) + "\n")
+        msg = str(datetime.now()) + ":: DEBUG\t::\t" + " ".join([str(msg) for msg in args]) + "\n"
+        self.queue.put(msg)
             
         if self.debugging:
             print(colors.VIOLET + "DEBUG\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + colors.ENDC, *args)
             # self.logged.emit("<p style='color:Violet;'>DEBUG\t: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + " ".join([str(msg) for msg in args]) + "</p>\n")
+
+        self.queue.join()
     
     def log(self, *args):
         time = datetime.now()
-        with open(self.outputFile, "a") as output:
-            output.write(str(datetime.now()) + ":: LOG\t::\t" + " ".join([str(msg) for msg in args]) + "\n")
-            
+        msg = str(datetime.now()) + ":: LOG\t::\t" + " ".join([str(msg) for msg in args]) + "\n"            
+        self.queue.put(msg)
+
         if self.terminal or self.verbose or self.debugging:
             print(colors.BLUE + "LOG\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: " + colors.ENDC, *args)
         
         self.logged.emit("<p style='color:DodgerBlue;'>LOG\t: : " + str(time.hour) + ": " + str(time.minute) + ": " +
                          str(time.second) + " : : <i style='color:White;'>" + " ".join([str(msg) for msg in args]) + "</i></p>\n")
+        self.queue.join()
 
     def success(self, *args):
         time = datetime.now()
-        with open(self.outputFile, "a") as output:
-            output.write(str(datetime.now()) + ":: SUCCESS::\t" + " ".join([str(msg) for msg in args]) + "\n")
-            
+        msg = str(datetime.now()) + ":: SUCCESS::\t" + " ".join([str(msg) for msg in args]) + "\n"            
+        self.queue.put(msg)
+
         if self.terminal or self.verbose:
             print(colors.GREEN + "SUCCESS\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: ", *args, colors.ENDC)
         
         self.logged.emit("<p style='color:greenyellow;'>SUCCESS: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + " ".join([str(msg) for msg in args]) + "</p>\n")
-            
+        self.queue.join()
+
+
     def info(self, *args):
         if LOGGER_CONSTANTS.PROGRESS_BAR in args[0]:
             clean_args = args[0].replace(LOGGER_CONSTANTS.PROGRESS_BAR , "")
@@ -72,20 +76,22 @@ class Logger(QObject):
             return
         
         time = datetime.now()
-        with open(self.outputFile, "a") as output:
-            output.write(str(datetime.now()) + ":: INFO\t::\t" + " ".join([str(msg) for msg in args]) + "\n")
+        msg = str(datetime.now()) + ":: INFO\t::\t" + " ".join([str(msg) for msg in args]) + "\n"
+        self.queue.put(msg)
 
             
         if self.terminal or self.verbose:
             print(colors.CYAN + "INFO\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: ", *args, colors.ENDC)
 
         self.logged.emit("<p style='color:Cyan;'>INFO\t: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + " ".join([str(msg) for msg in args]) + "</p>\n")
-    
+        self.queue.join()
+
+
     def progress(self, *args):
         time = datetime.now()
-        with open(self.outputFile, "a") as output:
-            output.write(str(datetime.now()) + ":: PROGRESS::\t" + LOGGER_CONSTANTS.PROGRESS_BAR + " " + " ".join([str(msg) for msg in args]) + "\n")
-            
+        msg = str(datetime.now()) + ":: PROGRESS::\t" + LOGGER_CONSTANTS.PROGRESS_BAR + " " + " ".join([str(msg) for msg in args]) + "\n"            
+        self.queue.put(msg)
+
         if self.terminal or self.verbose:
             print(colors.BLUE_BACK + "PROGRESS:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " ::", colors.ENDC, LOGGER_CONSTANTS.PROGRESS_BAR, *args)
 
@@ -93,25 +99,46 @@ class Logger(QObject):
         id_index = args[0].find("ID_")
         progressID = args[0][id_index:id_index + 6]
         self.progressed.emit(progressID, " ".join([str(msg) for msg in args]))
-            
+        self.queue.join()
+
+
     def warning(self, *args):
         time = datetime.now()
-        with open(self.outputFile, "a") as output:
-            output.write(str(datetime.now()) + ":: WARNING::\t" + " ".join([str(msg) for msg in args]) + "\n")
+        msg = str(datetime.now()) + ":: WARNING::\t" + " ".join([str(msg) for msg in args]) + "\n"
+        self.queue.put(msg)
 
         if self.terminal or self.verbose:
             print(colors.YELLOW + "WARNING\t:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: ", *args, colors.ENDC)
         
         self.logged.emit("<p style='color:Orange;'>WARNING: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + " ".join([str(msg) for msg in args]) + "</p>\n")
-        
-            
+        self.queue.join()
+
+    
     def critical(self, *args):
         time = datetime.now()
-        with open(self.outputFile, "a") as output:
-            output.write(str(datetime.now()) + ":: CRITICAL::\t" + " ".join([str(msg) for msg in args]) + "\n")
+        msg = str(datetime.now()) + ":: CRITICAL::\t" + " ".join([str(msg) for msg in args]) + "\n"
+        self.queue.put(msg)
 
         if self.terminal or self.verbose:
             print(colors.RED + "CRITICAL:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " :: ", *args, colors.ENDC)
         
         self.logged.emit("<p style='color:Tomato;'>CRITICAL: : " + str(time.hour) + ": " + str(time.minute) + ": " + str(time.second) + " : : " + " ".join([str(msg) for msg in args]) + "</p>\n")
-        
+        self.queue.join()
+
+
+class LoggerDaemon(threading.Thread):
+    def __init__(self, q):
+        threading.Thread.__init__(self, name="LoggerDaemon", daemon=True)
+        self.q: queue.Queue = q
+        self.outputFile = os.path.join(os.getcwd(), "mode_s.log")
+
+        with open(self.outputFile, "w") as output:
+            output.write(str(datetime.now()) + ":: Starting MODE_S\n")
+
+    def run(self):
+        with open(self.outputFile, "a") as output:
+            while True:
+                msg = self.q.get()
+                output.write(msg)
+                self.q.task_done()
+                    

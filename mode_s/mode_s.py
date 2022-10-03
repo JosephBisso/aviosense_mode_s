@@ -573,7 +573,7 @@ if __name__ == "__main__":
 
     if args.local:
         #For Local Use only
-        DB_CONSTANTS.HOSTNAME = False
+        DB_CONSTANTS.HOSTNAME = None
         DB_CONSTANTS.DATABASE_NAME = "local_mode_s"
         DB_CONSTANTS.USER_NAME = "root"
         DB_CONSTANTS.PASSWORD = "BisbiDb2022?"

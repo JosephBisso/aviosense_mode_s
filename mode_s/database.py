@@ -405,26 +405,28 @@ class Database:
 
         self.logger.log(str(len(offsetStr))  + " sub queries for attributes", ", ".join(attrib for attrib in attributes))
 
-        # allUsedAddressFilter = []
-        # if self.usedAddresses and len(self.usedAddresses) >= numThread:
-        #     numAddressPerQuery = int(len(self.usedAddresses)/numThread)
-        #     for i in range(numThread):
-        #         startIndex = i*numAddressPerQuery
-        #         endIndex = None if i == numThread - 1 else startIndex + numAddressPerQuery
-        #         partialAddressList = self.usedAddresses[startIndex: endIndex]
-        #         addressFilter = self.__addFilter(" address IN (" + ",".join(
-        #             str(address) for address in partialAddressList) + ") ", target=whereStr)
+        allUsedAddressFilter = []
+        if self.usedAddresses and len(self.usedAddresses) >= numThread:
+            numAddressPerQuery = int(len(self.usedAddresses)/numThread)
+            for i in range(numThread):
+                startIndex = i*numAddressPerQuery
+                endIndex = None if i == numThread - 1 else startIndex + numAddressPerQuery
+                partialAddressList = self.usedAddresses[startIndex: endIndex]
+                addressFilter = self.__addFilter(" address IN (" + ",".join(
+                    str(address) for address in partialAddressList) + ") ", target=whereStr)
 
-        #         allUsedAddressFilter.append(addressFilter)
-        #         if endIndex is None and rest > 0:
-        #             allUsedAddressFilter.append(addressFilter) #Adding duplicate
+                allUsedAddressFilter.append(addressFilter)
+                offsetStr = f" LIMIT {int(limit / 2)}" # Same Limit for all
+                
+                if endIndex is None and rest > 0:
+                    allUsedAddressFilter.append(addressFilter) #Adding duplicate
     
-        # if allUsedAddressFilter:
-        #     queries = [(selectStr + f" FROM {DB_CONSTANTS.TABLE_NAME} " + usedAddressFilter + orderStr + offset) for  offset, usedAddressFilter in zip(offsetStr, allUsedAddressFilter)]
-        # else:
-            # queries = [(selectStr + f" FROM {DB_CONSTANTS.TABLE_NAME} " + whereStr + orderStr + offset) for offset in offsetStr]
+        if allUsedAddressFilter:
+            queries = [(selectStr + f" FROM {DB_CONSTANTS.TABLE_NAME} " + usedAddressFilter + orderStr + offsetStr) for usedAddressFilter in allUsedAddressFilter]
+        else:
+            queries = [(selectStr + f" FROM {DB_CONSTANTS.TABLE_NAME} " + whereStr + orderStr + offset) for offset in offsetStr]
 
-        queries = [(selectStr + f" FROM {DB_CONSTANTS.TABLE_NAME} " + whereStr + orderStr + offset) for offset in offsetStr]
+        # queries = [(selectStr + f" FROM {DB_CONSTANTS.TABLE_NAME} " + whereStr + orderStr + offset) for offset in offsetStr]
 
         for query in queries:
             self.logger.debug(query)
