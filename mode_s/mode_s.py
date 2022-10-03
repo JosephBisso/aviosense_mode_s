@@ -573,10 +573,11 @@ if __name__ == "__main__":
         import gui.qrc_gui
 
     if args.local:
-        DB_CONSTANTS.HOSTNAME = False
+        DB_CONSTANTS.HOSTNAME = None
         DB_CONSTANTS.DATABASE_NAME = "local_mode_s"
         DB_CONSTANTS.USER_NAME = "root"
         DB_CONSTANTS.PASSWORD = "BisbiDb2022?"
+        DB_CONSTANTS.TABLE_NAME = "tbl_mode_s"
     
     sys.argv += ['--style', 'Fusion']
     app = QApplication(sys.argv)

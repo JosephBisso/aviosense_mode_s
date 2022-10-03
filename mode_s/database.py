@@ -119,30 +119,30 @@ class Database:
         if params.get("duration_limit"):
             self.logger.log("Setting duration limit to", params["duration_limit"] ,"minutes")
             lastPossibleTimestamp = self.LAST_DB_UPDATE.addSecs(-params["duration_limit"] * 60).toString("yyyy-MM-dd hh:mm:ss")
-            strFilter += "tbl_mode_s.timestamp > '" + lastPossibleTimestamp + "'"
+            strFilter += f"{DB_CONSTANTS.TABLE_NAME}.timestamp > '" + lastPossibleTimestamp + "'"
             self.logger.debug("Last possible timestamp  " + lastPossibleTimestamp)
             
 
         if params.get("bds"):
-            strFilter += "tbl_mode_s.bds = " + params["bds"] + "AND"
+            strFilter += f"{DB_CONSTANTS.TABLE_NAME}.bds = " + params["bds"] + "AND"
             self.logger.log("Setting bds to", params["bds"])
         if params.get("latitude_minimal"):
-            strFilter += "tbl_mode_s.latitude > " + params["latitude_minimal"] + " AND "
+            strFilter += f"{DB_CONSTANTS.TABLE_NAME}.latitude > " + params["latitude_minimal"] + " AND "
             self.logger.log("Setting minimal latitude to", params["latitude_minimal"])
         if params.get("latitude_maximal"):
-            strFilter += "tbl_mode_s.latitude < " + params["latitude_maximal"] + " AND "
+            strFilter += f"{DB_CONSTANTS.TABLE_NAME}.latitude < " + params["latitude_maximal"] + " AND "
             self.logger.log("Setting maximal latitude to", params["latitude_maximal"])
         if params.get("longitude_minimal"):
-            strFilter += "tbl_mode_s.longitude > " + params["longitude_minimal"] + " AND "
+            strFilter += f"{DB_CONSTANTS.TABLE_NAME}.longitude > " + params["longitude_minimal"] + " AND "
             self.logger.log("Setting minimal longitude to", params["longitude_minimal"])
         if params.get("longitude_maximal"):
-            strFilter += "tbl_mode_s.longitude < " + params["longitude_maximal"] + " AND "
+            strFilter += f"{DB_CONSTANTS.TABLE_NAME}.longitude < " + params["longitude_maximal"] + " AND "
             self.logger.log("Setting maximal longitude to", params["longitude_maximal"])
         if params.get("id_minimal"):
-            strFilter += "tbl_mode_s.id > " + params["id_minimal"] + " AND "
+            strFilter += f"{DB_CONSTANTS.TABLE_NAME}.id > " + params["id_minimal"] + " AND "
             self.logger.log("Setting minimal  to", params["id_minimal"])
         if params.get("id_maximal"):
-            strFilter += "tbl_mode_s.id < " + params["id_maximal"] + " AND "
+            strFilter += f"{DB_CONSTANTS.TABLE_NAME}.id < " + params["id_maximal"] + " AND "
             self.logger.log("Setting maximal  to", params["id_maximal"])
             
         self.filterOn = strFilter != " "
@@ -282,12 +282,12 @@ class Database:
         if DB_CONSTANTS.HOSTNAME: db.setHostName(DB_CONSTANTS.HOSTNAME)
 
     def __getDBRowCount(self):
-        count, dbName = self.__query("SELECT COUNT(*) AS rowCount FROM tbl_mode_s", ["rowCount"])
+        count, dbName = self.__query(f"SELECT COUNT(*) AS rowCount FROM {DB_CONSTANTS.TABLE_NAME}", ["rowCount"])
         self.ROW_COUNT = count[0]["rowCount"]
 
         if self.ROW_COUNT == 0:
-            raise DatabaseError("Row count of Table tbl_mode_s should not be 0 !")
-        self.logger.log("Row Count for table tbl_mode_s: " + str(self.ROW_COUNT))
+            raise DatabaseError(f"Row count of Table {DB_CONSTANTS.TABLE_NAME} should not be 0 !")
+        self.logger.log(f"Row Count for table {DB_CONSTANTS.TABLE_NAME}: " + str(self.ROW_COUNT))
 
         QtSql.QSqlDatabase.removeDatabase(dbName)
 
@@ -413,7 +413,7 @@ class Database:
                 orderStr += "ASC "
 
         self.logger.log(str(len(offsetStr))  + " sub queries for attributes", ", ".join(attrib for attrib in attributes))
-        queries = [(selectStr + " FROM tbl_mode_s " + whereStr + orderStr + offset) for offset in offsetStr]
+        queries = [(selectStr + f" FROM {DB_CONSTANTS.TABLE_NAME} " + whereStr + orderStr + offset) for offset in offsetStr]
         return queries
 
     def __actualizeKnownAddresses(self, future: concurrent.futures.Future):
