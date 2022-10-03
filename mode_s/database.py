@@ -79,7 +79,7 @@ class Database:
                 mapping[str(address)] = DB_CONSTANTS.NO_IDENTIFICATION
                 unknownIdents.append(address)
 
-        self.logger.warning("No identification found for: ", unknownIdents)
+        if unknownIdents: self.logger.warning("No identification found for: ", unknownIdents)
         return mapping 
     
     def cancel(self) -> True:
@@ -161,7 +161,7 @@ class Database:
         try:
             queries = self.__generateQueries(attributes, options) 
             threadedQueries = []
-            maxProcesses = min(len(queries), multiprocessing.cpu_count())
+            maxProcesses = min(len(queries), multiprocessing.cpu_count() + 1) or 1
             queriesPerProcess = int(len(queries) / maxProcesses)
             for i in range(maxProcesses):
                 DB_CONSTANTS.CONNECTIONS_TOTAL += 1

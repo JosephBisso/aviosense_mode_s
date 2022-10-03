@@ -333,7 +333,7 @@ class Engine:
         plotData = []
         
         addressData__futures = []
-        maxProcesses = min(len(addresses), multiprocessing.cpu_count())
+        maxProcesses = min(len(addresses), multiprocessing.cpu_count() + 1) or 1
         addressesPerProcess = int(len(addresses) / maxProcesses)
         for i in range(maxProcesses):
             startIndex = i*addressesPerProcess
@@ -475,7 +475,7 @@ class Engine:
         heatPoints: List[Dict[str, Union[str, List[LOCATION_DATA]]]] = []
         
         heatPoints__future = []
-        maxProcesses = min(len(slidingIntervallForStd), multiprocessing.cpu_count())
+        maxProcesses = min(len(slidingIntervallForStd), multiprocessing.cpu_count() + 1) or 1
         addressDataPerProcess = int(len(slidingIntervallForStd) / maxProcesses)
         for i in range(maxProcesses):
             startIndex = i*addressDataPerProcess
@@ -504,7 +504,7 @@ class Engine:
         lineSeriesKDEExceeds = {}
         
         kdeZone__futures = []
-        maxProcesses = min(len(allKdeZone), multiprocessing.cpu_count())
+        maxProcesses = min(len(allKdeZone), multiprocessing.cpu_count() + 1) or 1
         addressesPerProcess = int(len(allKdeZone) / maxProcesses)
         for i in range(maxProcesses):
             startIndex = i*addressesPerProcess
