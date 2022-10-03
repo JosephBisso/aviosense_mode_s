@@ -170,7 +170,7 @@ Drawer {
         img_src:"qrc:/img/log.png"
         width: 75
         mToolTipText: "Open Log"
-        mDefaultColor: "darkgrey"
+        mDefaultColor: "grey"
         mHoverColor: Constants.FOREGROUND_COLOR
         mClickColor:Qt.rgba(Constants.ACCENT_COLOR1.r, Constants.ACCENT_COLOR1.g, Constants.ACCENT_COLOR1.b, 0.5)
 

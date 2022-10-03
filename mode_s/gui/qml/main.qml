@@ -16,7 +16,7 @@ ApplicationWindow {
     minimumWidth: 960
     minimumHeight: 720
     visible: true
-    title: qsTr("MODE_S Analysis | v1.0.0-beta")
+    title: qsTr("MODE_S Analysis | v1.0.0-beta | j.bisso-bi-ela@tu-braunschweig.de")
 
     background: Rectangle {
         anchors.fill: parent
