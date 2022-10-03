@@ -563,6 +563,7 @@ class Mode_S(QObject):
 
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     know_args = init_argparse().parse_known_args()
     args = know_args[0]
     if args.interactive:
@@ -613,6 +614,11 @@ if __name__ == "__main__":
         mode_s.setProcessExecutor(processPoolExecutor)
         engine.rootContext().setContextProperty("__mode_s", mode_s)
         engine.load(QUrl("qrc:/qml/main.qml"))
+        try:
+            import pyi_splash
+            pyi_splash.close()
+        except:
+            pass
         if not engine.rootObjects():
             logger.warning("Could not start application Engine")
             sys.exit(-1)

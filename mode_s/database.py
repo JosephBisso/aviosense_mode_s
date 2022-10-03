@@ -502,7 +502,7 @@ class Database:
         adaptedFilter = DB_CONSTANTS.EMPTY_FILTER
         for filterDict in self.filterDictList:
             if filterDict["attribute"] in attributes:
-                adaptedFilter = self.__addFilter(filter=filterDict["filter"], target=adaptedFilter)
+                adaptedFilter = self.__addFilter(filter=filterDict["filter"], target=adaptedFilter, attribute=filterDict["attribute"])
         if adaptedFilter == DB_CONSTANTS.EMPTY_FILTER:
             self.logger.debug("No adapted filter")
         
