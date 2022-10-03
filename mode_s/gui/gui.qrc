@@ -32,6 +32,7 @@
     <file>scripts/world.geojson</file>
     <file>scripts/guiWorker.mjs</file>
     <file>img/database.png</file>
+    <file>img/log.png</file>
     <file>img/settings.png</file>
     <file>img/params.png</file>
     <file>img/download.png</file>

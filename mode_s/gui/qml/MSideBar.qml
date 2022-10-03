@@ -165,6 +165,28 @@ Drawer {
     //     }
     // }
 
+    MIMGButton {
+        id: logButton
+        img_src:"qrc:/img/log.png"
+        width: 75
+        mToolTipText: "Open Log"
+        mDefaultColor: "darkgrey"
+        mHoverColor: Constants.FOREGROUND_COLOR
+        mClickColor:Qt.rgba(Constants.ACCENT_COLOR1.r, Constants.ACCENT_COLOR1.g, Constants.ACCENT_COLOR1.b, 0.5)
+
+        anchors {
+            top: parent.top
+            right: parent.right
+
+            rightMargin: 100
+            topMargin: 50
+        }
+
+        onClicked: {
+            busyIndicator.pieck("grey", "Logs")
+        }
+    }
+
     ScrollView {
         id: scrollOptions
         width: 3/8 * rootSideBar.width

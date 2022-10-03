@@ -136,20 +136,20 @@ Frame {
         }
     }
     
-    MIMGButton {
-        id: saveButton
-        img_src:"qrc:/img/download.png"
-        z: 1
-        mToolTipText: "Export"
+    // MIMGButton {
+    //     id: saveButton
+    //     img_src:"qrc:/img/download.png"
+    //     z: 1
+    //     mToolTipText: "Export"
 
-        anchors {
-            bottom: parent.bottom
-            right: parent.right
+    //     anchors {
+    //         bottom: parent.bottom
+    //         right: parent.right
 
-            margins: 20
-        }
+    //         margins: 20
+    //     }
 
-    }
+    // }
 
     SwipeView {
         id: rootSwipe
