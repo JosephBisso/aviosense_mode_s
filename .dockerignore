@@ -1,0 +1,11 @@
+.git
+.vscode
+build
+dist
+lib
+mode_s
+mode_s.build
+scripts
+*.*
+!requirements.txt
+!lib/*.whl

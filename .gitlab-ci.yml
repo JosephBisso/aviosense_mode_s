@@ -1,0 +1,29 @@
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == "develop"
+      when: always
+    - if: $CI_COMMIT_MESSAGE =~ '/*no_docker*/'
+      variables:
+        BUILD_IMG: "OFF"
+
+stages:
+  - build_img
+  - bundle
+  - deploy
+
+variables:
+  BUILD_IMG:
+    value: "OFF"
+    description: "ON/OFF - Whether a new docker image should be build"
+  DEPLOY:
+    value: "OFF"
+    description: "ON/OFF -  Whether the builds should be push to the package registry"
+
+default:
+  image: $CI_REGISTRY_IMAGE:v1.0
+  
+
+build_docker_img:
+  stage: build_img
+  
+  
