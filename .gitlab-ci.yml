@@ -2,6 +2,9 @@ workflow:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == "develop"
       when: always
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH != "develop"
+      variables:
+        DEPLOY: "OFF"
 
 stages:
   - test
@@ -10,6 +13,9 @@ stages:
 
 variables:
   GIT_STRATEGY: clone
+  DEPLOY:
+    value: "OFF"
+    description: "ON/OFF - Whether the builds should be deployed"
 
 default:
   tags:
@@ -32,6 +38,8 @@ bundle:
       - dist\mode_s
       - .\mode_s.spec
       - bundle
+  rules:
+    - if: $DEPLOY == "ON"
   
 pages:
   stage: deploy
@@ -45,5 +53,9 @@ pages:
   artifacts:
     paths:
     - ./public
+  needs:
+    - bundle
+  rules:
+    - if: $DEPLOY == "ON"
 
   
