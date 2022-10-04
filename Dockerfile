@@ -12,4 +12,6 @@ RUN pip install ./GDAL-3.4.2-cp37-cp37m-win_amd64.whl
 RUN pip install ./Fiona-1.8.21-cp37-cp37m-win_amd64.whl
 RUN pip install -r requirements.txt
 
+RUN pip install pyinstaller
+
 ENTRYPOINT ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
