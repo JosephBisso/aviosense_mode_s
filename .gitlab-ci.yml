@@ -24,7 +24,7 @@ default:
 cli-test:
   stage: test
   script:
-    - .\run.bat -t -v -d -la 46 -LA 56 -lo 4 -LO 16 -l 500000 -dl 1200 -n 7
+    - .\run.bat -t -v -d -la 46 -LA 56 -lo 4 -LO 16 -l 500000 -dl 1200 -n 7 --plot-all -p heat_map
   allow_failure: true
 
 bundle:
