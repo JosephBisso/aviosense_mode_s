@@ -1,5 +1,5 @@
 pyinstaller --windowed --noconfirm --onedir `
-            --name "Mode_S" `
+            --name "mode_s" `
             --add-data "README.md;." `
             --icon "./mode_s/gui/img/mode_s.ico" `
             --splash "./mode_s/gui/img/splash.png" `

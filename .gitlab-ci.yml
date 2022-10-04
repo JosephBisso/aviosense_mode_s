@@ -49,8 +49,8 @@ pages:
     GIT_SUBMODULE_STRATEGY: none
   script:
     - New-Item -ItemType Directory -Force -Path public
-    - Copy-Item bundle\* -Recurse -Destination \public"
-    - Write-Output ("Download Page >> $CI_PAGES_URL")
+    - Copy-Item bundle\* -Recurse -Destination public
+    - Write-Output "Download Page -- $CI_PAGES_URL"
   artifacts:
     paths:
     - ./public
