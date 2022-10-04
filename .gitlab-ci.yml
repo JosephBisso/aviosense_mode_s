@@ -14,7 +14,7 @@ stages:
 variables:
   GIT_STRATEGY: clone
   DEPLOY:
-    value: "OFF"
+    value: "ON"
     description: "ON/OFF - Whether the builds should be deployed"
 
 default:
@@ -30,14 +30,13 @@ cli-test:
 bundle:
   stage: bundle
   script:
+    - . pyside2-rcc ".\mode_s\gui\gui.qrc" -o "$(Get-Location)\mode_s\gui\qrc_gui.py" 
     - .\build.ps1
     - type .\mode_s.spec
     - Compress-Archive .\dist\mode_s\ -DestinationPath mode_s.zip
     - Move-Item mode_s.zip -Destination bundle
   artifacts:
     paths:
-      - dist\mode_s
-      - .\mode_s.spec
       - bundle
   rules:
     - if: $DEPLOY == "ON"
