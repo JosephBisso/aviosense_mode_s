@@ -1,0 +1,62 @@
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == "develop"
+      when: always
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH && $CI_COMMIT_BRANCH != "develop"
+      variables:
+        DEPLOY: "OFF"
+
+stages:
+  - test
+  - bundle
+  - deploy
+
+variables:
+  GIT_STRATEGY: clone
+  DEPLOY:
+    value: "OFF"
+    description: "ON/OFF - Whether the builds should be deployed"
+
+default:
+  tags:
+    - LOCAL
+
+cli-test:
+  stage: test
+  script:
+    - .\run.bat -t -v -d -la 46 -LA 56 -lo 4 -LO 16 -l 500000 -dl 1200 -n 7 --plot-all -p heat_map
+  allow_failure: true
+
+bundle:
+  stage: bundle
+  script:
+    - .\build.ps1
+    - type .\mode_s.spec
+    - Compress-Archive .\dist\mode_s\ -DestinationPath mode_s.zip
+    - Move-Item mode_s.zip -Destination bundle
+  artifacts:
+    paths:
+      - dist\mode_s
+      - .\mode_s.spec
+      - bundle
+  rules:
+    - if: $DEPLOY == "ON"
+  
+pages:
+  stage: deploy
+  variables:
+    GIT_STRATEGY: none
+    GIT_SUBMODULE_STRATEGY: none
+  script:
+    - New-Item -ItemType Directory -Force -Path public
+    - Copy-Item bundle\* -Recurse -Destination public
+    - Write-Output "Download Page -- $CI_PAGES_URL"
+  artifacts:
+    paths:
+    - ./public
+  needs:
+    - bundle
+  rules:
+    - if: $DEPLOY == "ON"
+
+  
