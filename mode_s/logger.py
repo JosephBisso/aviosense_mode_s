@@ -95,7 +95,7 @@ class Logger(QObject):
         if self.terminal or self.verbose:
             print(colors.BLUE_BACK + "PROGRESS:: " + str(time.hour) + ":" + str(time.minute) + ":" + str(time.second) + " ::", colors.ENDC, LOGGER_CONSTANTS.PROGRESS_BAR, *args)
 
-        self.logged.emit(f"<p style='background-color:DodgerBlue;'>PROGRESS: : {str(time.hour)}: {str(time.minute)}: {str(time.second)} : : <i style='color:White;'>" + " ".join([str(msg) for msg in args]) + "</i></p>\n")
+        # self.logged.emit(f"<p style='background-color:DodgerBlue;'>PROGRESS: : {str(time.hour)}: {str(time.minute)}: {str(time.second)} : : <i style='color:White;'>" + " ".join([str(msg) for msg in args]) + "</i></p>\n")
         id_index = args[0].find("ID_")
         progressID = args[0][id_index:id_index + 6]
         self.progressed.emit(progressID, " ".join([str(msg) for msg in args]))

@@ -5,7 +5,7 @@ import json
 import multiprocessing
 import concurrent.futures
 from collections import namedtuple
-from typing import Any, Dict, NamedTuple, List
+from typing import Any, Dict, NamedTuple, List, Union
 
 
 from PySide2.QtQml import QQmlApplicationEngine, QQmlDebuggingEnabler
@@ -17,7 +17,7 @@ sys.path.append(os.getcwd())
 
 import process
 from logger import Logger
-from database import Database
+from database import Database, DatabaseError
 from constants import *
 import engine as ModeSEngine
 
@@ -188,6 +188,19 @@ class Mode_S(QObject):
                                 
         self.engine.setEngineParameters(**data)
         self.engineFilterUpdated.emit()
+
+    @Slot(str)
+    def updateLoginData(self, loginJson: str): 
+        data: Dict[str, str] = self.__checkParam(loginJson)
+                                
+        if not self.db.setLogin(**data):
+            self.logger.critical("Cannot connect to Database with following login data:", data)
+
+    @Slot(str)
+    def updateDBColumnsName(self, columnsNameJson: str): 
+        data: Dict[str, str] = self.__checkParam(columnsNameJson)
+                                
+        self.db.setValidDBColumnsNames(**data)
     
     @Slot()
     def actualizeDB(self):
@@ -572,14 +585,6 @@ if __name__ == "__main__":
     if not args.terminal:
         import gui.qrc_gui
 
-    if args.local:
-        #For Local Use only
-        DB_CONSTANTS.HOSTNAME = None
-        DB_CONSTANTS.DATABASE_NAME = "local_mode_s"
-        DB_CONSTANTS.USER_NAME = "root"
-        DB_CONSTANTS.PASSWORD = "BisbiDb2022?"
-        DB_CONSTANTS.TABLE_NAME = "tbl_mode_s"
-        
     
     sys.argv += ['--style', 'Fusion']
     app = QApplication(sys.argv)
@@ -587,6 +592,38 @@ if __name__ == "__main__":
     app.setOrganizationDomain("tu-braunschweig.de")
     app.setApplicationName("Mode_S Analysis")
     app.setWindowIcon(QIcon(":/img/mode_s.png"))
+
+    appSettings = QSettings()
+    
+    db_login: Dict[str, Union[str, int]] = {
+        "host_name": appSettings.value("parameters/host_name", "tubs.skysquitter.com"),
+        "db_port": appSettings.value("parameters/db_port", 3307),
+        "db_name": appSettings.value("parameters/db_name", "db_airdata"),
+        "user_name": appSettings.value("parameters/user_name", "tubs"),
+        "table_name": appSettings.value("parameters/table_name", "DILAB-2022"),
+        "password": appSettings.value("parameters/password", "tbl_tubs")
+    }
+    
+    db_column_names = None
+
+    if args.local:
+        #For Local Use only
+        db_login["host_name"] = None
+        db_login["db_port"] = None
+        db_login["db_name"] = "local_mode_s"
+        db_login["user_name"] = "root"
+        db_login["table_name"] = "tbl_mode_s"
+        db_login["password"] = "BisbiDb2022?"
+        
+        db_column_names = {
+            "bar": "barometric_altitude_rate",
+            "ivv": "inertial_vertical_velocity"
+        }
+        
+    if db_login["db_port"] is not None and db_login["db_port"].isdigit():
+        db_login["db_port"] = int(db_login["db_port"])
+    else:
+        db_login["db_port"] = None
 
     if args.debug:
         debugger = QQmlDebuggingEnabler()
@@ -601,10 +638,15 @@ if __name__ == "__main__":
     )
 
     db = Database(logger=logger)
+    db.setLogin(**db_login)
+    if db_column_names:
+        db.setValidDBColumnsNames(**db_column_names)
+        
     modeSEngine = ModeSEngine.Engine(logger=logger)
     
     db.setProcessExecutor(processPoolExecutor)
     modeSEngine.setProcessExecutor(processPoolExecutor)
+
 
     qInstallMessageHandler(qt_message_handler)
     

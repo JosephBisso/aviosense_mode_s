@@ -8,15 +8,17 @@ from typing import List, Dict, Union
 
 from constants import DB_CONSTANTS, DATA, LOCATION_DATA, WINDOW_DATA
 
-def query(queries: List[str], elements: List[str] = [], knownIdents: Dict[str,str]={}, query_id:int = 0) -> List[Dict[str, Union[int, str]]]:
+def query(queries: List[str], elements: List[str] = [], knownIdents: Dict[str,str]={}, query_id:int = 0, login: Dict[str, str] = {}) -> List[Dict[str, Union[int, str]]]:
     name = "db_process_" + str(query_id)
 
     db = QtSql.QSqlDatabase.addDatabase("QMYSQL", name)
-    db.setDatabaseName(DB_CONSTANTS.DATABASE_NAME)
-    db.setUserName(DB_CONSTANTS.USER_NAME)
-    db.setPassword(DB_CONSTANTS.PASSWORD)
-    if DB_CONSTANTS.HOSTNAME: 
-        db.setHostName(DB_CONSTANTS.HOSTNAME)
+    db.setDatabaseName(login["db_name"])
+    db.setUserName(login["user_name"])
+    db.setPassword(login["password"])
+    if login.get("host_name"):
+        db.setHostName(login["host_name"])
+    if login.get("db_port"):
+        db.setPort(login["db_port"])
 
     if not db.open():
         raise ConnectionError("Database " + name +
@@ -45,10 +47,11 @@ def query(queries: List[str], elements: List[str] = [], knownIdents: Dict[str,st
                 else:
                     entry[el] = value
                     
-            if knownIdents and knownIdents.get(entry["address"]):
-                entry["identification"] = knownIdents[entry["address"]]
-            else:
-                entry["identification"] = DB_CONSTANTS.NO_IDENTIFICATION
+            if entry.get("identification") is None:
+                if knownIdents and knownIdents.get(entry["address"]):
+                    entry["identification"] = knownIdents[entry["address"]]
+                else:
+                    entry["identification"] = DB_CONSTANTS.NO_IDENTIFICATION
 
             allQueriesResults.append(entry)
         

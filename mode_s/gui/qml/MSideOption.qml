@@ -20,19 +20,11 @@ ColumnLayout {
     spacing: 10
 
     function toogle() {
-        if (rootSideOption.folded) {
-             options = foldedItems
-        } else {
-            foldedItems = options
-            options = emptyListModel
-        }
         rootSideOption.folded = !rootSideOption.folded
     }
 
     function close() {
         if (rootSideOption.folded) {return}
-        foldedItems = options
-        options = emptyListModel
         rootSideOption.folded = true
     }
 
@@ -62,6 +54,7 @@ ColumnLayout {
 
     signal edited()
 
+    Component.onCompleted: {rootSideOption.close()}
     Component.onDestruction: {
         console.info(`Saving Configurations for ${title}...`)
         for(let i = 0; i < allOptions.count; i++) {
@@ -147,6 +140,7 @@ ColumnLayout {
             radius: 10
             color: Constants.GLASSY_BACKGROUND
             clip: true
+            visible: !rootSideOption.folded
             property string name: option_name
             property string identification: option_id
             property string value: appSettings.value(identification, option_value)
@@ -169,6 +163,7 @@ ColumnLayout {
                 property string textBefore
                 property RegularExpressionValidator rangeValidator: RegularExpressionValidator{regularExpression: /^[aA]((ll)|uto)$|^[Nn]one$|^\d+(-\d+)?$/}
                 property RegularExpressionValidator valueValidator: RegularExpressionValidator{regularExpression: /^[aA]((ll)|uto)$|^[Nn]one$|^\d+$/}
+                property RegularExpressionValidator stringValidator: RegularExpressionValidator{regularExpression: /.*/}
                 anchors {
                     horizontalCenter: rectDelegate.horizontalCenter
                     verticalCenter: rectDelegate.verticalCenter
@@ -179,7 +174,11 @@ ColumnLayout {
                 font: Constants.FONT_SMALL
                 color: Constants.FONT_COLOR
                 readOnly: false
-                validator:  option_type == "range" ? rangeValidator : valueValidator  
+                echoMode: {option_id === "password"? TextInput.PasswordEchoOnEdit : TextInput.Normal}
+                validator: {
+                    if (option_type === "string") {return stringValidator}
+                    return option_type === "range" ? rangeValidator : valueValidator 
+                }
                 onFocusChanged: delegateTextField.accepted()
                 onAccepted: {
                     if(textBefore !== text) {

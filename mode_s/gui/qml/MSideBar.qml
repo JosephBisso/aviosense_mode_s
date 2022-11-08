@@ -48,7 +48,19 @@ Drawer {
         return engineDataJson
     }
 
+    function getLoginData() {
+        let loginDataJson = JSON.stringify(logins.getData())
+        return loginDataJson
+    }
+
+    function getDBColumnsName() {
+        let dbColumnName = JSON.stringify(db_columns.getData())
+        return dbColumnName
+    }
+
     function sendDbParams() {
+        sendLoginParams()
+        sendDBColumnsName()
         console.info("Transmitting data to database")
         let allData = rootSideBar.getDBData()
         __mode_s.updateDBFilter(allData)
@@ -66,6 +78,17 @@ Drawer {
         let engineData = rootSideBar.getEngineData()
         __mode_s.updateDBFilter(dbData)
         __mode_s.updateEngineFilter(engineData)
+    }
+
+    function sendLoginParams() {
+        console.info("Transmitting login data")
+        let loginData = rootSideBar.getLoginData()
+        __mode_s.updateLoginData(loginData)
+    }
+    function sendDBColumnsName() {
+        console.info("Transmitting DB Columns Name")
+        let dbColumnName = rootSideBar.getDBColumnsName()
+        __mode_s.updateDBColumnsName(dbColumnName)
     }
 
     Image {
@@ -202,10 +225,13 @@ Drawer {
         }
 
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        ScrollBar.vertical.stepSize: 1
+        onContentHeightChanged: scrollOptions.ScrollBar.vertical.increase()
 
         ColumnLayout {
+            id: optionColumn
             spacing: rootSideBar.verticalMarginItems
-            anchors.fill: parent
+            anchors.centerIn: parent
             MSideOption {
                 id: database
                 img_src: "qrc:/img/database.png"
@@ -268,20 +294,108 @@ Drawer {
                     rootSideBar.edited = true
                 }
             }
+
+            Rectangle {
+                width: scrollOptions.width
+                height: 3
+                radius: 3
+                color: Constants.FONT_COLOR
+            }
+
+            MSideOption {
+                id: logins
+                img_src: "qrc:/img/params.png"
+                title: "Logins"
+                Layout.fillWidth: true
+
+                options: ListModel {
+                    id: loginsOptions
+                    ListElement {
+                        option_name: "Host"
+                        option_value: "tubs.skysquitter.com"
+                        option_id:"host_name"
+                        option_type:"string"
+
+                    }
+                    ListElement {
+                        option_name: "Port"
+                        option_value: "Auto"
+                        option_id:"db_port"
+                        option_type:"value"
+
+                    }
+                    ListElement {
+                        option_name: "Database"
+                        option_value: "db_airdata"
+                        option_id:"db_name"
+                        option_type:"string"
+
+                    }
+                    ListElement {
+                        option_name: "User"
+                        option_value: "tubs"
+                        option_id:"user_name"
+                        option_type:"string"
+
+                    }
+                    ListElement {
+                        option_name: "Table"
+                        option_value: "tbl_tubs"
+                        option_id:"table_name"
+                        option_type:"string"
+
+                    }
+                    ListElement {
+                        option_name: "Password"
+                        option_value: "DILAB-2022"
+                        option_id: "password"
+                        option_type:"string"
+                    }
+                }
+
+                onEdited: {
+                    if (rootSideBar.edited){return}
+                    rootSideBar.edited = true
+                }
+            }
+
+            Rectangle {
+                width: scrollOptions.width
+                height: 3
+                radius: 3
+                color: Constants.FONT_COLOR
+            }
+
+            MSideOption {
+                id: db_columns
+                img_src: "qrc:/img/vertical.png"
+                title: "DB Column Names"
+                Layout.fillWidth: true
+
+                options: ListModel {
+                    id: columnsOptions
+                    ListElement {
+                        option_name: "Bar"
+                        option_value: "bds60_barometric_altitude_rate"
+                        option_id:"column_bar"
+                        option_type:"string"
+
+                    }
+                    ListElement {
+                        option_name: "Ivv"
+                        option_value: "bds60_inertial_vertical_velocity"
+                        option_id:"column_ivv"
+                        option_type:"string"
+
+                    }
+                }
+
+                onEdited: {
+                    if (rootSideBar.edited){return}
+                    rootSideBar.edited = true
+                }
+            }
         }
     }
-
-    // MSideOption {
-    //     id: params
-    //     img_src: "qrc:/img/params.png"
-    //     title: "Preferences"
-
-    //     anchors {
-    //         bottom: parent.bottom
-    //         left:parent.left
-    //         leftMargin: rootSideBar.leftMarginTitle
-    //         bottomMargin: rootSideBar.verticalMarginItems
-    //     }
-    // }
 
 }

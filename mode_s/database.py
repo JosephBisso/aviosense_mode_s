@@ -40,6 +40,20 @@ class Database:
     
     data:List[Dict[str, Union[str, float]]] = []
     
+    login: Dict[str, str] = {
+        "host_name": None,
+        "db_port": None,
+        "db_name": None,
+        "user_name": None,
+        "table_name": None,
+        "password": None
+    }
+    
+    validDBColumns: Dict[str, str] = {
+        "bar": "bds60_barometric_altitude_rate",
+        "ivv": "bds60_inertial_vertical_velocity",
+    }
+    
     def __init__(self, logger: Logger):        
         self.logger: Logger = logger
     
@@ -49,7 +63,6 @@ class Database:
         started = True
         executor = self.__executor()
         try:
-            self.__testDBConnection()
             rowCount__future = executor.submit(self.__getDBInformation)
             rowCount__future.add_done_callback(self.__backgroundWorkFinished)
             self.backgroundFutures.append(rowCount__future)
@@ -57,8 +70,6 @@ class Database:
         except DatabaseError as de:
             self.logger.critical(str(de))
             started = False
-        finally:
-            QtSql.QSqlDatabase.removeDatabase("testDB")
 
         executor.shutdown()
         return started
@@ -90,7 +101,31 @@ class Database:
     def waitUntilReady(self) -> bool:
         concurrent.futures.wait(self.backgroundFutures)
         return True
-
+    
+    def setLogin(self, **loginData) -> bool:
+        Done = True
+        for el in loginData:
+            self.login[el] = loginData[el]
+            
+        try:
+            self.__testDBConnection()
+            self.logger.log("Login Info")
+            for el in loginData:
+                self.logger.log(f"{el}  \t: {self.login[el]}")
+        except DatabaseError:
+            Done = False
+        finally:
+            QtSql.QSqlDatabase.removeDatabase("testDB")
+            return Done
+        
+    def setValidDBColumnsNames(self, **dbColumnsName) -> bool:
+        for el in dbColumnsName:
+            self.login[el] = dbColumnsName[el]
+        
+        self.logger.log(f"Using Following Columns Name")
+        for el in dbColumnsName:
+            self.logger.log(f"{el}  \t-> {self.login[el]}")
+            
     def setDatabaseParameters(self, **params):
         self.waitUntilReady()
         self.logger.info("Setting Database Parameters")
@@ -126,26 +161,26 @@ class Database:
         if params.get("duration_limit"):
             self.logger.log("Setting duration limit to", params["duration_limit"] ,"minutes")
             lastPossibleTimestamp = self.LAST_DB_UPDATE.addSecs(-params["duration_limit"] * 60).toString("yyyy-MM-dd hh:mm:ss")
-            self.strFilter = self.__addFilter(f"{DB_CONSTANTS.TABLE_NAME}.timestamp >= '{lastPossibleTimestamp}'", attribute="timestamp")
+            self.strFilter = self.__addFilter(f"{self.login['table_name']}.timestamp >= '{lastPossibleTimestamp}'", attribute="timestamp")
             self.logger.debug("Last possible timestamp  " + lastPossibleTimestamp)
 
         if params.get("latitude_min"):
-            self.strFilter = self.__addFilter(f"{DB_CONSTANTS.TABLE_NAME}.latitude >= {params['latitude_min']}", attribute="latitude")
+            self.strFilter = self.__addFilter(f"{self.login['table_name']}.latitude >= {params['latitude_min']}", attribute="latitude")
             self.logger.log("Setting minimal latitude to", params["latitude_min"])
         if params.get("latitude_max"):
-            self.strFilter = self.__addFilter(f"{DB_CONSTANTS.TABLE_NAME}.latitude <= {params['latitude_max']}", attribute="latitude")
+            self.strFilter = self.__addFilter(f"{self.login['table_name']}.latitude <= {params['latitude_max']}", attribute="latitude")
             self.logger.log("Setting maximal latitude to", params["latitude_max"])
         if params.get("longitude_min"):
-            self.strFilter = self.__addFilter(f"{DB_CONSTANTS.TABLE_NAME}.longitude >= {params['longitude_min']}", attribute="longitude")
+            self.strFilter = self.__addFilter(f"{self.login['table_name']}.longitude >= {params['longitude_min']}", attribute="longitude")
             self.logger.log("Setting minimal longitude to", params["longitude_min"])
         if params.get("longitude_max"):
-            self.strFilter = self.__addFilter(f"{DB_CONSTANTS.TABLE_NAME}.longitude <= {params['longitude_max']}", attribute="longitude")
+            self.strFilter = self.__addFilter(f"{self.login['table_name']}.longitude <= {params['longitude_max']}", attribute="longitude")
             self.logger.log("Setting maximal longitude to", params["longitude_max"])
         if params.get("id_min"):
-            self.strFilter = self.__addFilter(f"{DB_CONSTANTS.TABLE_NAME}.id >= {params['id_min']}", attribute="id")
+            self.strFilter = self.__addFilter(f"{self.login['table_name']}.id >= {params['id_min']}", attribute="id")
             self.logger.log("Setting minimal  to", params["id_min"])
         if params.get("id_max"):
-            self.strFilter = self.__addFilter(f"{DB_CONSTANTS.TABLE_NAME}.id <=  {params['id_max']}", attribute="id")
+            self.strFilter = self.__addFilter(f"{self.login['table_name']}.id <=  {params['id_max']}", attribute="id")
             self.logger.log("Setting maximal  to", params["id_max"])
             
         self.logger.info("Setting query filter to: " + self.strFilter)
@@ -170,7 +205,8 @@ class Database:
                 pack = queries[startIndex : endIndex]
                 if not pack:
                     continue
-                threadedQueries.append(self.pExecutor.submit(process.query, pack, attributes, self.knownIdents, DB_CONSTANTS.CONNECTIONS_TOTAL))
+                connectionTotal = DB_CONSTANTS.CONNECTIONS_TOTAL
+                threadedQueries.append(self.pExecutor.submit(process.query, pack, attributes, self.knownIdents, connectionTotal, self.login))
                 
             for completedQuery in concurrent.futures.as_completed(threadedQueries):
                 try:
@@ -228,7 +264,7 @@ class Database:
         valid = True
         try:
             barAndIvv = self.getFromDB(["address", "timestamp", "bar", "ivv"], options={
-                "not_null_values": ["barometric_altitude_rate", "inertial_vertical_velocity"], "limit": int(int(self.limit) / 2)})
+                "not_null_values": [self.validDBColumns["bar"], self.validDBColumns["ivv"]], "limit": int(int(self.limit) / 2)})
             
             self.logger.progress(LOGGER_CONSTANTS.DATABASE, "Actualizing Database [1/2]")
             
@@ -277,18 +313,21 @@ class Database:
             raise DatabaseError("Database not accessible")
     
     def __setUp(self, db: QtSql.QSqlDatabase):
-        db.setDatabaseName(DB_CONSTANTS.DATABASE_NAME)
-        db.setUserName(DB_CONSTANTS.USER_NAME)
-        db.setPassword(DB_CONSTANTS.PASSWORD)
-        if DB_CONSTANTS.HOSTNAME: db.setHostName(DB_CONSTANTS.HOSTNAME)
+        db.setDatabaseName(self.login["db_name"])
+        db.setUserName(self.login["user_name"])
+        db.setPassword(self.login["password"])
+        if self.login.get("host_name"):
+            db.setHostName(self.login["host_name"])
+        if self.login.get("db_port"):
+            db.setPort(self.login["db_port"])
 
     def __getDBRowCount(self):
-        count, dbName = self.__query(f"SELECT COUNT(*) AS rowCount FROM {DB_CONSTANTS.TABLE_NAME}", ["rowCount"])
+        count, dbName = self.__query(f"SELECT COUNT(*) AS rowCount FROM {self.login['table_name']}", ["rowCount"])
         self.ROW_COUNT = count[0]["rowCount"]
 
         if self.ROW_COUNT == 0:
-            raise DatabaseError(f"Row count of Table {DB_CONSTANTS.TABLE_NAME} should not be 0 !")
-        self.logger.log(f"Row Count for table {DB_CONSTANTS.TABLE_NAME}: " + str(self.ROW_COUNT))
+            raise DatabaseError(f"Row count of Table {self.login['table_name']} should not be 0 !")
+        self.logger.log(f"Row Count for table {self.login['table_name']}: " + str(self.ROW_COUNT))
 
         QtSql.QSqlDatabase.removeDatabase(dbName)
 
@@ -350,13 +389,10 @@ class Database:
 
         for index, attrib in enumerate(attributes):
             if attrib == "bar":
-                selectStr += "barometric_altitude_rate AS bar"
+                selectStr += f"{self.validDBColumns['bar']} AS bar"
             elif attrib == "ivv":
-                selectStr += "inertial_vertical_velocity AS ivv"
+                selectStr += f"{self.validDBColumns['ivv']} AS ivv"
             else:
-                if not attrib in DB_CONSTANTS.VALID_DB_COLUMNS:
-                    raise DatabaseError(
-                        "Attribute: " + attrib + " not valid")
                 selectStr += attrib
             selectStr += ", " if index < (len(attributes) - 1) else " "
 
@@ -422,11 +458,11 @@ class Database:
                     allUsedAddressFilter.append(addressFilter) #Adding duplicate
     
         if allUsedAddressFilter:
-            queries = [(selectStr + f" FROM {DB_CONSTANTS.TABLE_NAME} " + usedAddressFilter + orderStr + offsetStr) for usedAddressFilter in allUsedAddressFilter]
+            queries = [(selectStr + f" FROM {self.login['table_name']} " + usedAddressFilter + orderStr + offsetStr) for usedAddressFilter in allUsedAddressFilter]
         else:
-            queries = [(selectStr + f" FROM {DB_CONSTANTS.TABLE_NAME} " + whereStr + orderStr + offset) for offset in offsetStr]
+            queries = [(selectStr + f" FROM {self.login['table_name']} " + whereStr + orderStr + offset) for offset in offsetStr]
 
-        # queries = [(selectStr + f" FROM {DB_CONSTANTS.TABLE_NAME} " + whereStr + orderStr + offset) for offset in offsetStr]
+        # queries = [(selectStr + f" FROM {self.login['table_name']} " + whereStr + orderStr + offset) for offset in offsetStr]
 
         for query in queries:
             self.logger.debug(query)
@@ -468,8 +504,11 @@ class Database:
 
     def __getLattestDBTimeStamp(self):
         time = self.getFromDB( ["timestamp"], options = {"not_null_values": ["timestamp"], "limit": 1})
-        self.LAST_DB_UPDATE = QDateTime.fromMSecsSinceEpoch(int(time[0]["timestamp"]) / 10**6)
-        self.logger.log("Lattest database db_airdata update: " + self.LAST_DB_UPDATE.toString("yyyy-MM-dd hh:mm:ss"))
+        if time:
+            self.LAST_DB_UPDATE = QDateTime.fromMSecsSinceEpoch(int(time[0]["timestamp"]) / 10**6)
+            self.logger.log(f"Latest database {self.login['db_name']} update: " + self.LAST_DB_UPDATE.toString("yyyy-MM-dd hh:mm:ss"))
+        else:
+            self.logger.warning("Could not fetch latest database update. Using current date as latest update")
 
     def __getDBInformation(self):
         self.__getDBRowCount()
