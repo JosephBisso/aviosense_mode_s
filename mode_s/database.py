@@ -50,8 +50,8 @@ class Database:
     }
     
     validDBColumns: Dict[str, str] = {
-        "bar": "bds60_barometric_altitude_rate",
-        "ivv": "bds60_inertial_vertical_velocity",
+        "column_bar": "bds60_barometric_altitude_rate",
+        "column_ivv": "bds60_inertial_vertical_velocity",
     }
     
     def __init__(self, logger: Logger):        
@@ -264,7 +264,7 @@ class Database:
         valid = True
         try:
             barAndIvv = self.getFromDB(["address", "timestamp", "bar", "ivv"], options={
-                "not_null_values": [self.validDBColumns["bar"], self.validDBColumns["ivv"]], "limit": int(int(self.limit) / 2)})
+                "not_null_values": [self.validDBColumns["column_bar"], self.validDBColumns["column_ivv"]], "limit": int(int(self.limit) / 2)})
             
             self.logger.progress(LOGGER_CONSTANTS.DATABASE, "Actualizing Database [1/2]")
             
@@ -389,9 +389,9 @@ class Database:
 
         for index, attrib in enumerate(attributes):
             if attrib == "bar":
-                selectStr += f"{self.validDBColumns['bar']} AS bar"
+                selectStr += f"{self.validDBColumns['column_bar']} AS bar"
             elif attrib == "ivv":
-                selectStr += f"{self.validDBColumns['ivv']} AS ivv"
+                selectStr += f"{self.validDBColumns['column_ivv']} AS ivv"
             else:
                 selectStr += attrib
             selectStr += ", " if index < (len(attributes) - 1) else " "

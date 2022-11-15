@@ -24,6 +24,7 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
+        __mode_s.printFullLogPath()
         __mode_s.startDatabase()
     }
 

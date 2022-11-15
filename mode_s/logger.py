@@ -31,8 +31,13 @@ class Logger(QObject):
         self.debugging = debug     
 
         self.queue = queue.Queue()
-        self.daemon = LoggerDaemon(self.queue)
+        self.logPath = os.path.join(os.getcwd(), "mode_s.log")
+        self.daemon = LoggerDaemon(self.queue, self.logPath)
         self.daemon.start()
+        
+        
+    def printLogFullPath(self):
+        self.log("Full Path:", self.logPath)        
     
     def debug(self, *args):
         time = datetime.now()
@@ -127,10 +132,10 @@ class Logger(QObject):
 
 
 class LoggerDaemon(threading.Thread):
-    def __init__(self, q):
+    def __init__(self, q, logPath):
         threading.Thread.__init__(self, name="LoggerDaemon", daemon=True)
         self.q: queue.Queue = q
-        self.outputFile = os.path.join(os.getcwd(), "mode_s.log")
+        self.outputFile = logPath
 
         with open(self.outputFile, "w") as output:
             output.write(str(datetime.now()) + ":: Starting MODE_S\n")

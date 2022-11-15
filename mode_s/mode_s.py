@@ -168,6 +168,10 @@ class Mode_S(QObject):
     def setProcessExecutor(self, ex: concurrent.futures.ProcessPoolExecutor):
         self.pExecutor = ex
 
+    @Slot()
+    def printFullLogPath(self):
+        self.logger.printLogFullPath()
+        
     @Slot(str, result=None)
     def updateDBFilter(self, dbJson: str): 
         self.computingStarted.emit()
@@ -616,11 +620,11 @@ if __name__ == "__main__":
         db_login["password"] = "BisbiDb2022?"
         
         db_column_names = {
-            "bar": "barometric_altitude_rate",
-            "ivv": "inertial_vertical_velocity"
+            "column_bar": "barometric_altitude_rate",
+            "column_ivv": "inertial_vertical_velocity"
         }
         
-    if db_login["db_port"] is not None and db_login["db_port"].isdigit():
+    if db_login["db_port"] is not None and isinstance(db_login["db_port"], str) and db_login["db_port"].isdigit():
         db_login["db_port"] = int(db_login["db_port"])
     else:
         db_login["db_port"] = None
