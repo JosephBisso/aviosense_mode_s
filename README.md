@@ -1,6 +1,6 @@
 # Aviosense MODE_S
-Quantitative analysis of MODE-S information on the possible turbulence assessment of commercial aircraft
-
+Quantitative analysis of MODE-S information on the possible turbulence assessment of commercial aircraft <br><br>
+[![GitHub release](https://img.shields.io/github/v/release/Josephbisso/aviosense_mode_s.svg)](https://github.com/JosephBisso/aviosense_mode_s/releases) 
 ## Description
 
 Processed data from many MODE-S receivers are available. These data comprise a large number of parameters in a high frequency. Using these data, statements on turbulence are to be made with the help of different approaches. Due to the very different aircraft characteristics, a normalized approach has to be used.
