@@ -145,5 +145,6 @@ class LoggerDaemon(threading.Thread):
             while True:
                 msg = self.q.get()
                 output.write(msg)
+                output.flush()
                 self.q.task_done()
                     
