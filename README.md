@@ -8,7 +8,7 @@ Processed data from many MODE-S receivers are available. These data comprise a l
 **Aviosense MODE_S** aims to make statements on turbulence using available data from MODE-S receiversn thanks a automated procedure for data transfer and calculation of the given approach while increasing the temporal and spatial scale of the data set used for the calculation 
 
 <div align="center">
-  <img src="https://github.com/JosephBisso/aviosense_mode_s/blob/develop/.github/readme/main%20view.png" width="500">
+  <img src="https://github.com/JosephBisso/aviosense_mode_s/blob/develop/.github/readme/main%20view.png" width="600">
   <img src="https://github.com/JosephBisso/aviosense_mode_s/blob/develop/.github/readme/map%20view.png"  width="500">
   <img src="https://github.com/JosephBisso/aviosense_mode_s/blob/develop/.github/readme/raw%20view.png" width="500">
   <img src="https://github.com/JosephBisso/aviosense_mode_s/blob/develop/.github/readme/kde%20view.png" width="500">
