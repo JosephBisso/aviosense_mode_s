@@ -1,13 +1,10 @@
-# PySide6==6.1.0
 wheel
-PySide2
-numpy
-matplotlib
-scipy
-pandas
-pyproj
-GDAL
-Fiona
-geopandas
-seaborn
+numpy==1.21.6
+scikit-learn==1.0.2
 sklearn
+matplotlib==3.5.2
+scipy==1.7.3
+pandas==1.3.5
+geopandas==0.10.2
+pyproj==3.2.1
+PySide2==5.15.2

@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 import threading
 from PySide2.QtCore import *
-from constants import LOGGER_CONSTANTS
+from mode_s.constants import LOGGER_CONSTANTS
 import queue
 
 os.system("color")

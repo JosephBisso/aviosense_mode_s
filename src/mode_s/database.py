@@ -5,9 +5,9 @@ import multiprocessing
 import concurrent.futures
 from typing import List, Dict, Union
 
-import process
-from logger import Logger
-from constants import DB_CONSTANTS, LOGGER_CONSTANTS
+import mode_s.process as process
+from mode_s.logger import Logger
+from mode_s.constants import DB_CONSTANTS, LOGGER_CONSTANTS
 
 
 class DatabaseError(BaseException):

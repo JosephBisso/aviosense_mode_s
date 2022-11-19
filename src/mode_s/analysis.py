@@ -8,7 +8,7 @@ import numpy as np
 
 from PySide2 import QtPositioning
 
-from constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
+from mode_s.constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
 
 class Analysis:
     KDE_BAND_WIDTH: int = 0.5

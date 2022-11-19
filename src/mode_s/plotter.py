@@ -5,8 +5,8 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 
-from constants import GUI_CONSTANTS
-from constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
+from mode_s.constants import GUI_CONSTANTS
+from mode_s.constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
 
 class Plotter:
     USED_MEDIAN_FILTER: int = 0

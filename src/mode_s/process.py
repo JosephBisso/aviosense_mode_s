@@ -6,7 +6,7 @@ from sklearn.neighbors import KernelDensity
 
 from typing import List, Dict, Union
 
-from constants import DB_CONSTANTS, DATA, LOCATION_DATA, WINDOW_DATA
+from mode_s.constants import DB_CONSTANTS, DATA, LOCATION_DATA, WINDOW_DATA
 
 def query(queries: List[str], elements: List[str] = [], knownIdents: Dict[str,str]={}, query_id:int = 0, login: Dict[str, str] = {}) -> List[Dict[str, Union[int, str]]]:
     name = "db_process_" + str(query_id)

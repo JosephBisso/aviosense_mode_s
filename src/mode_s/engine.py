@@ -11,10 +11,10 @@ import numpy as np
 from scipy.signal import medfilt
 from sklearn.neighbors import KernelDensity
 
-import process
-from logger import Logger
-from constants import ENGINE_CONSTANTS, MODE_S_CONSTANTS, LOGGER_CONSTANTS
-from constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
+import mode_s.process as process
+from mode_s.logger import Logger
+from mode_s.constants import ENGINE_CONSTANTS, MODE_S_CONSTANTS, LOGGER_CONSTANTS
+from mode_s.constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
 
 
 class EngineError(BaseException):
@@ -124,11 +124,11 @@ class Engine:
             activePlots = self.plots
 
             if not usePlotter:
-                from analysis import Analysis
+                from mode_s.analysis import Analysis
                 Analysis.setKDEBandwidth(self.kdeBW)
                 activePlots = {plot: True for plot in ENGINE_CONSTANTS.PLOTS}
             else:
-                from plotter import Plotter
+                from mode_s.plotter import Plotter
                 Plotter.updateUsedMedianFilter(self.medianN)
                 Plotter.setKDEBandwidth(self.kdeBW)
 
