@@ -1,0 +1,16 @@
+name: Docker Image CI
+
+on:
+  push:
+    paths: [ "Dockerfile" ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build & Push the Docker image
+      run: | 
+        docker build . --file Dockerfile --tag py-mysql-7z:latest
+        echo $WF_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+        docker push ghcr.io
