@@ -1,0 +1,46 @@
+name: Test-Run & Deploy
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    container:
+      image:  ghcr.io/$GITHUB_ACTOR/py-mysql-7z
+      credentials:
+        username: ${{ github.actor }}
+        password:  $WF_TOKEN
+    steps:
+    - uses: actions/checkout@v3
+    - name: test-run
+    - shell: powershell 
+      run: | 
+        .\setup.ps1 --venv
+        .\run.ps1 -t -la 46 -LA 56 -lo 4 -LO 16 -l 500000 -dl 1200 -n 7 --plot-all -p heat_map
+    - with:
+        name: mode_s-log
+        path: src/mode_s.log
+
+
+  bundle:
+    runs-on: windows-latest
+    container:
+      image:  ghcr.io/$GITHUB_ACTOR/py-mysql-7z
+      credentials:
+        username: ${{ github.actor }}
+        password:  $WF_TOKEN
+    steps:
+    - uses: actions/checkout@v3
+    - name: bundle
+    - shell: powershell 
+      run: | 
+        .\setup.ps1 --venv
+        .\run.ps1 -h 
+        .\build.ps1
+        
+        cd dist/
+        7z a .\mode_s -mx9
+      with:
+        name: mode_s_bundle
+        path: dist/mode_s.7z
+        retention-days: 5
