@@ -141,6 +141,15 @@ optional arguments:
 
 ## Use the App
 
+## Build the binairies from Source
+
+If needed, you can build the binary from Source. You can use the `build.ps1` script or whatever tool you want.<br>
+You would need to install **pyinstaller** if you want to use the `build.ps1` script. Install it with the following command:
+
+```cmd
+pip install pyinstaller
+```
+
 ## Bugs and issues
 
 
