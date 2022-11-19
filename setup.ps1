@@ -1,6 +1,6 @@
 # Installing all Dependencies
 
-if ("--no-venv" -notin $args) {
+if ("--venv" -in $args) {
     if (Test-Path .\virtualenv) {
         $deactivate_venv = Get-Command deactivate -ErrorAction SilentlyContinue
         if ($deactivate_venv) {
@@ -11,7 +11,7 @@ if ("--no-venv" -notin $args) {
         Remove-Item .\virtualenv -Force -Recurse
     }
 
-    Write-Host "`n[0/2] Creating new virtual python environment (Recommanded)" -ForegroundColor Cyan
+    Write-Host "`n[0/2] Creating new virtual python environment" -ForegroundColor Cyan
     python -m venv .\virtualenv
     . .\virtualenv\Scripts\Activate.ps1
     if ($LASTEXITCODE -ne 0) {

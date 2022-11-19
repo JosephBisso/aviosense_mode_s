@@ -14,14 +14,14 @@ function Start-ModeS($arguments) {
         if ($qmllint) {
             . $qmllint $qmlFiles --check-unqualified 
             if ($LASTEXITCODE -eq 0) {
-                Write-Host ("`tDone.") -ForegroundColor Green
+                Write-Host ("`t`tDone.") -ForegroundColor Green
             }
             else {
-                Write-Host ("Warnings... Last exit code: $LASTEXITCODE") -ForegroundColor DarkYellow
+                Write-Host ("`t`tWarnings`n|-> Last exit code: $LASTEXITCODE") -ForegroundColor DarkYellow
             }         
         }
         else {
-            Write-Host ("`tSkipped`n|-> Cannot find qmllint.exe") -ForegroundColor DarkYellow
+            Write-Host ("`t`tSkipped`n|-> Cannot find qmllint.exe") -ForegroundColor DarkYellow
         }
     
     
@@ -33,22 +33,26 @@ function Start-ModeS($arguments) {
                 Write-Host ("`tDone.") -ForegroundColor Green
             }
             else {
-                Write-Host ("Warnings... Last exit code: $LASTEXITCODE") -ForegroundColor DarkYellow
+                Write-Host ("`tWarnings`n|-> Last exit code: $LASTEXITCODE") -ForegroundColor DarkYellow
             }          
         }
         else {
-            Write-Host ("`tError`n|->Cannot find pyside2_rcc.exe") -ForegroundColor Red
+            Write-Host ("`tError`n|-> Cannot find pyside2_rcc.exe") -ForegroundColor Red
         }
     }
     
     
-    Write-Host ("# Starting the app...") -ForegroundColor Cyan
+    if ("-v" -notin $arguments -and "-d" -notin $arguments) {
+        Write-Host ("# Starting the app...") -ForegroundColor Cyan -NoNewline
+    } else {
+        Write-Host ("# Starting the app...") -ForegroundColor Cyan 
+    }
     
     $app = Start-Process -FilePath "python" -ArgumentList "$(Get-Item .\src\app\main.py)", "$($arguments | Where-Object {$_ -ne "--loop"})" -WorkingDirectory "$(Get-Location)/src" -NoNewWindow -PassThru -Wait
     if ($app.ExitCode -eq 0) {
-        Write-Host ("`tDone.") -ForegroundColor Green
+        Write-Host ("`t`tDone.") -ForegroundColor Green
     } else {
-        Write-Host ("Warnings... Last exit code: $($app.ExitCode)") -ForegroundColor DarkYellow
+        Write-Host ("`t`tWarnings`n|-> Last exit code: $($app.ExitCode)") -ForegroundColor DarkYellow
     }         
 }
 
