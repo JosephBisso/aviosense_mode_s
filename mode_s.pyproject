@@ -1,5 +1,6 @@
 {
     "files": [
+        "src/app/main.py",
         "src/mode_s/mode_s.py",
         "src/mode_s/database.py",
         "src/mode_s/engine.py",
