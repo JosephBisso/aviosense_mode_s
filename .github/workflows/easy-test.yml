@@ -4,19 +4,8 @@ on: [push, pull_request]
 
 jobs:
 
-  prepare_docker:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v2.3.4
-      - uses: ./.github/actions/docker-image.yml
-
   test:
-    runs-on: windows-latest
-    container:
-      image:  ghcr.io/$GITHUB_ACTOR/py-mysql-7z
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+    runs-on: self-hosted
     steps:
     - name: test_run
       uses: actions/checkout@v3
@@ -34,12 +23,7 @@ jobs:
 
 
   bundle:
-    runs-on: windows-latest
-    container:
-      image:  ghcr.io/$GITHUB_ACTOR/py-mysql-7z
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+    runs-on: self-hosted
     steps:
     - name: bundle
       uses: actions/checkout@v3
@@ -51,11 +35,18 @@ jobs:
         .\build.ps1
         
         cd dist/
-        7z a .\mode_s -mx9
+        $zip = Get-Command 7z -ErrorAction SilentlyContinue
+        if($zip) {
+          7z a .\mode_s -mx9
+        } else {
+          Compress-Archive .\mode_s 
+        }
+
+        Remove-Item .\mode_s -Force -Recurse
         
     - name: results
       uses: actions/upload-artifact@v3
       with:
         name: mode_s_bundle
-        path: dist/mode_s.7z
+        path: dist/
         retention-days: 5
