@@ -7,6 +7,9 @@ jobs:
   prepare_docker:
     runs-on: windows-latest
     steps:
+      - name: clone
+        uses: actions/checkout@v3
+
       - name: Build Docker Image
         uses: ./.github/actions/docker-image.yml
 
@@ -16,7 +19,7 @@ jobs:
       image:  ghcr.io/$GITHUB_ACTOR/py-mysql-7z
       credentials:
         username: ${{ github.actor }}
-        password: ${{ secrets.WF_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
     - name: test_run
       uses: actions/checkout@v3
@@ -39,7 +42,7 @@ jobs:
       image:  ghcr.io/$GITHUB_ACTOR/py-mysql-7z
       credentials:
         username: ${{ github.actor }}
-        password: ${{ secrets.WF_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
     - name: bundle
       uses: actions/checkout@v3
