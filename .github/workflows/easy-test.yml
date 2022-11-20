@@ -7,11 +7,8 @@ jobs:
   prepare_docker:
     runs-on: windows-latest
     steps:
-      - name: clone
-        uses: actions/checkout@v3
-
-      - name: Build Docker Image
-        uses: ./.github/actions/docker-image.yml
+      - uses: actions/checkout@v2.3.4
+      - uses: ./.github/actions/docker-image.yml
 
   test:
     runs-on: windows-latest
