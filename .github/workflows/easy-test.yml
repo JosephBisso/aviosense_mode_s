@@ -16,6 +16,7 @@ jobs:
 
     - shell: powershell
       run: |
+        . .\virtualenv\Scripts\Activate.ps1
         .\run.ps1 -t -la 46 -LA 56 -lo 4 -LO 16 -l 500000 -dl 1200 -n 7 --plot-all -p heat_map
         
     - name: results
@@ -37,6 +38,7 @@ jobs:
     
     - shell: powershell
       run: |
+        . .\virtualenv\Scripts\Activate.ps1
         .\run.ps1 -h 
         .\build.ps1
         
