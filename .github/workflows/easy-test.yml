@@ -3,6 +3,13 @@ name: Test-Run & Deploy
 on: [push, pull_request]
 
 jobs:
+
+  prepare_docker:
+    runs-on: windows-latest
+    steps:
+      - name: Build Docker Image
+        uses: ./.github/actions/docker-image.yml
+
   test:
     runs-on: windows-latest
     container:
