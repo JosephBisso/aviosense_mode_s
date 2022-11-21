@@ -261,7 +261,20 @@ def getKDEExceeds(kdeZones: List[Dict[str, Union[float, List[Dict[str, float]]]]
 
             actualAddress = addressData["address"]
 
-            allDiffs = [point.bar - point.ivv for point in addressData["points"] if zoneData[actualAddress]["start"] <= point.window <= zoneData[actualAddress]["end"]]
+            windowStart = None
+            windowEnd = None
+            for point in addressData["points"]:
+                if windowStart is not None and windowEnd is not None:
+                    break
+                if point.window <= zoneData[actualAddress]["start"]: 
+                    windowStart = point.window if windowStart is None else max(point.window, windowStart)
+                if point.window >= zoneData[actualAddress]["end"]: 
+                    windowEnd = point.window if windowEnd is None else min(point.window, windowEnd)
+                    
+            if windowStart is None or windowEnd is None:
+                continue
+            
+            allDiffs = [point.bar - point.ivv for point in addressData["points"] if windowStart <= point.window <= windowEnd]
 
             if not allDiffs:
                 continue

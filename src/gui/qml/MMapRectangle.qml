@@ -9,8 +9,14 @@ MapRectangle {
     property double kde_normed: 1
     property double centerLatitude : 0
     property double centerLongitude : 0
+    property double tlLon: 0
+    property double tlLat: 0
+    property double brLon: 0
+    property double brLat: 0
     property double bw : 0.5
     property int zoneID : 0
+    property int numFligths : 0
+    property double fieldwidth : 0
 
     property bool hovered : rectangleMouseArea.containsMouse 
 
@@ -21,9 +27,9 @@ MapRectangle {
     }
 
     opacity: {
-        if (kde_normed < 0.5) {return 0.1}
-        else if (0.5 <= kde_normed && kde_normed < 0.75) {return 0.15}
-        else {return 0.2}
+        if (kde_normed < 0.5) {return 0.09}
+        else if (0.5 <= kde_normed && kde_normed < 0.75) {return 0.12}
+        else {return 0.15}
     }
 
     border {
@@ -31,8 +37,8 @@ MapRectangle {
         width: 8
     }
 
-    topLeft: QtPositioning.coordinate(centerLatitude - bw/2, centerLongitude - bw/2)
-    bottomRight: QtPositioning.coordinate(centerLatitude + bw/2, centerLongitude + bw/2)
+    topLeft: QtPositioning.coordinate(tlLat, tlLon)
+    bottomRight: QtPositioning.coordinate(brLat, brLon)
 
     MouseArea {
         id: rectangleMouseArea
@@ -40,7 +46,7 @@ MapRectangle {
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: {
-            console.log("Clicked kde_e Zone ", centerLatitude, "N", centerLongitude, "W  <::> ", "kde:", kde_e, " Normed: ", kde_normed)
+            console.log("Clicked kde_e Zone ", centerLatitude, "N", centerLongitude, "W  <::> ", "num of Fligths:", numFligths, "zoneID", zoneID)
             kdeZone.parent.zoneKDEClicked(kdeZone)
         }
     }

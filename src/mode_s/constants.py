@@ -5,6 +5,7 @@ class ENGINE_CONSTANTS:
     PLOTS = ["occurrence", "bar_ivv", "filtered", "interval", "std", "location", "heat_map"]
     MAX_NUMBER_THREADS_ENGINE: int = 20
     KDE_BANDWIDTH = 0.5
+    KDE_FIELD_WIDTH = 180*(10**3)
     MEDIAN_N = 1
     
 class DB_CONSTANTS:
