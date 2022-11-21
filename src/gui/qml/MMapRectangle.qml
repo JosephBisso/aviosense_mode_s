@@ -29,7 +29,7 @@ MapRectangle {
     opacity: {
         if (kde_normed < 0.5) {return 0.09}
         else if (0.5 <= kde_normed && kde_normed < 0.75) {return 0.12}
-        else {return 0.15}
+        else {return 0.2}
     }
 
     border {

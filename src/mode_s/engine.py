@@ -639,7 +639,7 @@ class Engine:
             "address": addressData["address"],
             "identification": addressData.get("identification"),
             "points": [],
-            "threshold": 0
+            "threshold": False
         }
         
         times = [point.time for point in addressData["points"]]
@@ -712,13 +712,13 @@ class Engine:
         
         threshold = addressData["threshold"]
         
-        if threshold == 0:
+        if threshold is False:
             self.logger.warning(f"No Threshold for address {addressData['address']}")
             return exceedingData
         
         allDiffs = [point.bar - point.ivv for point in addressData["points"]]
 
-        exceeds = [100*(diff - threshold)/threshold for diff in allDiffs if diff >= threshold]
+        exceeds = [100*(diff - threshold)/(1 if threshold == 0 else threshold) for diff in allDiffs if diff >= threshold]
         
         if not exceeds:
             return exceedingData

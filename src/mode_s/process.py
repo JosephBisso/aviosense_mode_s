@@ -64,23 +64,18 @@ def query(queries: List[str], elements: List[str] = [], knownIdents: Dict[str,st
 
 def getRawData(addresses: List[int], data: List[Dict[str, Union[str, float]]] = []) -> List[Dict[str, Union[str, List[DATA]]]]:
     results = []
-    startIndexes = {address:None for address in addresses}
+    startIndexes = {address:False for address in addresses}
+    lenStartIndexes = len(startIndexes)
+    counterAllIndexes = 0
 
     for index in range(len(data)):
-        if data[index]["address"] in startIndexes:
-            if startIndexes.get(data[index]["address"]) is None:
-                startIndexes[data[index]["address"]] = index
+        addressInList = startIndexes.get(data[index]["address"]) 
+        if addressInList is not None and addressInList is False:
+            startIndexes[data[index]["address"]] = index
+            counterAllIndexes += 1
 
-        if not 0 in startIndexes.values() and all(startIndexes.values()):
+        if counterAllIndexes == lenStartIndexes:
             break
-        elif 0 in startIndexes.values():
-            allIndexesFound = True
-            for value in startIndexes.values():
-                if value is None: 
-                    allIndexesFound = False
-                    break
-            if allIndexesFound:
-                break
     
     for address in addresses:
         addressData: Dict[str, Union[str, List[int]]] = {
@@ -95,11 +90,11 @@ def getRawData(addresses: List[int], data: List[Dict[str, Union[str, float]]] = 
 
         startIndex = startIndexes[address]
 
-        if startIndex is None:
+        if startIndex is False:
             raise AssertionError("Skipping address " +
                                 str(address) + " : Cannot be found")
 
-        identification = data[index].get("identification")
+        identification = data[startIndex].get("identification")
 
         for index in range(startIndex, len(data)):
             if data[index]["bar"] is None or data[index]["ivv"] is None:
@@ -127,23 +122,17 @@ def getRawData(addresses: List[int], data: List[Dict[str, Union[str, float]]] = 
 
 def getHeatPoints(addressDataList: List[Dict[str, Union[str, List[WINDOW_DATA]]]] = [], data: List[Dict[str, Union[str, float]]] = []) -> List[Dict[str, Union[str,List[LOCATION_DATA]]]]:
     results = []
-    startIndexes = {address: None for address in [addressData["address"] for addressData in addressDataList]}
+    startIndexes = {address: {"startIndex": False, "times": []} for address in [addressData["address"] for addressData in addressDataList]}
 
     for index in range(len(data)):
-        if data[index]["address"] in startIndexes:
-            if startIndexes.get(data[index]["address"]) is None:
-                startIndexes[data[index]["address"]] = index
+        address = data[index]["address"]
+        addressInList = startIndexes.get(address)
+        if addressInList is not None:
+            if addressInList["startIndex"] is False:
+                startIndexes[address]["startIndex"] = index
+            
+            startIndexes[address]["times"].append(data[index]["timestamp"])
 
-        if not 0 in startIndexes.values() and all(startIndexes.values()):
-            break
-        elif 0 in startIndexes.values():
-            allIndexesFound = True
-            for value in startIndexes.values():
-                if value is None:
-                    allIndexesFound = False
-                    break
-            if allIndexesFound:
-                break
 
     for addressData in addressDataList:
         heatPointsForAddress: List[str, List[LOCATION_DATA]] = []
@@ -151,18 +140,12 @@ def getHeatPoints(addressDataList: List[Dict[str, Union[str, List[WINDOW_DATA]]]
         turbulentSlidingWindows = [point.window for point in addressData["points"] if point.bar - point.ivv > addressData["threshold"]]
         turbulentSlidingWindows.sort()
         
-        times = []
+        startIndex = startIndexes[addressData["address"]]["startIndex"]
 
-        startIndex = startIndexes[addressData["address"]]
-
-        if startIndex is None:
+        if startIndex is False:
             raise AssertionError("Skipping address " + str(addressData["address"]) + " : Invalid bar or ivv stds for heat map")
 
-        for index in range(startIndex, len(data)):
-            if data[index]["address"] != addressData["address"]:
-                break
-            times.append(data[index]["timestamp"])
-            
+        times = startIndexes[addressData["address"]]["times"]
         if not times:
             raise AssertionError("Skipping address " + str(addressData["address"]) + " : not times for heat map")
 
