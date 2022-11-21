@@ -7,6 +7,6 @@
         "src/mode_s/logger.py",
         "src/mode_s/plotter.py",
         "src/mode_s/constants.py",
-        "src/mode_s/gui/gui.qrc"
+        "src/gui/gui.qrc"
     ]
 }

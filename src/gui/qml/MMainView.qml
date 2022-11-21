@@ -164,10 +164,7 @@ Frame {
 
                 function onAllMapPlotsReady() {
                     console.log("Filling Map")
-                    mapView.update(Constants.LOCATION)
-                    mapView.update(Constants.TURBULENCE)
-                    mapView.update(Constants.KDE)
-
+                    mapView.updateAllViews()
                 }
             }
 

@@ -12,7 +12,7 @@ function Start-ModeS($arguments) {
         Write-Host ("# Linting QML...") -ForegroundColor Cyan -NoNewline
         $qmllint = Get-Command qmllint.exe -ErrorAction SilentlyContinue
         if ($qmllint) {
-            . $qmllint $qmlFiles --check-unqualified 
+            . $qmllint $qmlFiles 
             if ($LASTEXITCODE -eq 0) {
                 Write-Host ("`t`tDone.") -ForegroundColor Green
             }
@@ -38,6 +38,11 @@ function Start-ModeS($arguments) {
         }
         else {
             Write-Host ("`tError`n|-> Cannot find pyside2_rcc.exe") -ForegroundColor Red
+            exit -1
+        }
+        
+        if ("--no-start" -in $arguments) {
+            exit 0
         }
     }
     

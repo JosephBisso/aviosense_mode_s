@@ -59,6 +59,19 @@ Frame {
         kdeLoader.start()
     }
 
+    function updateAllViews() {
+        locationGroup.clear()
+        turbulentGroup.clear()
+        kdeGroup.clear()
+        
+        map.clearMapItems()
+
+        locationLoader.start()
+        turbulentLoader.start()
+        kdeLoader.start()
+
+    }
+
     function update(view) {
         switch (view) {
             case Constants.LOCATION:
@@ -246,10 +259,10 @@ Frame {
 
         function zoneKDEClicked(kdeZone) {
             mapElementInfo.identification = `${kdeZone.centerLatitude.toFixed(2)}N, ${kdeZone.centerLongitude.toFixed(2)}E`
-            mapElementInfo.address = `Offset: +/-${(kdeZone.bw / 2).toFixed(2)}`
+            mapElementInfo.address = `Field width: ${kdeZone.fieldwidth.toFixed(1)} km`
             mapElementInfo.flightColor = kdeZone.color
-            mapElementInfo.displayText = "KDE"
-            mapElementInfo.datapoints = kdeZone.kde_e.toFixed(2)
+            mapElementInfo.displayText = "Num. of Fligths"
+            mapElementInfo.datapoints = kdeZone.numFligths
             mapElementInfo.turbulentFlight = true
             mapElementInfo.buttonShowGraph = false
             mapElementInfo.open()
@@ -347,8 +360,14 @@ Frame {
             kde_normed: normedKDE
             centerLatitude: latitude
             centerLongitude: longitude
+            tlLon: topLeftLon
+            tlLat: topLeftLat
+            brLon: bottomRightLon
+            brLat: bottomRightLat
             bw: bandwidth
             zoneID: kdeZoneID
+            numFligths: numOfAddresses
+            fieldwidth: fieldWidth
         }
 
         onObjectAdded: {

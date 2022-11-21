@@ -1,0 +1,60 @@
+name: Test-Run & Deploy
+
+on: [push, pull_request]
+
+jobs:
+
+  test:
+    runs-on: self-hosted
+    steps:
+    - name: test_run
+      uses: actions/checkout@v3
+
+    - shell: powershell 
+      run: | 
+        .\setup.ps1 --venv
+
+    - shell: powershell
+      run: |
+        . .\virtualenv\Scripts\Activate.ps1
+        .\run.ps1 -t -la 46 -LA 56 -lo 4 -LO 16 -l 500000 -dl 1200 -n 7 --plot-all -p heat_map
+        
+    - name: results
+      uses: actions/upload-artifact@v3
+      with:
+        name: mode_s-log
+        path: src/mode_s.log
+
+
+  bundle:
+    runs-on: self-hosted
+    steps:
+    - name: bundle
+      uses: actions/checkout@v3
+    
+    - shell: powershell 
+      run: | 
+        .\setup.ps1 --venv
+    
+    - shell: powershell
+      run: |
+        . .\virtualenv\Scripts\Activate.ps1
+        .\run.ps1 -h 
+        .\build.ps1
+        
+        cd dist/
+        $zip = Get-Command 7z -ErrorAction SilentlyContinue
+        if($zip) {
+          7z a .\mode_s -mx9
+        } else {
+          Compress-Archive .\mode_s -DestinationPath .\mode_s.zip
+        }
+
+        Remove-Item .\mode_s -Force -Recurse
+        
+    - name: results
+      uses: actions/upload-artifact@v3
+      with:
+        name: mode_s_bundle
+        path: dist/
+        retention-days: 5

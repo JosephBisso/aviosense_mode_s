@@ -327,7 +327,8 @@ class Mode_S(QObject):
             while next(results, None) is not None:
                 pass
             
-            self.__dumpAll()
+            if params.get("fromDump") is None:
+                self.__dumpAll()
 
         except ModeSEngine.EngineError as err:
             self.logger.warning("Engine Error Occurred: Mode_s plotting::", str(err))
@@ -390,25 +391,27 @@ class Mode_S(QObject):
         self.logger.progress(LOGGER_CONSTANTS.KDE_EXCEED, LOGGER_CONSTANTS.END_PROGRESS_BAR)
         
     def __dumpAll(self):
-        self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Dumping Data")
 
         ms = MODE_S_CONSTANTS
-        if self.engine.data:
-            dbDump = self.executor.submit(self.__dumpData, self.engine.data, ms.DATABASE_DUMP)
-            dbDump.add_done_callback(self.__backgroundThreadFinished)
-            self.db.data = self.engine.data = []
         
         toDump = [self.__occurrenceSeries, self.__identMap, self.__rawSeries, self.__intervalSeries,
                   self.__filteredSeries, self.__stdSeries, self.__exceedsSeries, self.__locationSeries, self.__turbulentLocationSeries, self.__heatMapSeries, self.__kdeExceedsSeries]
         toDumpName = [ms.OCCURRENCE_DUMP, ms.INDENT_MAPPING, ms.BAR_IVV_DUMP, ms.INTERVAL_DUMP,
                         ms.FILTERED_DUMP, ms.STD_DUMP, ms.EXCEEDS_DUMP, ms.LOCATION_DUMP, ms.TURBULENCE_DUMP, ms.HEATMAP_DUMP, ms.KDE_EXCEEDS_DUMP]
         for index in range(len(toDump)):
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, f"Saving series [{index}/{len(toDump)}]")
             if not toDump[index]:
                 continue
-            dumping = self.executor.submit(self.__dumpData, toDump[index], toDumpName[index])
-            dumping.add_done_callback(self.__backgroundThreadFinished)
-            toDump[index] = []
-
+            self.__dumpData(toDump[index], toDumpName[index])
+        
+        if self.db.data:
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Saving database")
+            self.__dumpData(self.db.data, ms.DATABASE_DUMP)
+            self.db.data.clear() 
+        if self.engine.data:
+            self.logger.progress(LOGGER_CONSTANTS.MODE_S, "Clearing engine data")
+            self.engine.data.clear() 
+        
 
     def __dumpData(self, data: List[Any], name: str):
         self.logger.debug("Dumping and freeing memory for", name)

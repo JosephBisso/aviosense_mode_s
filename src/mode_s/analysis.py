@@ -12,13 +12,17 @@ from mode_s.constants import DATA, WINDOW_POINT, WINDOW_DATA, LOCATION_DATA
 
 class Analysis:
     KDE_BAND_WIDTH: int = 0.5
-    POINT_RADIUS = 10000
+    KDE_FIELD_WIDTH = 180*(10**3)
+    POINT_RADIUS = 5000
     
     KDE_ZONE_DATA: List[Dict[str, Union[float, List[Dict[str, float]]]]] = []
     KDE_ZONE_IDS = 0
 
     def setKDEBandwidth(bandwidth:int = 0.5):
         Analysis.KDE_BAND_WIDTH = bandwidth
+
+    def setKDEFieldWidth(fieldWidth:int = 180*(10**3)):
+        Analysis.KDE_FIELD_WIDTH = fieldWidth
 
     def getLineSeriesDataPointOccurrences(occurrences: List[Union[str, int]]) -> List[int]:
         return occurrences 
@@ -164,164 +168,89 @@ class Analysis:
         Analysis.KDE_ZONE_DATA = []
         lineSeries = []
         
-        allLongitudes = []
-        allLatitudes = []
-        allTurbulentLongitude = []
         allTurbulentLatLon = []
-        allTurbulentLatitude = []
-        allAddresses = []
         
         for turbulentLocation in heatMap:
-            longitude = []
-            latitude = []
-            latLon = []
-            allAddresses.append(turbulentLocation["address"])
+            allTurbulentLatLon.extend({"address": turbulentLocation["address"], "lat":point.latitude, "lon":point.longitude, "time":point.time} for point in turbulentLocation["points"])
 
-            for point in turbulentLocation["points"]:
-                longitude.append(point.longitude)
-                latitude.append(point.latitude)
-                latLon.append({"address": turbulentLocation["address"], "lat":point.latitude, "lon":point.longitude, "time":point.time})
+        if not allTurbulentLatLon:
+            return lineSeries, Analysis.KDE_ZONE_DATA
 
-            allLongitudes += longitude
-            allLatitudes += latitude
-            allTurbulentLatLon += latLon
-            if len(turbulentLocation["points"]) > 0 :
-                allTurbulentLongitude += longitude
-                allTurbulentLatitude += latitude
+        allPoints = allTurbulentLatLon
+        allPoints.sort(key=lambda el: el["lat"]**2 + el["lon"]**2)
 
-        if not allTurbulentLatitude: 
-            return lineSeries
-
-        mapPoints = np.vstack([allLongitudes, allLatitudes]).T
-        turbulentMapPoints = np.vstack([allTurbulentLongitude, allTurbulentLatitude]).T
+        actualSegment: List[Union[QtPositioning.QGeoCoordinate, float]] = []
         
-        kde = KernelDensity(kernel="gaussian", bandwidth=Analysis.KDE_BAND_WIDTH).fit(mapPoints)
-        density = np.exp(kde.score_samples(turbulentMapPoints))
-        normedDensity = density / max(density)
-        
-        latitude = allTurbulentLatLon[0]["lat"]
-        longitude = allTurbulentLatLon[0]["lon"]
-        time = allTurbulentLatLon[0]["time"]
-        zoneTimes = {allTurbulentLatLon[0]["address"]: {"start": time, "end": time}}
-        
-        actualSegment: Dict[str, List[Union[QtPositioning.QGeoCoordinate, float]]] = {
-            "coordinates": [QtPositioning.QGeoCoordinate(latitude, longitude)],
-            "normedKDEs": [float(normedDensity[0])],
-            "KDEs": [float(density[0])]
-        }
-        
-        allSegments = []
-        
-        for pointIndex, point in enumerate(zip(allTurbulentLatLon, normedDensity, density)):
-            latitude = point[0]["lat"]
-            longitude = point[0]["lon"]
-
-            address = point[0]["address"]
-            time = point[0]["time"]
-            
-            if zoneTimes.get(address) is None: 
-                zoneTimes[address] = {"start": time, "end": time}
-            else:
-                zoneTimes[address]["end"] = max(zoneTimes[address]["end"], time) 
-                zoneTimes[address]["start"] = min(zoneTimes[address]["start"], time)
-
-            normedKDE = float(point[1])
-            pointKDE = float(point[2])
-
-            actualPoint = QtPositioning.QGeoCoordinate(latitude, longitude)
-
-            if actualSegment["coordinates"][-1].distanceTo(actualPoint) <= Analysis.POINT_RADIUS:
-                actualSegment["coordinates"].append(actualPoint)
-                actualSegment["normedKDEs"].append(normedKDE)
-                actualSegment["KDEs"].append(pointKDE)
-            else:
-                allSegments.append({
-                    "latitude": statistics.mean([coord.latitude() for coord in actualSegment["coordinates"]]),
-                    "longitude": statistics.mean([coord.longitude() for coord in actualSegment["coordinates"]]),
-                    "normedKDE": statistics.mean(actualSegment["normedKDEs"]),
-                    "kde": statistics.mean(actualSegment["KDEs"]),
-                    "zoneTimes": zoneTimes,
-                    "bandwidth": Analysis.KDE_BAND_WIDTH
-                })
+        indexToExclude = [] 
+        while len(allPoints) > 0:
+            for indexOfI, i in enumerate(indexToExclude):
+                del allPoints[i - indexOfI] # Because after deleting a object, the index are shifting
                 
-                actualSegment["coordinates"] = [actualPoint]
-                actualSegment["normedKDEs"] = [normedKDE]
-                actualSegment["KDEs"] = [pointKDE]
-                zoneTimes = {address: {"start": time, "end": time}}
+            indexToExclude = []
+            if len(allPoints) == 0: 
+                break
+            
+            basePoint = allPoints[0]
+                    
+            latitudeR = basePoint["lat"]
+            longitudeR = basePoint["lon"]
+            addressR = basePoint["address"]
+            timeR = basePoint["time"]
+            
+            refPoint = QtPositioning.QGeoCoordinate(latitudeR, longitudeR)
 
-            if pointIndex == len(allTurbulentLatitude) - 1:
-                allSegments.append({
-                    "latitude": statistics.mean([coord.latitude() for coord in actualSegment["coordinates"]]),
-                    "longitude": statistics.mean([coord.longitude() for coord in actualSegment["coordinates"]]),
-                    "normedKDE": statistics.mean(actualSegment["normedKDEs"]),
-                    "kde": statistics.mean(actualSegment["KDEs"]),
-                    "zoneTimes": zoneTimes,
-                    "bandwidth": Analysis.KDE_BAND_WIDTH
-                })
+            actualSegment = [refPoint]
+            zoneTimes = {addressR: {"start": timeR, "end": timeR}}
+            
+            for index, point in enumerate(allPoints):
+                latitudeA = point["lat"]
+                longitudeA = point["lon"]
                 
-        allSegments.sort(key= lambda el: el["latitude"]**2 + el["longitude"]**2)
-        allKDEZones = {"segments": [allSegments[0]], "widthIncrease": [0]}
-        usedJIndex = []
-        usedIIndex = []
-        for i in range(1, len(allSegments)):
-            if i in usedJIndex:
-                continue
+                actualPoint = QtPositioning.QGeoCoordinate(latitudeA, longitudeA)
 
-            allKDEZoneCenter = QtPositioning.QGeoCoordinate(
-                statistics.mean(segment["latitude"] for segment in allKDEZones["segments"]),
-                statistics.mean(segment["longitude"] for segment in allKDEZones["segments"])
-            )
-            
-            for j in range(2, len(allSegments)):
-                if j in usedJIndex or j in usedIIndex:
-                    continue
-                
-                actualSegmentCenter = QtPositioning.QGeoCoordinate(
-                    allSegments[j]["latitude"],
-                    allSegments[j]["longitude"]
-                )
-                
-                mostDistantPossiblePoint = QtPositioning.QGeoCoordinate(
-                    allKDEZoneCenter.latitude() + Analysis.KDE_BAND_WIDTH/2 + 0.5 * sum(allKDEZones["widthIncrease"]) ,
-                    allKDEZoneCenter.longitude() + Analysis.KDE_BAND_WIDTH/2 + 0.5 * sum(allKDEZones["widthIncrease"]) 
-                )
+                if refPoint.distanceTo(actualPoint) <= (Analysis.KDE_FIELD_WIDTH / 2):
+                    indexToExclude.append(index)
+                    
+                    actualSegment.append(actualPoint)
 
-                if allKDEZoneCenter.distanceTo(actualSegmentCenter) <= allKDEZoneCenter.distanceTo(mostDistantPossiblePoint):
-                    allKDEZones["segments"].append(allSegments[j])
-                    usedJIndex.append(j)
-
-                    widthIncrease = max(
-                        abs(allSegments[j]["latitude"] - allKDEZoneCenter.latitude()), 
-                        abs(allSegments[j]["longitude"] - allKDEZoneCenter.longitude())
-                    )
-                    if widthIncrease > 0 and 0.5 * (sum(allKDEZones["widthIncrease"]) + abs(Analysis.KDE_BAND_WIDTH/2 - widthIncrease)) <= Analysis.KDE_BAND_WIDTH/2:
-                        allKDEZones["widthIncrease"].append(abs(Analysis.KDE_BAND_WIDTH/2 - widthIncrease))
-            
-            usedIIndex.append(i)
-            
-            kdeZone = {
-                key: statistics.mean(segment[key] for segment in allKDEZones["segments"]) for key in ["latitude", "longitude", "normedKDE", "kde", "bandwidth"]
-            }
-            
-            kdeZone["bandwidth"] = Analysis.KDE_BAND_WIDTH + sum(allKDEZones["widthIncrease"]) 
-            
-            Analysis.KDE_ZONE_IDS += 1
-            kdeZone["zoneID"] = Analysis.KDE_ZONE_IDS
-            
-            kdeZoneTime = {}
-            for segment in allKDEZones["segments"]:
-                for address in segment["zoneTimes"]:
-                    if kdeZoneTime.get(address) is None:
-                        kdeZoneTime[address] = segment["zoneTimes"][address]
+                    address = point["address"]
+                    time = point["time"]
+                    
+                    if zoneTimes.get(address) is None: 
+                        zoneTimes[address] = {"start": time, "end": time}
                     else:
-                        kdeZoneTime[address]["start"] = min(kdeZoneTime[address]["start"], segment["zoneTimes"][address]["start"])
-                        kdeZoneTime[address]["end"] = max(kdeZoneTime[address]["end"], segment["zoneTimes"][address]["end"])
+                        zoneTimes[address]["end"] = max(zoneTimes[address]["end"], time) 
+                        zoneTimes[address]["start"] = min(zoneTimes[address]["start"], time)
+                        
+                    
+            maxLongitude = maxLatitude = -200
+            minLongitude = minLatitude = 200
+            for coord in actualSegment:
+                minLongitude = min(minLongitude, coord.longitude())
+                minLatitude = min(minLatitude, coord.latitude())
+                maxLongitude = max(maxLongitude, coord.longitude())
+                maxLatitude = max(maxLatitude, coord.latitude())
+                
+            Analysis.KDE_ZONE_IDS += 1
+            segment = {
+                "zoneID": Analysis.KDE_ZONE_IDS,
+                "latitude": statistics.mean([coord.latitude() for coord in actualSegment]),
+                "longitude": statistics.mean([coord.longitude() for coord in actualSegment]),
+                "topLeftLon": minLongitude,
+                "topLeftLat": maxLatitude,
+                "bottomRightLon": maxLongitude,
+                "bottomRightLat": minLatitude,
+                "kde": 0.25,
+                "zoneTimes": zoneTimes,
+                "numOfAddresses": len(zoneTimes),
+                "normedKDE": 0.25 if len(zoneTimes) <= 5 else (1 if len(zoneTimes) >= 20 else 0.5),
+                "fieldWidth": QtPositioning.QGeoCoordinate(0, minLongitude).distanceTo(QtPositioning.QGeoCoordinate(0, maxLongitude)) * (10**-3),
+                "bandwidth": Analysis.KDE_BAND_WIDTH
+            }
 
-            
-            Analysis.__createKDEZone(lineSeries, kdeZone, kdeZoneTime)
-            allKDEZones["segments"] = [allSegments[i]]
-            allKDEZones["widthIncrease"] = [0]
-            
+            Analysis.__createKDEZone(lineSeries, segment, zoneTimes)
+
+
         return lineSeries, Analysis.KDE_ZONE_DATA
     
     def __createKDEZone(target: List[Dict[str, float]], zone: Dict[str, str], zoneData: Dict[int, Dict[str, float]]):
@@ -362,3 +291,5 @@ class Analysis:
                 addressSeries["segments"].append(actualSegment)
                 
         return addressSeries
+
+        
