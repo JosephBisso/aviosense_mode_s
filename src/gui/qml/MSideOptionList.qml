@@ -14,7 +14,7 @@ ListModel {
         option_type:"value"
     }
     ListElement {
-        option_name: "Duration Limit"
+        option_name: "Duration Limit [min]"
         option_value: "All"
         option_id:"duration_limit"
         option_type:"value"

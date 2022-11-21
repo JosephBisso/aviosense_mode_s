@@ -52,12 +52,9 @@ Frame {
     }
 
     function prepareKDEExceedZone(latitude, longitude, bandwidth, zoneID) {
-        if (plotSwipe.kdeZoneLatitude != latitude && plotSwipe.kdeZoneLongitude != longitude
-                && plotSwipe.kdeZoneBandwidth != bandwidth) {
+        if (plotSwipe.kdeZoneID != zoneID) {
             __mode_s.prepareKDEZone(zoneID)
-            plotSwipe.kdeZoneLatitude = latitude
-            plotSwipe.kdeZoneLongitude = longitude
-            plotSwipe.kdeZoneBandwidth = bandwidth
+            plotSwipe.kdeZoneID = zoneID
         }
         if(plotFrame.isCurrentView){plotBackgroundLoader.startLoading()}
     }
@@ -135,9 +132,7 @@ Frame {
         id: plotSwipe
         property var currentAddress: ""
         property string mode: ""
-        property double kdeZoneLatitude: 0
-        property double kdeZoneLongitude: 0
-        property double kdeZoneBandwidth: 0
+        property string kdeZoneID: "-1"
 
         anchors.fill: parent
         interactive: false
@@ -331,17 +326,18 @@ Frame {
             id: kdeExceedPlotLoader
             readonly property var zoneData: __mode_s.zoneKdeExceedSeries
             property bool backgroundLoading: false
-            active: plotSwipe.kdeZoneBandwidth && (backgroundLoading || ((plotSwipe.kdeZoneLatitude == zoneData["latitude"] && plotSwipe.kdeZoneLongitude == zoneData["longitude"]) || (plotFrame.isCurrentView  && SwipeView.isCurrentItem)))
+            active: plotSwipe.kdeZoneID !== "-1" && (backgroundLoading || plotSwipe.kdeZoneID == zoneData["zoneID"] || (plotFrame.isCurrentView  && SwipeView.isCurrentItem))
             visible: true
             asynchronous: true
             sourceComponent: Component {
                 MExceedKDEZonePlot {
                     id: kdeExceedPlot
-                    title: `KDE for Zone ${zoneData.latitude.toFixed(2)}N, ${zoneData.longitude.toFixed(2)}E, Offset: +/-${(plotSwipe.kdeZoneBandwidth / 2).toFixed(2)}`
+                    title: `KDE for Zone ${zoneData.latitude.toFixed(2)}N, ${zoneData.longitude.toFixed(2)}E`
                     latitude: zoneData["latitude"]
                     longitude: zoneData["longitude"]
                     exceedsPerAddress: zoneData["exceedsPerAddress"]
                     kde: zoneData["kde"]
+                    zoneID: zoneData["zoneID"]
 
                     titleFont: Constants.FONT_MEDIUM
                     titleColor: Constants.FONT_COLOR

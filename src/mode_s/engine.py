@@ -35,6 +35,7 @@ class Engine:
     plotAddresses: List[int] = []
     medianN: int = ENGINE_CONSTANTS.MEDIAN_N
     kdeBW: int = ENGINE_CONSTANTS.KDE_BANDWIDTH
+    kdeFieldWidth: int = ENGINE_CONSTANTS.KDE_FIELD_WIDTH
     minDataPoints: int = 1
     plotAll: bool = False
 
@@ -66,6 +67,10 @@ class Engine:
             self.kdeBW = params["bandwidth"]
         else:
             self.kdeBW = ENGINE_CONSTANTS.KDE_BANDWIDTH
+        if params.get("field_width"):
+            self.kdeFieldWidth = params["field_width"] * 10**3
+        else:
+            self.kdeFieldWidth = ENGINE_CONSTANTS.KDE_FIELD_WIDTH
         if params.get("enginethreads"):
             self.maxNumberThreads = params["enginethreads"]
         else:
@@ -78,6 +83,7 @@ class Engine:
         self.logger.log("Engines Max number of threads :", str(self.maxNumberThreads))
         self.logger.log("Setting median Filter to :", str(self.medianN))
         self.logger.log("Setting kde bandwidth to :", str(self.kdeBW))
+        self.logger.log("Setting kde field width to :", str(self.kdeFieldWidth))
         self.logger.log("Setting minimum data points to:", str(self.minDataPoints))
         if self.plotAll:
             self.logger.log("Watching all Addresses")
@@ -126,6 +132,7 @@ class Engine:
             if not usePlotter:
                 from mode_s.analysis import Analysis
                 Analysis.setKDEBandwidth(self.kdeBW)
+                Analysis.setKDEFieldWidth(self.kdeFieldWidth)
                 activePlots = {plot: True for plot in ENGINE_CONSTANTS.PLOTS}
             else:
                 from mode_s.plotter import Plotter

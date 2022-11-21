@@ -224,7 +224,7 @@ class Database:
 
             limit = options.get("limit") or self.limit
                     
-            if len(allResults) < int(limit): self.logger.warning("Query executed. Results lower than expected (" + str(len(allResults)) + " < " + str(limit) + ")")
+            if len(allResults) < int(limit): self.logger.warning("Query executed. Results lower than expected (" + str(len(allResults)) + " less than " + str(limit) + ")")
             else: self.logger.success("Query successfully executed.")
 
         except DatabaseError as de:

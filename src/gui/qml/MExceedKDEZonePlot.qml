@@ -8,6 +8,7 @@ ChartView {
     property var longitude: []
     property var exceedsPerAddress: []
     property var kde: []
+    property var zoneID: "-1"
     animationOptions: ChartView.SeriesAnimations
 
     signal addressClicked(string address)
@@ -43,7 +44,7 @@ ChartView {
     }
 
     function update() {
-        console.info("Displaying", title)
+        console.info("Displaying", title, "zoneID:", zoneID)
         let occurrences = [] 
 
         let maxKDE = 0
@@ -57,7 +58,7 @@ ChartView {
         kdeExceedChart.removeAllSeries()
         for (let addressData of exceedsPerAddress) {
             let lineSeries = kdeExceedChart.createSeries(ChartView.LineSeries, `A ${addressData.address} (T ${addressData.start.toFixed(1)} - ${addressData.end.toFixed(1)})`, xAxis, yAxis)
-            let r = Math.random() % 0.51, g = Math.random(), b = Math.random() 
+            let r = Math.random(), g = Math.random(), b = Math.random() 
             lineSeries.color = Qt.rgba(r, g, b, 1)
             lineSeries.width = 4
             lineSeries.style = Qt.DashLine

@@ -268,6 +268,13 @@ Drawer {
 
                     }
                     ListElement {
+                        option_name: "Field Width KDE [km]"
+                        option_value: "180"
+                        option_id:"field_width"
+                        option_type:"value"
+
+                    }
+                    ListElement {
                         option_name: "Data Points (Min)"
                         option_value: "2000"
                         option_id:"mindatapoints"
