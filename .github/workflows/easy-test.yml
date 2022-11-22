@@ -17,7 +17,7 @@ jobs:
     - shell: powershell
       run: |
         . .\virtualenv\Scripts\Activate.ps1
-        .\run.ps1 -t -la 46 -LA 56 -lo 4 -LO 16 -l 500000 -dl 1200 -n 7 --plot-all -p heat_map
+        .\run.ps1 -t -v -la 46 -LA 56 -lo 4 -LO 16 -l 500000 -dl 1200 -n 7 --plot-all -p heat_map
         
     - name: results
       uses: actions/upload-artifact@v3
@@ -28,18 +28,12 @@ jobs:
 
   bundle:
     runs-on: self-hosted
+    needs: test
     steps:
-    - name: bundle
-      uses: actions/checkout@v3
-    
-    - shell: powershell 
-      run: | 
-        .\setup.ps1 --venv
-    
     - shell: powershell
       run: |
         . .\virtualenv\Scripts\Activate.ps1
-        .\run.ps1 -h 
+        .\run.ps1 --no-start
         .\build.ps1
         
         cd dist/

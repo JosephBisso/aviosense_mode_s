@@ -9,4 +9,5 @@ database/*
 **/*.dmp*
 *build/**
 dist/**
+virtualenv/**
 *.spec
