@@ -1,66 +1,65 @@
-from PySide2 import QtSql
 from PySide2.QtCore import QDateTime
+
+from mysql.connector.connection import MySQLConnection
 
 import numpy as np
 from sklearn.neighbors import KernelDensity
 
 from typing import List, Dict, Union
+from datetime import datetime
 
 from mode_s.constants import DB_CONSTANTS, DATA, LOCATION_DATA, WINDOW_DATA
 
 def query(queries: List[str], elements: List[str] = [], knownIdents: Dict[str,str]={}, query_id:int = 0, login: Dict[str, str] = {}) -> List[Dict[str, Union[int, str]]]:
     name = "db_process_" + str(query_id)
 
-    db = QtSql.QSqlDatabase.addDatabase("QMYSQL", name)
-    db.setDatabaseName(login["db_name"])
-    db.setUserName(login["user_name"])
-    db.setPassword(login["password"])
-    if login.get("host_name"):
-        db.setHostName(login["host_name"])
-    if login.get("db_port"):
-        db.setPort(login["db_port"])
+    try:
+        db = MySQLConnection(
+            user=login.get("user_name"),
+            password=login.get("password"),
+            host=login.get("host_name", "127.0.0.1"),
+            port=login.get("db_port", 3306),
+            database=login.get("db_name")
+        )
 
-    if not db.open():
-        raise ConnectionError("Database " + name +
-                            " not accessible. ERROR:: " + db.lastError().text())
+        if not db.is_connected():
+            raise ConnectionError("Database " + name +" not accessible.")
 
-    allQueriesResults = []
+        allQueriesResults = []
 
-    q = QtSql.QSqlQuery(db)
-    q.setForwardOnly(True)
-    
-    absentColumns = [column for column in DB_CONSTANTS.USED_COLUMNS if column not in elements]
+        q = db.cursor(dictionary=True)
+        absentColumns = [column for column in DB_CONSTANTS.USED_COLUMNS if column not in elements]
 
-    for query in queries:
-        if not q.exec_(query):
-            raise ConnectionError(
-                "Could not execute query: " + q.lastQuery() + " on " + name + " ERROR:: " + q.lastError().text())
+        for query in queries:
+            q.execute(query)
 
-        while q.next():
-            entry = {abs: None for abs in absentColumns}
-            for el in elements:
-                value = q.value(el)
-                if isinstance(value, str):
-                    entry[el] = value.strip()
-                elif isinstance(value, QDateTime):
-                    entry[el] = value.toMSecsSinceEpoch() * 10**6
-                else:
-                    entry[el] = value
-                    
-            if entry.get("identification") is None:
-                if knownIdents and knownIdents.get(entry["address"]):
-                    entry["identification"] = knownIdents[entry["address"]]
-                else:
-                    entry["identification"] = DB_CONSTANTS.NO_IDENTIFICATION
+            for row in q:
+                entry = {abs: None for abs in absentColumns}
+                for el in elements:
+                    value = row.get(el)
+                    if isinstance(value, str):
+                        entry[el] = value.strip()
+                    elif isinstance(value, datetime):
+                        entry[el] = QDateTime(value).toMSecsSinceEpoch() * 10**6
+                    else:
+                        entry[el] = value
+                        
+                if entry.get("identification") is None:
+                    if knownIdents and knownIdents.get(entry["address"]):
+                        entry["identification"] = knownIdents[entry["address"]]
+                    else:
+                        entry["identification"] = DB_CONSTANTS.NO_IDENTIFICATION
 
-            allQueriesResults.append(entry)
+                allQueriesResults.append(entry)
+
+        q.close()
+        db.close()
         
-    q.finish()
-    q.clear()
+    except Exception as ex:
+        raise ConnectionError(
+            f"Error (Exception: {ex}) occured while running following query: {query}")
 
-    db.close()
-
-    return allQueriesResults, name
+    return allQueriesResults
 
 def getRawData(addresses: List[int], data: List[Dict[str, Union[str, float]]] = []) -> List[Dict[str, Union[str, List[DATA]]]]:
     results = []

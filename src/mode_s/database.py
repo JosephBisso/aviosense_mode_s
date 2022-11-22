@@ -1,9 +1,11 @@
 from PySide2.QtCore import QDateTime
-from PySide2 import QtSql
+
+from mysql.connector.connection import MySQLConnection
 
 import multiprocessing
 import concurrent.futures
 from typing import List, Dict, Union
+from datetime import datetime
 
 import mode_s.process as process
 from mode_s.logger import Logger
@@ -38,8 +40,6 @@ class Database:
     
     backgroundFutures: List[concurrent.futures.Future] = []
     
-    data:List[Dict[str, Union[str, float]]] = []
-    
     login: Dict[str, str] = {
         "host_name": None,
         "db_port": None,
@@ -69,6 +69,9 @@ class Database:
             self.mapAddressIndent()
         except DatabaseError as de:
             self.logger.critical(str(de))
+            started = False
+        except Exception as ex:
+            self.logger.critical(ex)
             started = False
 
         executor.shutdown()
@@ -112,10 +115,10 @@ class Database:
             self.logger.log("Login Info")
             for el in loginData:
                 self.logger.log(f"{el}  \t: {self.login[el]}")
-        except DatabaseError:
+        except DatabaseError as dbe:
+            self.logger.critical(dbe)
             Done = False
         finally:
-            QtSql.QSqlDatabase.removeDatabase("testDB")
             return Done
         
     def setValidDBColumnsNames(self, **dbColumnsName) -> bool:
@@ -192,7 +195,6 @@ class Database:
         # option={..., "limit":50000}
         self.logger.debug("Getting attributes", ", ".join(attrib for attrib in attributes), "from Database")
         allResults = []
-        dbName = None
         try:
             queries = self.__generateQueries(attributes, options) 
             threadedQueries = []
@@ -210,7 +212,7 @@ class Database:
                 
             for completedQuery in concurrent.futures.as_completed(threadedQueries):
                 try:
-                    results, dbName = completedQuery.result()
+                    results = completedQuery.result()
                 except ConnectionError as de:
                     self.logger.critical("Error occurred while getting attributes " + str(attributes))
                     self.logger.critical(str(de))
@@ -218,9 +220,6 @@ class Database:
                     self.logger.warning("Error occurred while getting attributes " + str(attributes) + "\nERROR: " + str(esc))
                 else:
                     allResults.extend(results)
-                finally:
-                    if dbName:
-                        QtSql.QSqlDatabase.removeDatabase(dbName)
 
             limit = options.get("limit") or self.limit
                     
@@ -303,81 +302,74 @@ class Database:
         return ex
 
     def __testDBConnection(self):
-        db = QtSql.QSqlDatabase.addDatabase("QMYSQL", "testDB")
-        self.__setUp(db)
-
-        if db.open():
+        db = MySQLConnection(
+            user=self.login.get("user_name"),
+            password=self.login.get("password"),
+            host=self.login.get("host_name", "127.0.0.1"),
+            port=self.login.get("db_port", 3306),
+            database=self.login.get("db_name")
+        )
+        
+        if db.is_connected():
             self.logger.success("Database accessible")
             db.close()
         else:
-            raise DatabaseError("Database not accessible")
+            raise DatabaseError("Database not accessible")  
     
-    def __setUp(self, db: QtSql.QSqlDatabase):
-        db.setDatabaseName(self.login["db_name"])
-        db.setUserName(self.login["user_name"])
-        db.setPassword(self.login["password"])
-        if self.login.get("host_name"):
-            db.setHostName(self.login["host_name"])
-        if self.login.get("db_port"):
-            db.setPort(self.login["db_port"])
-
     def __getDBRowCount(self):
-        count, dbName = self.__query(f"SELECT COUNT(*) AS rowCount FROM {self.login['table_name']}", ["rowCount"])
+        count= self.__query(f"SELECT COUNT(*) AS rowCount FROM {self.login['table_name']}", ["rowCount"])
         self.ROW_COUNT = count[0]["rowCount"]
 
         if self.ROW_COUNT == 0:
             raise DatabaseError(f"Row count of Table {self.login['table_name']} should not be 0 !")
         self.logger.log(f"Row Count for table {self.login['table_name']}: " + str(self.ROW_COUNT))
 
-        QtSql.QSqlDatabase.removeDatabase(dbName)
-
     def __query(self, query: str, elements: List[str] = []) -> List[Dict[str, Union[int, str]]]:
-        DB_CONSTANTS.CONNECTIONS_TOTAL += 1
-        name = "db_thread_" + str(DB_CONSTANTS.CONNECTIONS_TOTAL)
-        db = QtSql.QSqlDatabase.addDatabase("QMYSQL", name)
-        self.__setUp(db)
-        if not db.open():
-            raise DatabaseError("Database " + name +
-                                " not accessible. ERROR:: " + db.lastError().text())
-
-        # self.logger.debug("New database connection: " + name)
-
-        q = QtSql.QSqlQuery(db)
-        q.setForwardOnly(True)
-        if not q.exec_(query):
-            raise DatabaseError(
-                "Could not execute query: " + q.lastQuery() + " on " + name + " ERROR:: " + q.lastError().text())
-
-        # self.logger.debug("Executed query :: on :: " + name)
-
         allResults = []
+        try:
+            db = MySQLConnection(
+                user=self.login.get("user_name"),
+                password=self.login.get("password"),
+                host=self.login.get("host_name", "127.0.0.1"),
+                port=self.login.get("db_port", 3306),
+                database=self.login.get("db_name")
+            )
+            
+            if not db.is_connected():
+                raise DatabaseError(f"Database inaccessible")
 
-        absentColumns = []
-        for el in DB_CONSTANTS.USED_COLUMNS:
-            if not el in elements:
-                absentColumns.append(el)
+            q = db.cursor(dictionary=True)
+            q.execute(query)
 
-        while q.next():
-            entry = {abs: None for abs in absentColumns}
-            for el in elements:
-                value = q.value(el)
-                if isinstance(value, str):
-                    entry[el] = value.strip()
-                elif isinstance(value, QDateTime):
-                    entry[el] = value.toMSecsSinceEpoch() * 10**6
-                else:
-                    entry[el] = value
-            if self.knownIdents:
-                if self.knownIdents.get(entry["address"]):
-                    entry["identification"] = self.knownIdents[entry["address"]]
-            allResults.append(entry)
+            absentColumns = []
+            for el in DB_CONSTANTS.USED_COLUMNS:
+                if not el in elements:
+                    absentColumns.append(el)
 
-        # self.logger.debug(len(allResults),"entries for query", str(q.lastQuery()))
-        q.finish()
-        q.clear()
-        db.close()
-        
-        return allResults, name
+            for row in q:
+                entry = {abs: None for abs in absentColumns}
+                for el in elements:
+                    value = row.get(el)
+                    if isinstance(value, str):
+                        entry[el] = value.strip()
+                    elif isinstance(value, datetime):
+                        entry[el] = QDateTime(value).toMSecsSinceEpoch() * 10**6
+                    else:
+                        entry[el] = value
+                if self.knownIdents:
+                    if self.knownIdents.get(entry["address"]):
+                        entry["identification"] = self.knownIdents[entry["address"]]
+                allResults.append(entry)
+
+            q.close()
+            db.close()
+
+        except Exception as ex:
+            self.logger.critical(f"Error occured while running query. Exception: {ex}")
+            self.logger.warning(f"The query was {query}")
+
+        finally:
+            return allResults
     
     def __generateQueries(self, attributes: List[str], options: Dict[str, str]) -> List[str]:
         selectStr = "SELECT "

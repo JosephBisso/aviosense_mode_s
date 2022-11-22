@@ -110,12 +110,12 @@ if __name__ == "__main__":
     appSettings = QSettings()
 
     db_login: Dict[str, Union[str, int]] = {
-        "host_name": appSettings.value("parameters/host_name", "tubs.skysquitter.com"),
+        "host_name": appSettings.value("parameters/host_name", "airdata.skysquitter.com"),
         "db_port": appSettings.value("parameters/db_port", 3307),
         "db_name": appSettings.value("parameters/db_name", "db_airdata"),
         "user_name": appSettings.value("parameters/user_name", "tubs"),
-        "table_name": appSettings.value("parameters/table_name", "DILAB-2022"),
-        "password": appSettings.value("parameters/password", "tbl_tubs")
+        "table_name": appSettings.value("parameters/table_name", "tbl_mode_s"),
+        "password": appSettings.value("parameters/password", "Dilab2022")
     }
 
     db_column_names = None
