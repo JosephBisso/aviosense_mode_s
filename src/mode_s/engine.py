@@ -342,13 +342,15 @@ class Engine:
         addressData__futures = []
         maxProcesses = min(len(addresses), multiprocessing.cpu_count() + 1) or 1
         addressesPerProcess = int(len(addresses) / maxProcesses)
+        
+        executor = self.__executor()
         for i in range(maxProcesses):
             startIndex = i*addressesPerProcess
             endIndex = startIndex + addressesPerProcess if i < maxProcesses - 1 else None
             pack = addresses[startIndex : endIndex]
             if not pack:
                 continue
-            addressData__futures.append(self.pExecutor.submit(process.getRawData, pack, self.data))
+            addressData__futures.append(executor.submit(process.getRawData, pack, self.data))
             
         for completedThread in concurrent.futures.as_completed(addressData__futures):
             try:
@@ -361,7 +363,10 @@ class Engine:
                     "Error occurred while computing raw data for addresses\n" + str(type) + "::" + str(value))
             else:
                 plotData.extend(addressData)
+            finally:
+                executor.shutdown()
         
+
         return plotData
 
     def prepareMedianFilter(self, data: List[Dict[str, Union[str, List[DATA]]]]) -> None:
@@ -484,13 +489,15 @@ class Engine:
         heatPoints__future = []
         maxProcesses = min(len(slidingIntervallForStd), multiprocessing.cpu_count() + 1) or 1
         addressDataPerProcess = int(len(slidingIntervallForStd) / maxProcesses)
+
+        executor = self.__executor()
         for i in range(maxProcesses):
             startIndex = i*addressDataPerProcess
             endIndex = startIndex + addressDataPerProcess if i < maxProcesses - 1 else None
             pack = slidingIntervallForStd[startIndex : endIndex]
             if not pack:
                 continue
-            heatPoints__future.append(self.pExecutor.submit(process.getHeatPoints, pack, self.data))
+            heatPoints__future.append(executor.submit(process.getHeatPoints, pack, self.data))
 
         for completedThread in concurrent.futures.as_completed(heatPoints__future):
             try:
@@ -503,6 +510,8 @@ class Engine:
                     "Error occurred while preparing heatmap per addresses\n" + str(type) + "::" + str(value))
             else:
                 heatPoints.extend(heatPointsPerAddress)
+            finally:
+                executor.shutdown()
                 
         return heatPoints
     
