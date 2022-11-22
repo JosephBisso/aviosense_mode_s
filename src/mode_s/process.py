@@ -12,7 +12,7 @@ from mode_s.constants import DB_CONSTANTS, DATA, LOCATION_DATA, WINDOW_DATA
 
 def query(queries: List[str], elements: List[str] = [], knownIdents: Dict[str,str]={}, query_id:int = 0, login: Dict[str, str] = {}) -> List[Dict[str, Union[int, str]]]:
     name = "db_process_" + str(query_id)
-
+    last_query = None
     try:
         db = MySQLConnection(
             user=login.get("user_name"),
@@ -32,6 +32,7 @@ def query(queries: List[str], elements: List[str] = [], knownIdents: Dict[str,st
 
         for query in queries:
             q.execute(query)
+            last_query = query
 
             for row in q:
                 entry = {abs: None for abs in absentColumns}
@@ -57,7 +58,7 @@ def query(queries: List[str], elements: List[str] = [], knownIdents: Dict[str,st
         
     except Exception as ex:
         raise ConnectionError(
-            f"Error (Exception: {ex}) occured while running following query: {query}")
+            f"Error (Exception: {ex}) occured while running following query: {last_query}")
 
     return allQueriesResults
 
