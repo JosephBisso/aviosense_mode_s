@@ -19,21 +19,8 @@ Processed data from many MODE-S receivers are available. These data comprise a l
 #### Python
 **Aviosense MODE_S** is a python project. To run the app you must have [**Python 3.7.7**](https://www.python.org/downloads/) installed. Newer version of Python have not been tested. You could also simply download the standalone [**mode_s binaries**]().
 
-#### MySQL
-**Aviosense MODE_S** makes use of [**MySql**](https://dev.mysql.com/downloads/mysql/) to fetch data from the database. Make sure to install it before running the app
-
 ### Dependencies
 The list of all dependencies can be found in ``.\requirements.txt``. Those will be automatically installed during the setup. See [**setup**](#install)
-- wheel
-- numpy==1.21.6
-- scikit-learn==1.0.2
-- sklearn
-- matplotlib==3.5.2
-- scipy==1.7.3
-- pandas==1.3.5
-- geopandas==0.10.2
-- pyproj==3.2.1
-- PySide2==5.15.2
 
 ## Install
 ### From Binaries
